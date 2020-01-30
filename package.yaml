@@ -15,10 +15,13 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/curry-language-server#readme>
+description:         Please see the README on GitHub at <https://github.com/fwcd/curry-language-server#readme>
 
 dependencies:
   - base >= 4.7 && < 5
+  - data-default == 0.7.1.1
+  - stm == 2.5.0.0
+  - hslogger == 1.2.12
   - haskell-lsp == 0.15.0.0
   - curry-frontend == 1.0.4
 

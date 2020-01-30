@@ -3,3 +3,4 @@
 .stack-work/
 curry-language-server.cabal
 *~
+*.log
