@@ -1,0 +1,5 @@
+.vscode
+.DS_Store
+.stack-work/
+curry-language-server.cabal
+*~
