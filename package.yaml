@@ -1,14 +1,12 @@
 name:                curry-language-server
 version:             0.1.0.0
-github:              "githubuser/curry-language-server"
+github:              "fwcd/curry-language-server"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
+author:              "fwcd"
+copyright:           "2020 fwcd"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -20,7 +18,9 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/curry-language-server#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+  - base >= 4.7 && < 5
+  - haskell-lsp == 0.15.0.0
+  - curry-frontend == 1.0.4
 
 library:
   source-dirs: src
@@ -30,19 +30,19 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - curry-language-server
+      - curry-language-server
 
 tests:
   curry-language-server-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - curry-language-server
+      - curry-language-server
