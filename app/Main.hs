@@ -26,10 +26,13 @@ runLanguageServer = flip E.catches exceptHandlers $ do
     rin <- atomically newTChan :: IO (TChan ReactorInput)
     let dp lf = do _rpid <- forkIO $ reactor lf rin
                    return Nothing
+        initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = const $ Right (),
+                                                         Core.onConfigurationChange = const $ Right (),
+                                                         Core.onStartup = const $ return Nothing }
 
     flip E.finally finalProc $ do
         Core.setupLogger (Just "curry-language-server.log") [] L.DEBUG
-        Ctrl.run (return (Right ()), dp) (lspHandlers rin) lspOptions (Just "curry-language-server-session.log")
+        Ctrl.run initializeCallbacks (lspHandlers rin) lspOptions (Just "curry-language-server-session.log")
 
     where exceptHandlers = [E.Handler ioExcept, E.Handler someExcept]
           ioExcept (e :: E.IOException) = print e >> return 1
