@@ -20,6 +20,7 @@ description:         Please see the README on GitHub at <https://github.com/fwcd
 dependencies:
   - base >= 4.7 && < 5
   - data-default == 0.7.1.1
+  - mtl == 2.2.2
   - stm == 2.5.0.0
   - hslogger == 1.2.12
   - haskell-lsp == 0.15.0.0
