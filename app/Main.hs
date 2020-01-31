@@ -9,6 +9,7 @@ import Control.Monad.STM
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Options
 import Curry.LanguageServer.Reactor
+import GHC.Conc
 import qualified Language.Haskell.LSP.Control as Ctrl
 import qualified Language.Haskell.LSP.Core as Core
 import System.Exit
@@ -24,11 +25,11 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = flip E.catches exceptHandlers $ do
     rin <- atomically newTChan :: IO (TChan ReactorInput)
-    let dp lf = do _rpid <- forkIO $ reactor lf rin
-                   return Nothing
+    let onStartup lf = do labelledForkIO "Reactor" $ reactor lf rin
+                          return Nothing
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = const $ Right (),
                                                          Core.onConfigurationChange = const $ Right (),
-                                                         Core.onStartup = const $ return Nothing }
+                                                         Core.onStartup = onStartup }
 
     flip E.finally finalProc $ do
         Core.setupLogger (Just "curry-language-server.log") [] L.DEBUG
@@ -38,3 +39,6 @@ runLanguageServer = flip E.catches exceptHandlers $ do
           ioExcept (e :: E.IOException) = print e >> return 1
           someExcept (e :: E.SomeException) = print e >> return 1
           finalProc = L.removeAllHandlers
+
+labelledForkIO :: String -> IO () -> IO ()
+labelledForkIO label f = forkIO f >>= flip labelThread label
