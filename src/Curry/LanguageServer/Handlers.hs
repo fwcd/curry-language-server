@@ -2,7 +2,7 @@ module Curry.LanguageServer.Handlers (lspHandlers) where
 
 import Control.Concurrent.STM.TChan
 import Control.Monad.STM
-import Curry.LanguageServer.Reactor (ReactorInput (HandlerRequest))
+import Curry.LanguageServer.Aliases
 import Data.Default
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as Core

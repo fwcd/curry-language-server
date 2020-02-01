@@ -6,6 +6,7 @@ import Control.Concurrent
 import Control.Concurrent.STM.TChan
 import qualified Control.Exception as E
 import Control.Monad.STM
+import Curry.LanguageServer.Aliases
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Options
 import Curry.LanguageServer.Reactor
