@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.STM
 import Curry.LanguageServer.Aliases
+import Curry.LanguageServer.Config
 import Curry.LanguageServer.Diagnostics
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
@@ -19,7 +20,7 @@ import Language.Haskell.LSP.Utility as U
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides:
 -- Language server and compiler frontend
-reactor :: Core.LspFuncs () -> TChan ReactorInput -> IO ()
+reactor :: Core.LspFuncs Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
     U.logs "reactor: entered"
     flip runReaderT lf $ forever $ do
@@ -38,7 +39,7 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ U.logs $ "reactor: Other HandlerRequest " ++ show req
 
-sendDiagnostics :: Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM () ()
+sendDiagnostics :: Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
 sendDiagnostics maxToPublish uri v diags = do
     lf <- ask
     liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri v diags

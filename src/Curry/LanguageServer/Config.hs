@@ -7,6 +7,7 @@ import Data.Default
 import System.FilePath
 
 data Config = Config { importPaths :: [FilePath] }
+    deriving (Show, Eq)
 
 instance Default Config where
     def = Config { importPaths = [] }
