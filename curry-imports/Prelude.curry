@@ -59,7 +59,9 @@ module Prelude
 
   -- * Constraint Programming
   , Success, success, solve, doSolve, (=:=), (=:<=)
+#ifdef __PAKCS__
   , (=:<<=)
+#endif
   , (&), (&>)
 
   -- * Non-determinism
@@ -67,7 +69,9 @@ module Prelude
 
   -- * Internal Functions
   , apply, cond
+#ifdef __PAKCS__
   , letrec, failure
+#endif
   ) where
 
 --++ infixr 5 :
@@ -199,24 +203,36 @@ instance Eq Ordering where
 
 -- Equality on characters.
 eqChar :: Char -> Char -> Bool
+#ifdef __KICS2__
+eqChar external
+#elif defined(__PAKCS__)
 eqChar x y = (prim_eqChar $# y) $# x
 
 prim_eqChar :: Char -> Char -> Bool
 prim_eqChar external
+#endif
 
 -- Equality on integers.
 eqInt :: Int -> Int -> Bool
+#ifdef __KICS2__
+eqInt external
+#elif defined(__PAKCS__)
 eqInt x y = (prim_eqInt $# y) $# x
 
 prim_eqInt :: Int -> Int -> Bool
 prim_eqInt external
+#endif
 
 -- Equality on floating point numbers.
 eqFloat :: Float -> Float -> Bool
+#ifdef __KICS2__
+eqFloat external
+#elif defined(__PAKCS__)
 eqFloat x y = (prim_eqFloat $# y) $# x
 
 prim_eqFloat :: Float -> Float -> Bool
 prim_eqFloat external
+#endif
 
 infix 4 <, >, <=, >=
 
@@ -296,24 +312,36 @@ instance Ord Ordering where
 
 -- Compares two characters.
 ltEqChar :: Char -> Char -> Bool
+#ifdef __KICS2__
+ltEqChar external
+#elif defined(__PAKCS__)
 ltEqChar x y = (prim_ltEqChar $# y) $# x
 
 prim_ltEqChar :: Char -> Char -> Bool
 prim_ltEqChar external
+#endif
 
 -- Compares two integers.
 ltEqInt :: Int -> Int -> Bool
+#ifdef __KICS2__
+ltEqInt external
+#elif defined(__PAKCS__)
 ltEqInt x y = (prim_ltEqInt $# y) $# x
 
 prim_ltEqInt :: Int -> Int -> Bool
 prim_ltEqInt external
+#endif
 
 -- Compares two floating point numbers.
 ltEqFloat :: Float -> Float -> Bool
+#ifdef __KICS2__
+ltEqFloat external
+#elif defined(__PAKCS__)
 ltEqFloat x y = (prim_ltEqFloat $# y) $# x
 
 prim_ltEqFloat :: Float -> Float -> Bool
 prim_ltEqFloat external
+#endif
 
 type ShowS = String -> String
 
@@ -759,24 +787,36 @@ instance Num Float where
 
 -- Adds two integers.
 plusInt :: Int -> Int -> Int
+#ifdef __KICS2__
+plusInt external
+#elif defined(__PAKCS__)
 x `plusInt` y = (prim_plusInt $# y) $# x
 
 prim_plusInt :: Int -> Int -> Int
 prim_plusInt external
+#endif
 
 -- Subtracts two integers.
 minusInt :: Int -> Int -> Int
+#ifdef __KICS2__
+minusInt external
+#elif defined(__PAKCS__)
 x `minusInt` y = (prim_minusInt $# y) $# x
 
 prim_minusInt :: Int -> Int -> Int
 prim_minusInt external
+#endif
 
 -- Multiplies two integers.
 timesInt :: Int -> Int -> Int
+#ifdef __KICS2__
+timesInt external
+#elif defined(__PAKCS__)
 x `timesInt` y = (prim_timesInt $# y) $# x
 
 prim_timesInt :: Int -> Int -> Int
 prim_timesInt external
+#endif
 
 -- Adds two floating point numbers.
 plusFloat :: Float -> Float -> Float
@@ -801,10 +841,14 @@ prim_timesFloat external
 
 -- Negates a floating point number.
 negateFloat :: Float -> Float
+#ifdef __KICS2__
+negateFloat external
+#elif defined(__PAKCS__)
 negateFloat x = prim_negateFloat $# x
 
 prim_negateFloat :: Float -> Float
 prim_negateFloat external
+#endif
 
 -- Converts from integers to floating point numbers.
 intToFloat :: Int -> Float
@@ -885,34 +929,50 @@ realToFrac = fromFloat . toFloat
 -- Integer division. The value is the integer quotient of its arguments
 -- and always truncated towards negative infinity.
 divInt :: Int -> Int -> Int
+#ifdef __KICS2__
+divInt external
+#elif defined(__PAKCS__)
 x `divInt` y = (prim_divInt $# y) $# x
 
 prim_divInt :: Int -> Int -> Int
 prim_divInt external
+#endif
 
 -- Integer remainder. The value is the remainder of the integer division
 -- and it obeys the rule `mod x y = x - y * (div x y)`.
 modInt :: Int -> Int -> Int
+#ifdef __KICS2__
+modInt external
+#elif defined(__PAKCS__)
 x `modInt` y = (prim_modInt $# y) $# x
 
 prim_modInt :: Int -> Int -> Int
 prim_modInt external
+#endif
 
 -- Integer division. The value is the integer quotient of its arguments
 -- and always truncated towards zero.
 quotInt :: Int -> Int -> Int
+#ifdef __KICS2__
+quotInt external
+#elif defined(__PAKCS__)
 x `quotInt` y = (prim_quotInt $# y) $# x
 
 prim_quotInt :: Int -> Int -> Int
 prim_quotInt external
+#endif
 
 -- Integer remainder. The value is the remainder of the integer division
 -- and it obeys the rule `rem x y = x - y * (quot x y)`.
 remInt :: Int -> Int -> Int
+#ifdef __KICS2__
+remInt external
+#elif defined(__PAKCS__)
 x `remInt` y = (prim_remInt $# y) $# x
 
 prim_remInt :: Int -> Int -> Int
 prim_remInt external
+#endif
 
 class (Real a, Fractional a) => RealFrac a where
   properFraction :: Integral b => a -> (b, a)
@@ -1522,9 +1582,8 @@ null (_:_) = False
 
 --- Computes the length of a list.
 length :: [_] -> Int
-length xs = len xs 0
- where len []     n = n
-       len (_:ys) n = let np1 = n + 1 in len ys $!! np1
+length [] = 0
+length (_:xs) = 1 + length xs
 
 --- List index (subscript) operator, head has index 0.
 (!!) :: [a] -> Int -> a
@@ -1760,7 +1819,11 @@ instance  Functor IO where
 
 instance Applicative IO where
   pure = returnIO
+#ifdef __PAKCS__
   (*>) = seqIO
+#else
+  m *> k = m >>= \_ -> k
+#endif
   (<*>) = ap
   liftA2 = liftM2
 
@@ -1826,9 +1889,11 @@ readFile f = prim_readFile $## f
 prim_readFile :: FilePath -> IO String
 prim_readFile external
 
+#ifdef __PAKCS__
 -- Needed for internal implementation of readFile.
 prim_readFileContents :: FilePath -> String
 prim_readFileContents external
+#endif
 
 --- An action that writes a file.
 writeFile :: FilePath -> String -> IO ()
@@ -1872,7 +1937,14 @@ userError = UserError
 
 --- Raises an I/O exception with a given error value.
 ioError :: IOError -> IO _
+#ifdef __PAKCS__
 ioError err = error (show err)
+#else
+ioError err = prim_ioError $## err
+
+prim_ioError :: IOError -> IO _
+prim_ioError external
+#endif
 
 --- Catches a possible error or failure during the execution of an
 --- I/O action. `catch act errfun` executes the I/O action `act`.
@@ -1882,7 +1954,9 @@ catch :: IO a -> (IOError -> IO a) -> IO a
 catch external
 
 infix 4 =:=, =:<=
+#ifdef __PAKCS__
 infix 4 =:<<=
+#endif
 infixr 0 &, &>
 
 type Success = Bool
@@ -1912,6 +1986,7 @@ doSolve b | b = return ()
 (=:<=) :: Data a => a -> a -> Bool
 (=:<=) external
 
+#ifdef __PAKCS__
 --- Non-strict equational constraint for linear functional patterns.
 --- Thus, it must be ensured that the first argument is always (after evalutation
 --- by narrowing) a linear pattern. Experimental.
@@ -1921,6 +1996,7 @@ doSolve b | b = return ()
 --- internal function to implement =:<=
 ifVar :: _ -> a -> a -> a
 ifVar external
+#endif
 
 --- Concurrent conjunction.
 --- An expression like `(c1 & c2)` is evaluated by evaluating
@@ -1971,6 +2047,7 @@ apply external
 cond :: Bool -> a -> a
 cond external
 
+#ifdef __PAKCS__
 -- `letrec ones (1 : ones)` binds `ones` to `1 : ones`.
 letrec :: a -> a -> Bool
 letrec external
@@ -1978,3 +2055,4 @@ letrec external
 -- Internal operation to implement failure reporting.
 failure :: _ -> _ -> _
 failure external
+#endif

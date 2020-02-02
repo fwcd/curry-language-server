@@ -20,6 +20,7 @@ description:         Please see the README on GitHub at <https://github.com/fwcd
 dependencies:
   - base >= 4.7 && < 5
   - aeson == 1.4.6.0
+  - containers == 0.6.0.1
   - data-default == 0.7.1.1
   - mtl == 2.2.2
   - stm == 2.5.0.0

@@ -13,6 +13,7 @@ import CompilerOpts as CO
 import Control.Exception
 import Control.Monad
 import Control.Monad.Reader
+import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
@@ -26,8 +27,11 @@ fetchDiagnostics :: J.NormalizedUri -> [FilePath] -> IO [J.Diagnostic]
 fetchDiagnostics doc importPaths = do
     U.logs $ "fetchDiagnostics: Import paths: " ++ show importPaths
     msgs <- runCYIO $ do
-        let opts = CO.defaultOptions { CO.optForce = True,
-                                       CO.optImportPaths = importPaths }
+        let cppOpts = CO.optCppOpts CO.defaultOptions
+            cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
+            opts = CO.defaultOptions { CO.optForce = True,
+                                       CO.optImportPaths = importPaths,
+                                       CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
         case J.uriToFilePath $ J.fromNormalizedUri doc of
             Just filePath -> buildCurry opts filePath
             Nothing -> return ()
