@@ -1,2 +1,8 @@
+import Curry.LanguageServer.Diagnostics
+import qualified Language.Haskell.LSP.Types as J
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+    diags <- fetchDiagnostics uri
+    putStrLn $ "Diagnostics: " ++ show (head diags)
+    where uri = J.toNormalizedUri $ J.filePathToUri "test/resources/Test.curry"

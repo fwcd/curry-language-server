@@ -32,7 +32,7 @@ reactor lf rin = do
                 liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
                 let doc = notification ^. J.params . J.textDocument . J.uri . to J.toNormalizedUri
                     version = Just 0
-                diags <- fetchDiagnostics doc
+                diags <- liftIO $ fetchDiagnostics doc
                 sendDiagnostics 100 doc version (partitionBySource diags)
 
             HandlerRequest req -> do
