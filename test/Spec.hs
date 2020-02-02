@@ -8,4 +8,4 @@ main = do
     putStrLn $ "Curry-Frontend path: " ++ curryPath
     diags <- fetchDiagnostics uri ["curry-imports"]
     putStrLn $ "Diagnostics: " ++ show (head diags)
-    where uri = J.toNormalizedUri $ J.filePathToUri "test/resources/Test.curry"
+    where uri = J.filePathToUri "test/resources/Test.curry"

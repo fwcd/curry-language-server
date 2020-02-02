@@ -34,7 +34,16 @@ reactor lf rin = do
             
             HandlerRequest (NotDidOpenTextDocument notification) -> do
                 liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
-                let doc = notification ^. J.params . J.textDocument . J.uri . to J.toNormalizedUri
+                let doc = notification ^. J.params . J.textDocument . J.uri
+                    version = Just 0
+                diags <- liftIO $ fetchDiagnostics doc $ C.importPaths config
+                sendDiagnostics 100 doc version (partitionBySource diags)
+            
+            -- TODO: Respond to changes (possibly requires using the VFS)
+
+            HandlerRequest (NotDidSaveTextDocument notification) -> do
+                liftIO $ U.logs $ "reactor: Processing NotDidSaveTextDocument"
+                let doc = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
                 diags <- liftIO $ fetchDiagnostics doc $ C.importPaths config
                 sendDiagnostics 100 doc version (partitionBySource diags)
@@ -42,7 +51,7 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ U.logs $ "reactor: Other HandlerRequest " ++ show req
 
-sendDiagnostics :: Int -> J.NormalizedUri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
+sendDiagnostics :: Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
 sendDiagnostics maxToPublish uri v diags = do
     lf <- ask
-    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri v diags
+    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish (J.toNormalizedUri uri) v diags
