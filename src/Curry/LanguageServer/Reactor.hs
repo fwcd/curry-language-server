@@ -36,7 +36,7 @@ reactor lf rin = do
                 liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
                 let doc = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                diags <- liftIO $ fetchDiagnostics doc $ C.importPaths config
+                diags <- liftIO $ fetchDiagnostics (C.importPaths config) doc
                 sendDiagnostics 100 doc version (partitionBySource diags)
             
             -- TODO: Respond to changes (possibly requires using the VFS)
@@ -45,7 +45,7 @@ reactor lf rin = do
                 liftIO $ U.logs $ "reactor: Processing NotDidSaveTextDocument"
                 let doc = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                diags <- liftIO $ fetchDiagnostics doc $ C.importPaths config
+                diags <- liftIO $ fetchDiagnostics (C.importPaths config) doc
                 sendDiagnostics 100 doc version (partitionBySource diags)
 
             HandlerRequest req -> do
