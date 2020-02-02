@@ -19,4 +19,5 @@ compileCurry importPaths filePath = runCYIO $ buildCurry opts filePath
           opts = CO.defaultOptions { CO.optForce = True,
                                       CO.optImportPaths = importPaths,
                                       CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
-    
+
+-- TODO: Use loadAndCheckModule to fetch an AST and messages directly
