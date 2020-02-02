@@ -1,6 +1,7 @@
 .vscode
 .DS_Store
-.stack-work/
+.stack-work
+.curry
 curry-language-server.cabal
 *~
 *.log

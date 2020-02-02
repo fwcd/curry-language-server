@@ -6,6 +6,6 @@ main :: IO ()
 main = do
     curryPath <- getCymake
     putStrLn $ "Curry-Frontend path: " ++ curryPath
-    diags <- fetchDiagnostics uri
+    diags <- fetchDiagnostics uri []
     putStrLn $ "Diagnostics: " ++ show (head diags)
-    where uri = J.toNormalizedUri $ J.filePathToUri "test/resources/Test.curry"
+    where uri = J.toNormalizedUri $ J.filePathToUri "curry-imports/Prelude.curry"

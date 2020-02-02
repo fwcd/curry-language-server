@@ -6,8 +6,9 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.STM
 import Curry.LanguageServer.Aliases
-import Curry.LanguageServer.Config
+import qualified Curry.LanguageServer.Config as C
 import Curry.LanguageServer.Diagnostics
+import Data.Default
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
 import Language.Haskell.LSP.Messages
@@ -20,11 +21,13 @@ import Language.Haskell.LSP.Utility as U
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides:
 -- Language server and compiler frontend
-reactor :: Core.LspFuncs Config -> TChan ReactorInput -> IO ()
+reactor :: Core.LspFuncs C.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
     U.logs "reactor: entered"
     flip runReaderT lf $ forever $ do
         hreq <- liftIO $ atomically $ readTChan rin
+        optConfig <- liftIO $ Core.config lf
+        let config = maybe def Prelude.id optConfig
         case hreq of
             HandlerRequest (RspFromClient rsp) -> do
                 liftIO $ U.logs $ "reactor: RspFromClient " ++ show rsp
@@ -33,7 +36,7 @@ reactor lf rin = do
                 liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
                 let doc = notification ^. J.params . J.textDocument . J.uri . to J.toNormalizedUri
                     version = Just 0
-                diags <- liftIO $ fetchDiagnostics doc
+                diags <- liftIO $ fetchDiagnostics doc $ C.importPaths config
                 sendDiagnostics 100 doc version (partitionBySource diags)
 
             HandlerRequest req -> do
