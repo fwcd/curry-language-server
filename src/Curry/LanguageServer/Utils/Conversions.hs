@@ -1,7 +1,15 @@
 {-# LANGUAGE RecordWildCards #-}
-module Curry.LanguageServer.Utils.Conversions where
+{-# LANGUAGE OverloadedStrings #-}
+module Curry.LanguageServer.Utils.Conversions (
+    curryMsg2Diagnostic,
+    curryPos2Pos,
+    currySpanInfo2Range,
+    currySpan2Range,
+    HasDocumentSymbols (..)
+) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Message as CM
 import qualified Curry.Base.Position as CP
 import qualified Curry.Base.Pretty as CPP
@@ -45,6 +53,16 @@ currySpan2Range CSP.Span {..} = do
     e <- curryPos2Pos end
     return $ J.Range s e
 
+ppIdent :: CI.Ident -> T.Text
+ppIdent = T.pack . PP.render . CPP.pPrint
+
+emptyRange :: J.Range
+emptyRange = J.Range (J.Position 0 0) (J.Position 0 0)
+
+documentSymbolFrom :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
+documentSymbolFrom n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
+    where r' = maybe emptyRange id r
+
 class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
@@ -53,21 +71,34 @@ instance HasDocumentSymbols (CS.Module a) where
 
 instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
-        CS.FunctionDecl _ _ ident eqs -> [J.DocumentSymbol name Nothing symKind Nothing rangeOrDefault rangeOrDefault (Just childs)]
-            where -- Determine whether function is a constant
-                  lhsArity lhs = case lhs of
-                      CS.FunLhs _ _ pats -> length pats
-                      CS.OpLhs _ _ _ _   -> 2
-                      CS.ApLhs _ _ pats  -> length pats
+        CS.InfixDecl _ _ _ idents -> [documentSymbolFrom name symKind range Nothing]
+            where name = maybe "<infix operator>" ppIdent $ listToMaybe idents
+                  symKind = J.SkOperator
+        CS.DataDecl _ ident _ cs _ -> [documentSymbolFrom name symKind range $ Just childs]
+            where name = ppIdent ident
+                  symKind = if length cs > 1 then J.SkEnum
+                                             else J.SkClass
+                  childs = cs >>= documentSymbols
+        CS.FunctionDecl _ _ ident eqs -> [documentSymbolFrom name symKind range $ Just childs]
+            where name = ppIdent ident
                   arity = maybe 1 (\(CS.Equation _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
-                  -- Collect symbol information
-                  name = T.pack $ PP.render $ CPP.pPrint ident
                   symKind = if arity > 0 then J.SkFunction
                                          else J.SkConstant
-                  range = currySpanInfo2Range $ CSPI.getSpanInfo decl
-                  rangeOrDefault = maybe (J.Range (J.Position 0 0) (J.Position 0 0)) id range
-                  childs = J.List $ eqs >>= documentSymbols
+                  childs = eqs >>= documentSymbols
         _ -> [] -- TODO
+        where lhsArity lhs = case lhs of
+                  CS.FunLhs _ _ pats -> length pats
+                  CS.OpLhs _ _ _ _   -> 2
+                  CS.ApLhs _ _ pats  -> length pats
+              range = currySpanInfo2Range $ CSPI.getSpanInfo decl
+
+instance HasDocumentSymbols CS.ConstrDecl where
+    documentSymbols decl = case decl of
+        CS.ConstrDecl _ ident _  -> [documentSymbolFrom (ppIdent ident) J.SkEnumMember range Nothing]
+        CS.ConOpDecl _ _ ident _ -> [documentSymbolFrom (ppIdent ident) J.SkOperator range Nothing]
+        CS.RecordDecl _ ident _  -> [documentSymbolFrom (ppIdent ident) J.SkEnumMember range Nothing]
+        where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
+              rangeOrDefault = maybe emptyRange id range
 
 instance HasDocumentSymbols (CS.Equation a) where
     documentSymbols (CS.Equation _ _ rhs) = documentSymbols rhs

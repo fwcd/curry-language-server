@@ -1,4 +1,7 @@
-module Curry.LanguageServer.Utils.General where
+module Curry.LanguageServer.Utils.General (
+    lastSafe,
+    rangeElem
+) where
 
 import qualified Language.Haskell.LSP.Types as J
 
