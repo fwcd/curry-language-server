@@ -41,14 +41,27 @@ instance HasExpressions CS.CondExpr where
 
 instance HasExpressions CS.Expression where
     expressions e = e : case e of
-        CS.Paren _ e'               -> expressions e'
-        CS.Typed _ e' _             -> expressions e'
-        CS.Record _ _ _ fields      -> fields >>= fieldExpressions
-        CS.RecordUpdate _ e' fields -> (expressions e') ++ (fields >>= fieldExpressions)
-        CS.Tuple _ entries          -> entries >>= expressions
-        CS.List _ _ entries         -> entries >>= expressions
-        CS.ListCompr _ e stmts      -> (expressions e) ++ (stmts >>= expressions)
-        _ -> [] -- TODO
+        CS.Paren _ e'                -> expressions e'
+        CS.Typed _ e' _              -> expressions e'
+        CS.Record _ _ _ fields       -> fields >>= fieldExpressions
+        CS.RecordUpdate _ e' fields  -> (expressions e') ++ (fields >>= fieldExpressions)
+        CS.Tuple _ entries           -> entries >>= expressions
+        CS.List _ _ entries          -> entries >>= expressions
+        CS.ListCompr _ e' stmts      -> (expressions e') ++ (stmts >>= expressions)
+        CS.EnumFrom _ e'             -> expressions e'
+        CS.EnumFromThen _ e1 e2      -> (expressions e1) ++ (expressions e2)
+        CS.EnumFromThenTo _ e1 e2 e3 -> (expressions e1) ++ (expressions e2) ++ (expressions e3)
+        CS.UnaryMinus _ e'           -> expressions e'
+        CS.Apply _ e1 e2             -> (expressions e1) ++ (expressions e2)
+        CS.InfixApply _ e1 _ e2      -> (expressions e1) ++ (expressions e2)
+        CS.LeftSection _ e' _        -> expressions e'
+        CS.RightSection _ _ e'       -> expressions e'
+        CS.Lambda _ _ e'             -> expressions e'
+        CS.Let _ decls e'            -> (decls >>= expressions) ++ (expressions e') -- TODO: Has another arg in newer curry-frontend
+        CS.Do _ stmts e'             -> (stmts >>= expressions) ++ (expressions e') -- TODO: Has another arg in newer curry-frontend
+        CS.IfThenElse _ e1 e2 e3     -> (expressions e1) ++ (expressions e2) ++ (expressions e3)
+        CS.Case _ _ e alts           -> (expressions e) ++ (alts >>= expressions) -- TODO: Has another arg in newer curry-frontend
+        _                            -> []
         where fieldExpressions (CS.Field _ _ e) = expressions e
 
 instance HasExpressions CS.Statement where
@@ -56,3 +69,6 @@ instance HasExpressions CS.Statement where
         CS.StmtExpr _ e     -> expressions e
         CS.StmtDecl _ decls -> decls >>= expressions -- TODO: Has three arguments in later curry-base versions
         CS.StmtBind _ _ e   -> expressions e
+
+instance HasExpressions CS.Alt where
+    expressions (CS.Alt _ _ rhs) = expressions rhs
