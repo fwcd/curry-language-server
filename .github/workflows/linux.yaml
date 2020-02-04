@@ -1,0 +1,13 @@
+name: Linux
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup Stack
+      uses: mstksg/setup-stack@v1
+    - name: Build
+      run: stack build

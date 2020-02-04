@@ -1,6 +1,8 @@
 # Curry Language Server
 An experimental [language server](https://microsoft.github.io/language-server-protocol/) providing IDE support for the functional logic programming language [Curry](https://en.wikipedia.org/wiki/Curry_(programming_language)).
 
+[![CI Badge](https://github.com/fwcd/curry-language-server/workflows/Linux/badge.svg)](https://github.com/fwcd/curry-language-server/actions)
+
 ![Icon](images/icon.png)
 
 ![Screenshot](images/screenshot.png)
