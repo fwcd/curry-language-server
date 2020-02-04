@@ -82,8 +82,37 @@ instance HasDocumentSymbols (CS.CondExpr a) where
 
 instance HasDocumentSymbols (CS.Expression a) where
     documentSymbols e = case e of
-        CS.Let _ decls e -> (decls >>= documentSymbols) ++ (documentSymbols e) -- TODO: Has 4 arguments in current version of compiler
-        _ -> []
+        CS.Paren _ e'                -> documentSymbols e'
+        CS.Typed _ e' _              -> documentSymbols e'
+        CS.Record _ _ _ fields       -> fields >>= fieldSymbols
+        CS.RecordUpdate _ e' fields  -> (documentSymbols e') ++ (fields >>= fieldSymbols)
+        CS.Tuple _ entries           -> entries >>= documentSymbols
+        CS.List _ _ entries          -> entries >>= documentSymbols
+        CS.ListCompr _ e' stmts      -> (documentSymbols e') ++ (stmts >>= documentSymbols)
+        CS.EnumFrom _ e'             -> documentSymbols e'
+        CS.EnumFromThen _ e1 e2      -> (documentSymbols e1) ++ (documentSymbols e2)
+        CS.EnumFromThenTo _ e1 e2 e3 -> (documentSymbols e1) ++ (documentSymbols e2) ++ (documentSymbols e3)
+        CS.UnaryMinus _ e'           -> documentSymbols e'
+        CS.Apply _ e1 e2             -> (documentSymbols e1) ++ (documentSymbols e2)
+        CS.InfixApply _ e1 _ e2      -> (documentSymbols e1) ++ (documentSymbols e2)
+        CS.LeftSection _ e' _        -> documentSymbols e'
+        CS.RightSection _ _ e'       -> documentSymbols e'
+        CS.Lambda _ _ e'             -> documentSymbols e'
+        CS.Let _ decls e             -> (decls >>= documentSymbols) ++ (documentSymbols e) -- TODO: Has 4 arguments in current version of compiler
+        CS.Do _ stmts e'             -> (stmts >>= documentSymbols) ++ (documentSymbols e') -- TODO: Has another arg in newer curry-frontend
+        CS.IfThenElse _ e1 e2 e3     -> (documentSymbols e1) ++ (documentSymbols e2) ++ (documentSymbols e3)
+        CS.Case _ _ e alts           -> (documentSymbols e) ++ (alts >>= documentSymbols) -- TODO: Has another arg in newer curry-frontend
+        _                            -> []
+        where fieldSymbols (CS.Field _ _ e) = documentSymbols e
+
+instance HasDocumentSymbols (CS.Statement a) where
+    documentSymbols stmt = case stmt of
+        CS.StmtExpr _ e     -> documentSymbols e
+        CS.StmtDecl _ decls -> decls >>= documentSymbols -- TODO: Has three arguments in later curry-base versions
+        CS.StmtBind _ _ e   -> documentSymbols e
+
+instance HasDocumentSymbols (CS.Alt a) where
+    documentSymbols (CS.Alt _ _ rhs) = documentSymbols rhs
 
 -- Language Server Protocol -> Curry Compiler
 
