@@ -13,6 +13,8 @@ import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 
+-- Curry Compiler -> Language Server Protocol
+
 curryMsg2Diagnostic :: J.DiagnosticSeverity -> CM.Message -> J.Diagnostic
 curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text related
     where pos@(J.Position ln col) = maybe (J.Position 0 0) id $ curryPos2Pos =<< CM.msgPos msg
@@ -40,3 +42,7 @@ currySpan2Range CSP.Span {..} = do
     s <- curryPos2Pos start
     e <- curryPos2Pos end
     return $ J.Range s e
+
+-- Language Server Protocol -> Curry Compiler
+
+-- TODO

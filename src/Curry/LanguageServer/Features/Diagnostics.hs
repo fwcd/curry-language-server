@@ -7,7 +7,7 @@ import Curry.LanguageServer.Conversions
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
-fetchDiagnostics :: CompilationResult -> IO [J.Diagnostic]
+fetchDiagnostics :: CompilationResult a -> IO [J.Diagnostic]
 fetchDiagnostics compilation = do
     let diags = case compilation of
                     Left errs -> map (curryMsg2Diagnostic J.DsError) errs

@@ -54,7 +54,7 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ U.logs $ "reactor: Other HandlerRequest " ++ show req
 
-compileCurryFromUri :: C.Config -> J.Uri -> IO CompilationResult
+compileCurryFromUri :: C.Config -> J.Uri -> IO ConcreteCompilationResult
 compileCurryFromUri config uri = maybe failed (compileCurry importPaths) optFilePath
     where importPaths = C.importPaths config
           optFilePath = J.uriToFilePath uri

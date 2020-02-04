@@ -1,4 +1,10 @@
-module Curry.LanguageServer.Compiler (CompilationOutput (..), CompilationResult, compileCurry, failedCompilation) where
+module Curry.LanguageServer.Compiler (
+    CompilationOutput (..),
+    CompilationResult,
+    ConcreteCompilationResult,
+    compileCurry,
+    failedCompilation
+) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Files.Filenames as CF
@@ -19,15 +25,15 @@ import Data.Maybe
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
--- TODO: CT.PredType has been renamed to CT.Type in newer versions of curry-frontend
-data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleAST :: CS.Module (CT.PredType) }
-type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
+data CompilationOutput a = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleAST :: CS.Module a }
+type CompilationResult a = Either [CM.Message] (CompilationOutput a, [CM.Message])
+type ConcreteCompilationResult = CompilationResult CT.PredType -- TODO: PredType renamed to type in later versions of curry-frontend
 
 -- | Compiles Curry code using the given import path. If compilation
 -- fails the result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurry :: [String] -> FilePath -> IO CompilationResult
+compileCurry :: [String] -> FilePath -> IO ConcreteCompilationResult
 compileCurry importPaths filePath = runCYIO $ do
     deps <- CD.flatDeps opts filePath
     liftIO $ U.logs $ "Compiling Curry, found deps: " ++ show deps
@@ -43,15 +49,14 @@ depMatches :: FilePath -> CD.Source -> Bool
 depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2
 depMatches _ _ = False
 
--- TODO: CT.PredType has been renamed to CT.Type in newer versions of curry-frontend
-toCompilationOutput :: CE.CompEnv (CS.Module (CT.PredType)) -> CompilationOutput
+toCompilationOutput :: CE.CompEnv (CS.Module a) -> CompilationOutput a
 toCompilationOutput (env, ast) = CompilationOutput { compilerEnv = env, moduleAST = ast }
 
 justOrFail :: String -> Maybe a -> CYIO a
 justOrFail _ (Just x) = return x
 justOrFail msg Nothing = failMessages [failMessageFrom msg]
 
-failedCompilation :: String -> CompilationResult
+failedCompilation :: String -> CompilationResult a
 failedCompilation msg = Left [failMessageFrom msg]
 
 failMessageFrom :: String -> CM.Message
