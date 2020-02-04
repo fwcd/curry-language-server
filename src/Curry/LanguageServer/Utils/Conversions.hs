@@ -16,6 +16,7 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Curry.Syntax.Pretty as CPP
 import qualified Text.PrettyPrint as PP
 
 import Data.Maybe
@@ -53,8 +54,17 @@ currySpan2Range CSP.Span {..} = do
     e <- curryPos2Pos end
     return $ J.Range s e
 
-ppIdent :: CI.Ident -> T.Text
-ppIdent = T.pack . PP.render . CPP.pPrint
+ppToText :: CPP.Pretty p => p -> T.Text
+ppToText = T.pack . PP.render . CPP.pPrint
+
+ppPatternToName :: CS.Pattern a -> T.Text
+ppPatternToName pat = case pat of
+    CS.VariablePattern _ _ ident      -> ppToText ident
+    CS.InfixPattern _ _ _ ident _     -> ppToText ident
+    CS.RecordPattern _ _ ident _      -> ppToText ident
+    CS.TuplePattern _ ps              -> "(" <> (T.intercalate ", " $ ppPatternToName <$> ps) <> ")"
+    CS.InfixFuncPattern _ _ _ ident _ -> ppToText ident
+    _ -> "?"
 
 emptyRange :: J.Range
 emptyRange = J.Range (J.Position 0 0) (J.Position 0 0)
@@ -72,31 +82,58 @@ instance HasDocumentSymbols (CS.Module a) where
 instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
         CS.InfixDecl _ _ _ idents -> [documentSymbolFrom name symKind range Nothing]
-            where name = maybe "<infix operator>" ppIdent $ listToMaybe idents
+            where name = maybe "<infix operator>" ppToText $ listToMaybe idents
                   symKind = J.SkOperator
         CS.DataDecl _ ident _ cs _ -> [documentSymbolFrom name symKind range $ Just childs]
-            where name = ppIdent ident
+            where name = ppToText ident
                   symKind = if length cs > 1 then J.SkEnum
                                              else J.SkClass
                   childs = cs >>= documentSymbols
+        CS.ExternalDataDecl _ ident _ -> [documentSymbolFrom name symKind range Nothing]
+            where name = ppToText ident
+                  symKind = J.SkClass
         CS.FunctionDecl _ _ ident eqs -> [documentSymbolFrom name symKind range $ Just childs]
-            where name = ppIdent ident
-                  arity = maybe 1 (\(CS.Equation _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
-                  symKind = if arity > 0 then J.SkFunction
-                                         else J.SkConstant
+            where name = ppToText ident
+                  symKind = if eqsArity eqs > 0 then J.SkFunction
+                                                else J.SkConstant
                   childs = eqs >>= documentSymbols
+        CS.TypeDecl _ ident _ _ -> [documentSymbolFrom name symKind range Nothing]
+            where name = ppToText ident
+                  symKind = J.SkInterface
+        -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
+        -- CS.ExternalDecl _ vars -> map varSymbol vars
+        CS.PatternDecl _ pat rhs -> [documentSymbolFrom name symKind range $ Just childs]
+            where name = ppPatternToName pat
+                  symKind = if patArity pat > 0 then J.SkFunction
+                                                else J.SkConstant
+                  childs = documentSymbols rhs
+        -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
+        -- CS.FreeDecl _ vars -> map varSymbol vars
+        CS.ClassDecl _ _ _ ident decls -> [documentSymbolFrom name symKind range $ Just childs] -- TODO: Has another argument in later curry-base
+            where name = ppToText ident
+                  symKind = J.SkInterface
+                  childs = decls >>= documentSymbols
         _ -> [] -- TODO
-        where lhsArity lhs = case lhs of
+        where lhsArity :: CS.Lhs a -> Int
+              lhsArity lhs = case lhs of
                   CS.FunLhs _ _ pats -> length pats
                   CS.OpLhs _ _ _ _   -> 2
                   CS.ApLhs _ _ pats  -> length pats
+              patArity :: CS.Pattern a -> Int
+              patArity pat = case pat of
+                  CS.FunctionPattern _ _ _ ps -> length ps
+                  _                           -> 0
+              eqsArity :: [CS.Equation a] -> Int
+              eqsArity eqs = maybe 1 (\(CS.Equation _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
               range = currySpanInfo2Range $ CSPI.getSpanInfo decl
+              -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
+              -- varSymbol (J.Var _ ident) = documentSymbolFrom (ppToText ident) J.SkVariable range Nothing
 
 instance HasDocumentSymbols CS.ConstrDecl where
     documentSymbols decl = case decl of
-        CS.ConstrDecl _ ident _  -> [documentSymbolFrom (ppIdent ident) J.SkEnumMember range Nothing]
-        CS.ConOpDecl _ _ ident _ -> [documentSymbolFrom (ppIdent ident) J.SkOperator range Nothing]
-        CS.RecordDecl _ ident _  -> [documentSymbolFrom (ppIdent ident) J.SkEnumMember range Nothing]
+        CS.ConstrDecl _ ident _  -> [documentSymbolFrom (ppToText ident) J.SkEnumMember range Nothing]
+        CS.ConOpDecl _ _ ident _ -> [documentSymbolFrom (ppToText ident) J.SkOperator range Nothing]
+        CS.RecordDecl _ ident _  -> [documentSymbolFrom (ppToText ident) J.SkEnumMember range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
               rangeOrDefault = maybe emptyRange id range
 
