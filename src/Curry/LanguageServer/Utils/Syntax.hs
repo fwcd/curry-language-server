@@ -1,12 +1,12 @@
 module Curry.LanguageServer.Utils.Syntax (HasExpressions (..), expressionAt) where
 
 -- Curry Compiler Libraries + Dependencies
-import Curry.Syntax as CS
-import Curry.Base.SpanInfo as CSPI
+import qualified Curry.Syntax as CS
+import qualified Curry.Base.SpanInfo as CSPI
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
-import Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types as J
 
 -- | Fetches the expression in the AST at the given position.
 expressionAt :: HasExpressions s => J.Position -> s a -> Maybe (CS.Expression a)
@@ -14,7 +14,7 @@ expressionAt pos = lastSafe . filter (elementContains pos) . expressions
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool
-elementContains pos = (maybe False (rangeElem pos)) . currySpanInfo2Range . getSpanInfo
+elementContains pos = (maybe False (rangeElem pos)) . currySpanInfo2Range . CSPI.getSpanInfo
 
 class HasExpressions s where
     -- | Fetches all expressions as pre-order traversal

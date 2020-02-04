@@ -13,9 +13,9 @@ import Data.Default
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
 import Language.Haskell.LSP.Messages
-import Language.Haskell.LSP.Types as J
-import Language.Haskell.LSP.Types.Lens as J
-import Language.Haskell.LSP.Utility as U
+import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types.Lens as J
+import qualified Language.Haskell.LSP.Utility as U
 
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 
