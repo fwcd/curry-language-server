@@ -9,6 +9,7 @@ import Curry.LanguageServer.Aliases
 import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
 import Curry.LanguageServer.Features.Diagnostics
+import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Data.Default
 import qualified Language.Haskell.LSP.Core as Core
@@ -32,10 +33,10 @@ reactor lf rin = do
 
         case hreq of
             HandlerRequest (RspFromClient rsp) -> do
-                liftIO $ U.logs $ "reactor: RspFromClient " ++ show rsp
+                liftIO $ U.logs $ "reactor: Response from client: " ++ show rsp
             
             HandlerRequest (NotDidOpenTextDocument notification) -> do
-                liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
+                liftIO $ U.logs $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
                 compilation <- liftIO $ compileCurryFromUri config uri
@@ -45,7 +46,7 @@ reactor lf rin = do
             -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
             HandlerRequest (NotDidSaveTextDocument notification) -> do
-                liftIO $ U.logs $ "reactor: Processing NotDidSaveTextDocument"
+                liftIO $ U.logs $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
                 compilation <- liftIO $ compileCurryFromUri config uri
@@ -53,15 +54,22 @@ reactor lf rin = do
                 sendDiagnostics 100 uri version $ partitionBySource diags
                 
             HandlerRequest (ReqHover req) -> do
-                liftIO $ U.logs $ "reactor: Processing ReqHover"
+                liftIO $ U.logs $ "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 compilation <- liftIO $ compileCurryFromUri config uri
                 hover <- liftIO $ fetchHover compilation pos
                 send $ RspHover $ Core.makeResponseMessage req hover
+            
+            HandlerRequest (ReqDocumentSymbols req) -> do
+                liftIO $ U.logs $ "reactor: Processing document symbols request"
+                let uri = req ^. J.params . J.textDocument . J.uri
+                compilation <- liftIO $ compileCurryFromUri config uri
+                symbols <- liftIO $ fetchDocumentSymbols compilation
+                send $ RspDocumentSymbols $ Core.makeResponseMessage req symbols
 
             HandlerRequest req -> do
-                liftIO $ U.logs $ "reactor: Other HandlerRequest " ++ show req
+                liftIO $ U.logs $ "reactor: Other HandlerRequest: " ++ show req
 
 compileCurryFromUri :: C.Config -> J.Uri -> IO ConcreteCompilationResult
 compileCurryFromUri config uri = maybe failed (compileCurry importPaths) optFilePath

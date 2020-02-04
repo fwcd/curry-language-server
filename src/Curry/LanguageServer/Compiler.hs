@@ -3,6 +3,7 @@ module Curry.LanguageServer.Compiler (
     CompilationResult,
     ConcreteCompilationResult,
     compileCurry,
+    compilationToMaybe,
     failedCompilation
 ) where
 
@@ -21,7 +22,8 @@ import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
 import qualified Data.Map as M
-import Data.Maybe
+import Data.Either.Extra (eitherToMaybe)
+import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
@@ -44,6 +46,9 @@ compileCurry importPaths filePath = runCYIO $ do
           opts = CO.defaultOptions { CO.optForce = True,
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
+
+compilationToMaybe :: CompilationResult a -> Maybe (CompilationOutput a)
+compilationToMaybe = (fst <$>) . eitherToMaybe
 
 depMatches :: FilePath -> CD.Source -> Bool
 depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2
