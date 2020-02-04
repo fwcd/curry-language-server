@@ -2,6 +2,11 @@ module Curry.LanguageServer.Utils.General where
 
 import qualified Language.Haskell.LSP.Types as J
 
+-- | Safely fetches the last element of the given list.
+lastSafe :: [a] -> Maybe a
+lastSafe xs | null xs = Nothing
+            | otherwise = Just $ last xs
+
 -- | Tests whether a position is inside a given range.
 rangeElem :: J.Position -> J.Range -> Bool
 rangeElem (J.Position l c) range | l1 == l2  = c1 <= c && c <= c2
