@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Compiler (compileCurry) where
+module Curry.LanguageServer.Compiler (CompilationOutput (..), CompilationResult, compileCurry, failedCompilation) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Files.Filenames as CF
@@ -43,10 +43,16 @@ depMatches :: FilePath -> CD.Source -> Bool
 depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2
 depMatches _ _ = False
 
-justOrFail :: String -> Maybe a -> CYIO a
-justOrFail _ (Just x) = return x
-justOrFail msg Nothing = failMessages [CM.message $ PP.text msg]
-
 -- TODO: CT.PredType has been renamed to CT.Type in newer versions of curry-frontend
 toCompilationOutput :: CE.CompEnv (CS.Module (CT.PredType)) -> CompilationOutput
 toCompilationOutput (env, ast) = CompilationOutput { compilerEnv = env, moduleAST = ast }
+
+justOrFail :: String -> Maybe a -> CYIO a
+justOrFail _ (Just x) = return x
+justOrFail msg Nothing = failMessages [failMessageFrom msg]
+
+failedCompilation :: String -> CompilationResult
+failedCompilation msg = Left [failMessageFrom msg]
+
+failMessageFrom :: String -> CM.Message
+failMessageFrom = CM.message . PP.text

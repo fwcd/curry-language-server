@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.STM
 import Curry.LanguageServer.Aliases
+import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
 import Curry.LanguageServer.Diagnostics
 import Data.Default
@@ -26,30 +27,38 @@ reactor lf rin = do
     U.logs "reactor: entered"
     flip runReaderT lf $ forever $ do
         hreq <- liftIO $ atomically $ readTChan rin
-        optConfig <- liftIO $ Core.config lf
-        let config = maybe def Prelude.id optConfig
+        config <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
+
         case hreq of
             HandlerRequest (RspFromClient rsp) -> do
                 liftIO $ U.logs $ "reactor: RspFromClient " ++ show rsp
             
             HandlerRequest (NotDidOpenTextDocument notification) -> do
                 liftIO $ U.logs $ "reactor: Processing NotDidOpenTextDocument"
-                let doc = notification ^. J.params . J.textDocument . J.uri
+                let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                diags <- liftIO $ fetchDiagnostics (C.importPaths config) doc
-                sendDiagnostics 100 doc version (partitionBySource diags)
+                compilation <- liftIO $ compileCurryFromUri config uri
+                diags <- liftIO $ fetchDiagnostics compilation
+                sendDiagnostics 100 uri version $ partitionBySource diags
             
-            -- TODO: Respond to changes (possibly requires using the VFS)
+            -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
             HandlerRequest (NotDidSaveTextDocument notification) -> do
                 liftIO $ U.logs $ "reactor: Processing NotDidSaveTextDocument"
-                let doc = notification ^. J.params . J.textDocument . J.uri
+                let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                diags <- liftIO $ fetchDiagnostics (C.importPaths config) doc
-                sendDiagnostics 100 doc version (partitionBySource diags)
+                compilation <- liftIO $ compileCurryFromUri config uri
+                diags <- liftIO $ fetchDiagnostics compilation
+                sendDiagnostics 100 uri version $ partitionBySource diags
 
             HandlerRequest req -> do
                 liftIO $ U.logs $ "reactor: Other HandlerRequest " ++ show req
+
+compileCurryFromUri :: C.Config -> J.Uri -> IO CompilationResult
+compileCurryFromUri config uri = maybe failed (compileCurry importPaths) optFilePath
+    where importPaths = C.importPaths config
+          optFilePath = J.uriToFilePath uri
+          failed = return $ failedCompilation "Language Server: Cannot construct file path from URI"
 
 sendDiagnostics :: Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
 sendDiagnostics maxToPublish uri v diags = do
