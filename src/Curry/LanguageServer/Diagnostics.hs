@@ -19,8 +19,8 @@ import System.FilePath
 fetchDiagnostics :: [FilePath] -> J.Uri -> IO [J.Diagnostic]
 fetchDiagnostics importPaths doc = do
     U.logs $ "fetchDiagnostics: Import paths: " ++ show importPaths
-    msgs <- maybe (return $ Left []) (compileCurry importPaths) $ J.uriToFilePath doc
-    let diags = case (msgs :: Either [CM.Message] ((), [CM.Message])) of
+    compiled <- maybe (return $ Left []) (compileCurry importPaths) $ J.uriToFilePath doc
+    let diags = case compiled of
                     Left errs -> map (curryMsg2Diagnostic J.DsError) errs
                     Right (_, warns) -> map (curryMsg2Diagnostic J.DsWarning) warns
     U.logs $ "fetchDiagnostics: Found " ++ show diags
