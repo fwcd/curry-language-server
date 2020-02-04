@@ -4,7 +4,9 @@ module Curry.LanguageServer.Features.Hover (fetchHover) where
 import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Compiler
-import Curry.LanguageServer.Conversions
+import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Syntax
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
@@ -15,6 +17,3 @@ fetchHover compilation pos = do
     -- let hover = expressionAt pos <$> ast <$> compilation
     -- U.logs $ "fetchHover: Found " ++ show hover
     -- return hover
-
--- expressionAt :: J.Position -> CS.Expression a
--- expressionAt pos = 

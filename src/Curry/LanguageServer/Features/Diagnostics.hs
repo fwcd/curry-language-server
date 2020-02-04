@@ -3,7 +3,7 @@ module Curry.LanguageServer.Features.Diagnostics (fetchDiagnostics) where
 import Control.Monad
 import Control.Monad.Reader
 import Curry.LanguageServer.Compiler
-import Curry.LanguageServer.Conversions
+import Curry.LanguageServer.Utils.Conversions
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 

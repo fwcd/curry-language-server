@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-module Curry.LanguageServer.Conversions where
+module Curry.LanguageServer.Utils.Conversions where
 
 -- Curry Compiler Libraries + Dependencies
 import Curry.Base.Message as CM
