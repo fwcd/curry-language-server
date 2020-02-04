@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-module Curry.LanguageServer.Diagnostics (fetchDiagnostics) where
+module Curry.LanguageServer.Features.Diagnostics (fetchDiagnostics) where
 
 -- Curry Compiler Libraries + Dependencies
 import Curry.Base.Message as CM

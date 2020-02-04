@@ -8,7 +8,7 @@ import Control.Monad.STM
 import Curry.LanguageServer.Aliases
 import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
-import Curry.LanguageServer.Diagnostics
+import Curry.LanguageServer.Features.Diagnostics
 import Data.Default
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
