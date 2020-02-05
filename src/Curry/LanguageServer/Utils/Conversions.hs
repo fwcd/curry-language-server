@@ -115,11 +115,11 @@ instance HasDocumentSymbols (CS.Decl a) where
         CS.DataDecl _ ident _ cs _ -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = if length cs > 1 then J.SkEnum
-                                             else J.SkClass
+                                             else J.SkStruct
                   childs = cs >>= documentSymbols
         CS.ExternalDataDecl _ ident _ -> [documentSymbolFrom name symKind range Nothing]
             where name = ppToText ident
-                  symKind = J.SkClass
+                  symKind = J.SkStruct
         CS.FunctionDecl _ _ ident eqs -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = if eqsArity eqs > 0 then J.SkFunction
@@ -229,12 +229,12 @@ instance HasWorkspaceSymbols CS.IDecl where
         CS.IDataDecl p ident _ _ cs _ -> symbolInformationFrom name symKind location `maybeCons` childs
             where name = ppToText ident
                   symKind = if length cs > 1 then J.SkEnum
-                                             else J.SkClass
+                                             else J.SkStruct
                   location = curryPos2Location p
                   childs = workspaceSymbols =<< cs
         CS.INewtypeDecl p ident _ _ c _ -> symbolInformationFrom name symKind location `maybeCons` workspaceSymbols c
             where name = ppToText ident
-                  symKind = J.SkClass
+                  symKind = J.SkStruct
                   location = curryPos2Location p
         CS.ITypeDecl p ident _ _ _ -> maybeToList $ symbolInformationFrom name symKind location
             where name = ppToText ident
