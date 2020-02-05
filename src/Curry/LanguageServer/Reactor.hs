@@ -80,8 +80,8 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
-                interfaces <- liftIO $ join <$> (sequence $ findWorkspaceInterfaces <$> folders)
-                symbols <- liftIO $ fetchWorkspaceSymbols query interfaces
+                compilations <- liftIO $ join <$> (sequence $ compileCurryWorkspace <$> folders)
+                symbols <- liftIO $ fetchWorkspaceSymbols query compilations
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 

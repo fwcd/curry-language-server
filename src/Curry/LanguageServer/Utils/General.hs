@@ -3,10 +3,14 @@ module Curry.LanguageServer.Utils.General (
     rangeElem,
     pointRange,
     emptyRange,
-    maybeCons
+    maybeCons,
+    walkFiles
 ) where
 
+import Control.Monad (join)
 import qualified Language.Haskell.LSP.Types as J
+import System.FilePath
+import System.Directory
 
 -- | Safely fetches the last element of the given list.
 lastSafe :: [a] -> Maybe a
@@ -33,3 +37,17 @@ pointRange p = J.Range p p
 maybeCons :: Maybe a -> [a] -> [a]
 maybeCons Nothing = id
 maybeCons (Just x) = (x:)
+
+-- | Lists files in the directory recursively.
+walkFiles :: FilePath -> IO [FilePath]
+walkFiles fp = do
+    isFile <- doesFileExist fp
+    if isFile
+        then return [fp]
+        else do
+            isDirectory <- doesDirectoryExist fp
+            if isDirectory
+                then do
+                    contents <- listDirectory fp
+                    join <$> (sequence $ walkFiles <$> contents)
+                else return []

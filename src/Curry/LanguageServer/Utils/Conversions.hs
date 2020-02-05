@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
 module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,
     curryPos2Pos,
@@ -6,8 +6,10 @@ module Curry.LanguageServer.Utils.Conversions (
     curryPos2Location,
     currySpan2Range,
     currySpan2Location,
+    currySpan2Uri,
     currySpanInfo2Range,
     currySpanInfo2Location,
+    currySpanInfo2Uri,
     HasDocumentSymbols (..),
     HasWorkspaceSymbols (..)
 ) where
@@ -70,6 +72,10 @@ currySpan2Location span = do
     uri <- curryPos2Uri $ CSP.start span
     return $ J.Location uri range
 
+currySpan2Uri :: CSP.Span -> Maybe J.Uri
+currySpan2Uri CSP.NoSpan = Nothing
+currySpan2Uri CSP.Span {..} = curryPos2Uri start
+
 currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
 currySpanInfo2Range CSPI.NoSpanInfo = Nothing
 currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
@@ -77,6 +83,10 @@ currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
 currySpanInfo2Location :: CSPI.SpanInfo -> Maybe J.Location
 currySpanInfo2Location CSPI.NoSpanInfo = Nothing
 currySpanInfo2Location CSPI.SpanInfo {..} = currySpan2Location srcSpan
+
+currySpanInfo2Uri :: CSPI.SpanInfo -> Maybe J.Uri
+currySpanInfo2Uri CSPI.NoSpanInfo = Nothing
+currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
@@ -212,6 +222,17 @@ instance HasDocumentSymbols (CS.Alt a) where
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> [J.SymbolInformation]
+
+class HasWorkspaceSymbolsWithUri s where
+    workspaceSymbolsWithUri :: J.Uri -> s -> [J.SymbolInformation]
+
+instance HasDocumentSymbols s => HasWorkspaceSymbolsWithUri s where
+    workspaceSymbolsWithUri uri = (documentSymbolToInformations =<<) . documentSymbols
+        where documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
+              documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = (J.SymbolInformation n k d l Nothing) : cis
+                  where l = J.Location uri r
+                        cs' = maybe [] (\(J.List cs'') -> cs'') cs
+                        cis = documentSymbolToInformations =<< cs'
 
 instance HasWorkspaceSymbols CS.Interface where
     workspaceSymbols (CS.Interface ident _ decls) = symbolInformationFrom name symKind location `maybeCons` childs

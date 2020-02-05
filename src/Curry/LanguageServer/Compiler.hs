@@ -3,7 +3,7 @@ module Curry.LanguageServer.Compiler (
     CompilationResult,
     ConcreteCompilationResult,
     compileCurry,
-    findWorkspaceInterfaces,
+    compileCurryWorkspace,
     parseInterface,
     compilationToMaybe,
     failedCompilation
@@ -24,6 +24,7 @@ import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
 import Curry.LanguageServer.Logging
+import Curry.LanguageServer.Utils.General
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.Maybe (listToMaybe, maybeToList)
@@ -51,21 +52,11 @@ compileCurry importPaths filePath = runCYIO $ do
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
 
-findWorkspaceInterfaces :: FilePath -> IO [CS.Interface]
-findWorkspaceInterfaces filePath = do
-    isFile <- doesFileExist filePath
-    let isSourceFile = isFile && (takeExtension filePath == ".curry")
-    logs DEBUG $ "findWorkspaceInterfaces: Currently at " ++ filePath ++ " (sourceFile: " ++ show isSourceFile ++ ")"
-    
-    if isSourceFile
-        then maybeToList <$> parseInterface filePath
-        else do 
-            isDirectory <- doesDirectoryExist filePath
-            if isDirectory
-                then do
-                    childs <- listDirectory filePath
-                    join <$> sequence [findWorkspaceInterfaces child | child <- childs]
-                else return []
+-- TODO: Deal with importPaths correctly (exclude currently compiled file for each?)
+compileCurryWorkspace :: FilePath -> IO [ConcreteCompilationResult]
+compileCurryWorkspace dirPath = do
+    files <- walkFiles dirPath
+    sequence $ (compileCurry []) <$> files
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
