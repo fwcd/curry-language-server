@@ -12,5 +12,5 @@ fetchDiagnostics compilation = do
     let diags = case compilation of
                     Left errs -> map (curryMsg2Diagnostic J.DsError) errs
                     Right (_, warns) -> map (curryMsg2Diagnostic J.DsWarning) warns
-    logs INFO $ "fetchDiagnostics: Found " ++ show diags
+    logs INFO $ "fetchDiagnostics: Found " ++ show (length diags) ++ " message(s)"
     return diags

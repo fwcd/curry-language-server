@@ -34,7 +34,7 @@ reactor lf rin = do
 
         case hreq of
             HandlerRequest (NotInitialized _) -> do
-                liftIO $ setupLogging (Core.sendFunc lf) DEBUG
+                liftIO $ setupLogging (Core.sendFunc lf) INFO
                 liftIO $ logs INFO $ "reactor: Initialized"
 
             HandlerRequest (RspFromClient rsp) -> do

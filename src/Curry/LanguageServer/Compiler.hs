@@ -38,7 +38,7 @@ type ConcreteCompilationResult = CompilationResult CT.PredType -- TODO: PredType
 compileCurry :: [String] -> FilePath -> IO ConcreteCompilationResult
 compileCurry importPaths filePath = runCYIO $ do
     deps <- CD.flatDeps opts filePath
-    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show deps
+    liftIO $ logs DEBUG $ "Compiling Curry, found deps: " ++ show deps
     mdl <- justOrFail "Language Server: No module found" $ listToMaybe $ map fst $ filter (depMatches filePath . snd) $ deps
     toCompilationOutput <$> loadAndCheckModule opts mdl filePath
     where cppOpts = CO.optCppOpts CO.defaultOptions

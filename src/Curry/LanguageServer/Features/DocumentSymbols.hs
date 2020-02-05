@@ -9,5 +9,5 @@ import qualified Language.Haskell.LSP.Utility as U
 fetchDocumentSymbols :: CompilationResult a -> IO J.DSResult
 fetchDocumentSymbols compilation = do
     let symbols = maybe [] documentSymbols $ moduleAST <$> compilationToMaybe compilation
-    logs INFO $ "Found document symbols " ++ show symbols
+    logs DEBUG $ "Found document symbols " ++ show symbols
     return $ J.DSDocumentSymbols $ J.List symbols
