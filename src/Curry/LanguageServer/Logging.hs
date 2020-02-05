@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
 module Curry.LanguageServer.Logging (
     setupLogging,
-    finalizeLogging,
+    removeAllLogHandlers,
     Loggable (..),
     module System.Log
 ) where
@@ -23,10 +23,11 @@ instance LH.LogHandler CLSLogHandler where
     getLevel = level
     setFormatter lh f = lh { formatter = f }
     getFormatter = formatter
-    emit lh (prio, msg) _ | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack msg
-                          | otherwise        = sendFunc lh $ NotLogMessage $ fmServerLogMessageNotification (levelToMessageType $ level lh) $ T.pack msg
+    -- emit lh (prio, msg) _ = return ()
+    emit lh (prio, msg) n | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack $ msg ++ " vs " ++ n
+                          | otherwise        = sendFunc lh $ NotLogMessage $ fmServerLogMessageNotification (levelToMessageType $ level lh) $ T.pack $ msg ++ " vs " ++ n
         where levelToMessageType l = case l of
-                                        DEBUG -> J.MtLog
+                                        DEBUG -> J.MtInfo
                                         INFO -> J.MtInfo
                                         NOTICE -> J.MtInfo
                                         WARNING -> J.MtWarning
@@ -47,15 +48,15 @@ logDateFormat = "%Y-%m-%d %H:%M:%S"
 
 setupLogging :: Core.SendFunc -> Priority -> IO ()
 setupLogging sf level = do
-    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.tfLogFormatter logDateFormat logName }
+    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.tfLogFormatter logDateFormat logFormat }
     LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
     LL.updateGlobalLogger logName $ LL.setHandlers [handler] <$> LL.setLevel level
 
-finalizeLogging :: IO ()
-finalizeLogging = LL.removeAllHandlers
+removeAllLogHandlers :: IO ()
+removeAllLogHandlers = LL.removeAllHandlers
 
 class Loggable s where
     logs :: Priority -> s -> IO ()
 
 instance Show s => Loggable s where
-    logs = (. show) . LL.logM logName
+    logs p = LL.logM logName p . show

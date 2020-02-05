@@ -33,16 +33,16 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = flip E.catches exceptHandlers $ do
     rin <- atomically newTChan :: IO (TChan ReactorInput)
-    let onStartup lf = do setupLogging (Core.sendFunc lf) DEBUG
-                          labelledForkIO "Reactor" $ reactor lf rin
+    let onStartup lf = do labelledForkIO "Reactor" $ reactor lf rin
                           return Nothing
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = resultToEither . extractInitialConfig,
                                                          Core.onConfigurationChange = resultToEither . extractChangedConfig,
                                                          Core.onStartup = onStartup }
         sessionLogFile = Just ".curry/language-server-session.log"
         -- sessionLogFile = Nothing
-
-    flip E.finally finalizeLogging $ do
+    
+    removeAllLogHandlers
+    flip E.finally removeAllLogHandlers $ do
         Ctrl.run initializeCallbacks (lspHandlers rin) lspOptions sessionLogFile
 
     where exceptHandlers = [E.Handler ioExcept, E.Handler someExcept]

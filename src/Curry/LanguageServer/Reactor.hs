@@ -33,6 +33,10 @@ reactor lf rin = do
         config <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
 
         case hreq of
+            HandlerRequest (NotInitialized _) -> do
+                liftIO $ setupLogging (Core.sendFunc lf) DEBUG
+                liftIO $ logs INFO $ "reactor: Initialized"
+
             HandlerRequest (RspFromClient rsp) -> do
                 liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
             
