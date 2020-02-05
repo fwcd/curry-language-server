@@ -3,6 +3,7 @@ module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,
     curryPos2Pos,
     curryPos2Uri,
+    curryPos2Location,
     currySpan2Range,
     currySpan2Location,
     currySpanInfo2Range,
@@ -48,6 +49,12 @@ curryPos2Pos CP.Position {..} = Just $ J.Position (line - 1) (column - 1)
 curryPos2Uri :: CP.Position -> Maybe J.Uri
 curryPos2Uri CP.NoPos = Nothing
 curryPos2Uri CP.Position {..} = Just $ J.filePathToUri file
+
+curryPos2Location :: CP.Position -> Maybe J.Location
+curryPos2Location cp = do
+    p <- curryPos2Pos cp
+    uri <- curryPos2Uri cp
+    return $ J.Location uri $ pointRange p
 
 currySpan2Range :: CSP.Span -> Maybe J.Range
 currySpan2Range CSP.NoSpan = Nothing
@@ -207,11 +214,55 @@ class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> [J.SymbolInformation]
 
 instance HasWorkspaceSymbols CS.Interface where
-    workspaceSymbols (CS.Interface ident _ decl) = symbolInformationFrom name symKind location `maybeCons` childs
+    workspaceSymbols (CS.Interface ident _ decls) = symbolInformationFrom name symKind location `maybeCons` childs
         where name = ppToText ident
               symKind = J.SkModule
               location = currySpanInfo2Location $ CSPI.getSpanInfo ident
-              childs = [] -- TODO
+              childs = workspaceSymbols =<< decls
+
+instance HasWorkspaceSymbols CS.IDecl where
+    workspaceSymbols decl = case decl of
+        CS.IInfixDecl p _ _ ident -> maybeToList $ symbolInformationFrom name symKind location
+            where name = ppToText ident
+                  symKind = J.SkOperator
+                  location = curryPos2Location p
+        CS.IDataDecl p ident _ _ cs _ -> symbolInformationFrom name symKind location `maybeCons` childs
+            where name = ppToText ident
+                  symKind = if length cs > 1 then J.SkEnum
+                                             else J.SkClass
+                  location = curryPos2Location p
+                  childs = workspaceSymbols =<< cs
+        CS.INewtypeDecl p ident _ _ c _ -> symbolInformationFrom name symKind location `maybeCons` workspaceSymbols c
+            where name = ppToText ident
+                  symKind = J.SkClass
+                  location = curryPos2Location p
+        CS.ITypeDecl p ident _ _ _ -> maybeToList $ symbolInformationFrom name symKind location
+            where name = ppToText ident
+                  symKind = J.SkInterface
+                  location = curryPos2Location p
+        CS.IFunctionDecl p ident _ arity _ -> maybeToList $ symbolInformationFrom name symKind location
+            where name = ppToText ident
+                  symKind = if arity > 0 then J.SkFunction
+                                         else J.SkConstant
+                  location = curryPos2Location p
+        CS.IClassDecl p _ ident _ _ _ _ -> maybeToList $ symbolInformationFrom name symKind location
+            where name = ppToText ident
+                  symKind = J.SkInterface
+                  location = curryPos2Location p
+        _ -> []
+
+instance HasWorkspaceSymbols CS.ConstrDecl where
+    workspaceSymbols decl = maybeToList $ case decl of
+        CS.ConstrDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
+        CS.ConOpDecl spi _ ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
+        CS.RecordDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
+        where symKind = J.SkEnumMember
+
+instance HasWorkspaceSymbols CS.NewConstrDecl where
+    workspaceSymbols decl = maybeToList $ case decl of
+        CS.NewConstrDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
+        CS.NewRecordDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
+        where symKind = J.SkEnumMember
 
 -- Language Server Protocol -> Curry Compiler
 
