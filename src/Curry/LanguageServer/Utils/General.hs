@@ -48,6 +48,6 @@ walkFiles fp = do
             isDirectory <- doesDirectoryExist fp
             if isDirectory
                 then do
-                    contents <- listDirectory fp
+                    contents <- ((fp </>) <$>) <$> listDirectory fp
                     join <$> (sequence $ walkFiles <$> contents)
                 else return []
