@@ -47,6 +47,8 @@ compileCurry importPaths filePath = runCYIO $ do
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
 
+-- TODO: Provide a function (possibly using loadInterfaces?) to search the entire workspace for symbols
+
 compilationToMaybe :: CompilationResult a -> Maybe (CompilationOutput a)
 compilationToMaybe = (fst <$>) . eitherToMaybe
 
