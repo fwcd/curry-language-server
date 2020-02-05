@@ -3,14 +3,15 @@ module Curry.LanguageServer.Compiler (
     CompilationResult,
     ConcreteCompilationResult,
     compileCurry,
+    parseInterface,
     compilationToMaybe,
     failedCompilation
 ) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Curry.Files.Filenames as CF
+import qualified Curry.Files.PathUtils as CF
 import Curry.Base.Message as CM
-import Curry.Base.Monad (CYIO, runCYIO, failMessages)
+import Curry.Base.Monad (CYIO, runCYIO, runCYM, failMessages)
 import Curry.Base.Position as CP
 import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
@@ -47,7 +48,10 @@ compileCurry importPaths filePath = runCYIO $ do
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
 
--- TODO: Provide a function (possibly using loadInterfaces?) to search the entire workspace for symbols
+parseInterface :: FilePath -> IO (Maybe CS.Interface)
+parseInterface fp = do
+    src <- CF.readModule fp
+    return $ (eitherToMaybe . (fst <$>) . runCYM . CS.parseInterface fp) =<< src
 
 compilationToMaybe :: CompilationResult a -> Maybe (CompilationOutput a)
 compilationToMaybe = (fst <$>) . eitherToMaybe
