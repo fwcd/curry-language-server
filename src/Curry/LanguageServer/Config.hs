@@ -1,5 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 module Curry.LanguageServer.Config (Config (..)) where
 
 import Data.Aeson

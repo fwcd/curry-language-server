@@ -1,5 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,
     curryPos2Pos,
