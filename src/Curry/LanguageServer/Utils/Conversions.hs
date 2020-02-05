@@ -4,7 +4,8 @@ module Curry.LanguageServer.Utils.Conversions (
     curryPos2Pos,
     currySpanInfo2Range,
     currySpan2Range,
-    HasDocumentSymbols (..)
+    HasDocumentSymbols (..),
+    HasWorkspaceSymbols (..)
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -180,6 +181,12 @@ instance HasDocumentSymbols (CS.Statement a) where
 
 instance HasDocumentSymbols (CS.Alt a) where
     documentSymbols (CS.Alt _ _ rhs) = documentSymbols rhs
+
+class HasWorkspaceSymbols s where
+    workspaceSymbols :: s -> [J.SymbolInformation]
+
+instance HasWorkspaceSymbols CS.Interface where
+    workspaceSymbols = const [] -- TODO
 
 -- Language Server Protocol -> Curry Compiler
 

@@ -11,8 +11,10 @@ import qualified Curry.LanguageServer.Config as C
 import Curry.LanguageServer.Features.Diagnostics
 import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
+import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
 import Data.Default
+import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
 import Language.Haskell.LSP.Messages
@@ -75,7 +77,12 @@ reactor lf rin = do
             
             HandlerRequest (ReqWorkspaceSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
-                -- TODO
+                let query = req ^. J.params . J.query
+                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
+                interfaces <- liftIO $ join <$> (sequence $ findWorkspaceInterfaces <$> folders)
+                symbols <- liftIO $ fetchWorkspaceSymbols query interfaces
+                send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
+                where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req

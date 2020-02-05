@@ -3,6 +3,7 @@ module Curry.LanguageServer.Compiler (
     CompilationResult,
     ConcreteCompilationResult,
     compileCurry,
+    findWorkspaceInterfaces,
     parseInterface,
     compilationToMaybe,
     failedCompilation
@@ -25,8 +26,10 @@ import Control.Monad.Reader
 import Curry.LanguageServer.Logging
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, maybeToList)
 import qualified Language.Haskell.LSP.Types as J
+import System.Directory
+import System.FilePath
 
 data CompilationOutput a = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleAST :: CS.Module a }
 type CompilationResult a = Either [CM.Message] (CompilationOutput a, [CM.Message])
@@ -47,6 +50,21 @@ compileCurry importPaths filePath = runCYIO $ do
           opts = CO.defaultOptions { CO.optForce = True,
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
+
+findWorkspaceInterfaces :: FilePath -> IO [CS.Interface]
+findWorkspaceInterfaces filePath = do
+    isFile <- doesFileExist filePath
+    let isSourceFile = isFile && (takeExtension filePath == ".curry")
+    
+    if isSourceFile
+        then maybeToList <$> parseInterface filePath
+        else do 
+            isDirectory <- doesDirectoryExist filePath
+            if isDirectory
+                then do
+                    childs <- getDirectoryContents filePath
+                    join <$> sequence [findWorkspaceInterfaces child | child <- childs]
+                else return []
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
