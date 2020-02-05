@@ -12,7 +12,9 @@ fetchWorkspaceSymbols query compilations = do
     -- TODO: Handle query
     logs INFO $ "fetchWorkspaceSymbols: Searching " ++ show (length compilations) ++ " source file(s)..."
     let asts = moduleAST <$> ((maybeToList . compilationToMaybe) =<< compilations)
-        symbols = workspaceSymbols =<< asts
+        symbols = filter (matchesQuery query) $ workspaceSymbols =<< asts
     logs INFO $ "fetchWorkspaceSymbols: Found " ++ show (length symbols) ++ " symbol(s)"
     return symbols
-    
+
+matchesQuery :: T.Text -> J.SymbolInformation -> Bool
+matchesQuery query (J.SymbolInformation n _ _ _ _) = query `T.isPrefixOf` n
