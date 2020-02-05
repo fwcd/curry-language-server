@@ -3,6 +3,7 @@ module Curry.LanguageServer.Handlers (lspHandlers) where
 import Control.Concurrent.STM.TChan
 import Control.Monad.STM
 import Curry.LanguageServer.Aliases
+import Curry.LanguageServer.Logging
 import Data.Default
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as Core
@@ -32,4 +33,4 @@ passHandler :: TChan ReactorInput -> (a -> FromClientMessage) -> Core.Handler a
 passHandler rin c notification = atomically $ writeTChan rin $ HandlerRequest $ c notification
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin response = U.logs $ "*** Got ResponseMessage, ignoring: " ++ show response
+responseHandlerCb _rin response = logs NOTICE $ "*** Got ResponseMessage, ignoring: " ++ show response

@@ -21,11 +21,11 @@ import Modules (loadAndCheckModule)
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
+import Curry.LanguageServer.Logging
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Utility as U
 
 data CompilationOutput a = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleAST :: CS.Module a }
 type CompilationResult a = Either [CM.Message] (CompilationOutput a, [CM.Message])
@@ -38,7 +38,7 @@ type ConcreteCompilationResult = CompilationResult CT.PredType -- TODO: PredType
 compileCurry :: [String] -> FilePath -> IO ConcreteCompilationResult
 compileCurry importPaths filePath = runCYIO $ do
     deps <- CD.flatDeps opts filePath
-    liftIO $ U.logs $ "Compiling Curry, found deps: " ++ show deps
+    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show deps
     mdl <- justOrFail "Language Server: No module found" $ listToMaybe $ map fst $ filter (depMatches filePath . snd) $ deps
     toCompilationOutput <$> loadAndCheckModule opts mdl filePath
     where cppOpts = CO.optCppOpts CO.defaultOptions

@@ -47,7 +47,7 @@ logDateFormat = "%Y-%m-%d %H:%M:%S"
 
 setupLogging :: Core.SendFunc -> Priority -> IO ()
 setupLogging sf level = do
-    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.tfLogFormatter logName logDateFormat }
+    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.tfLogFormatter logDateFormat logName }
     LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
     LL.updateGlobalLogger logName $ LL.setHandlers [handler] <$> LL.setLevel level
 
@@ -55,7 +55,7 @@ finalizeLogging :: IO ()
 finalizeLogging = LL.removeAllHandlers
 
 class Loggable s where
-    log :: Priority -> s -> IO ()
+    logs :: Priority -> s -> IO ()
 
 instance Show s => Loggable s where
-    log = (. show) . LL.logM logName
+    logs = (. show) . LL.logM logName

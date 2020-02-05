@@ -6,6 +6,7 @@ import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Compiler
+import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax
@@ -17,7 +18,7 @@ import qualified Language.Haskell.LSP.Utility as U
 fetchHover :: Show a => CompilationResult a -> J.Position -> IO (Maybe J.Hover)
 fetchHover compilation pos = do
     let hover = toHover =<< expressionAt pos =<< (moduleAST <$> compilationToMaybe compilation)
-    U.logs $ "fetchHover: Found " ++ show hover
+    logs INFO $ "fetchHover: Found " ++ show hover
     return hover
 
 toHover :: Show a => CS.Expression a -> Maybe J.Hover
