@@ -55,6 +55,7 @@ findWorkspaceInterfaces :: FilePath -> IO [CS.Interface]
 findWorkspaceInterfaces filePath = do
     isFile <- doesFileExist filePath
     let isSourceFile = isFile && (takeExtension filePath == ".curry")
+    logs DEBUG $ "findWorkspaceInterfaces: Currently at " ++ filePath ++ " (sourceFile: " ++ show isSourceFile ++ ")"
     
     if isSourceFile
         then maybeToList <$> parseInterface filePath
@@ -62,12 +63,13 @@ findWorkspaceInterfaces filePath = do
             isDirectory <- doesDirectoryExist filePath
             if isDirectory
                 then do
-                    childs <- getDirectoryContents filePath
+                    childs <- listDirectory filePath
                     join <$> sequence [findWorkspaceInterfaces child | child <- childs]
                 else return []
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
+    logs DEBUG $ "parseInterface: Parsing interface at " ++ fp
     src <- CF.readModule fp
     return $ (eitherToMaybe . (fst <$>) . runCYM . CS.parseInterface fp) =<< src
 
