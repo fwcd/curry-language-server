@@ -72,6 +72,10 @@ reactor lf rin = do
                 compilation <- liftIO $ compileCurryFromUri config uri
                 symbols <- liftIO $ fetchDocumentSymbols compilation
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req symbols
+            
+            HandlerRequest (ReqWorkspaceSymbols req) -> do
+                liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
+                -- TODO
 
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
