@@ -40,14 +40,11 @@ logName :: String
 logName = "curry-language-server"
 
 logFormat :: String
-logFormat = "$time [$tid] - $msg"
-
-logDateFormat :: String
-logDateFormat = "%Y-%m-%d %H:%M:%S"
+logFormat = "$tid - $msg"
 
 setupLogging :: Core.SendFunc -> Priority -> IO ()
 setupLogging sf level = do
-    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.tfLogFormatter logDateFormat logFormat }
+    let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.simpleLogFormatter logFormat }
     LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
     LL.updateGlobalLogger logName $ LL.setHandlers [handler] <$> LL.setLevel level
 
