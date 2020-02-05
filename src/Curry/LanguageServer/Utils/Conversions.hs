@@ -77,7 +77,11 @@ class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
 instance HasDocumentSymbols (CS.Module a) where
-    documentSymbols (CS.Module _ _ _ _ _ decls) = decls >>= documentSymbols -- TODO: Has seven arguments in later curry-base versions
+    documentSymbols (CS.Module spi _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs]  -- TODO: Has a LayoutInfo argument in newer curry-base versions
+        where name = ppToText ident
+              symKind = J.SkModule
+              range = currySpanInfo2Range spi
+              childs = decls >>= documentSymbols
 
 instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
@@ -186,7 +190,7 @@ class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> [J.SymbolInformation]
 
 instance HasWorkspaceSymbols CS.Interface where
-    workspaceSymbols = const [] -- TODO
+    workspaceSymbols (CS.Interface ident _ decl) = []
 
 -- Language Server Protocol -> Curry Compiler
 
