@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Utils.Syntax (HasExpressions (..), expressionAt) where
+module Curry.LanguageServer.Utils.Syntax (HasExpressions (..), elementAt) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
@@ -8,9 +8,9 @@ import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import qualified Language.Haskell.LSP.Types as J
 
--- | Fetches the expression in the AST at the given position.
-expressionAt :: HasExpressions s => J.Position -> s a -> Maybe (CS.Expression a)
-expressionAt pos = lastSafe . filter (elementContains pos) . expressions
+-- | Fetches the element at the given position.
+elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
+elementAt pos = lastSafe . filter (elementContains pos)
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool

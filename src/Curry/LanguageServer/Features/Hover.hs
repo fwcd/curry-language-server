@@ -17,7 +17,7 @@ import qualified Language.Haskell.LSP.Utility as U
 
 fetchHover :: Show a => CompilationResult a -> J.Position -> IO (Maybe J.Hover)
 fetchHover compilation pos = do
-    let hover = toHover =<< expressionAt pos =<< (moduleAST <$> compilationToMaybe compilation)
+    let hover = toHover =<< elementAt pos =<< (expressions <$> moduleAST <$> compilationToMaybe compilation)
     logs INFO $ "fetchHover: Found " ++ show hover
     return hover
 
