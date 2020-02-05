@@ -2,8 +2,11 @@
 module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,
     curryPos2Pos,
-    currySpanInfo2Range,
+    curryPos2Uri,
     currySpan2Range,
+    currySpan2Location,
+    currySpanInfo2Range,
+    currySpanInfo2Location,
     HasDocumentSymbols (..),
     HasWorkspaceSymbols (..)
 ) where
@@ -19,6 +22,7 @@ import qualified Curry.Syntax as CS
 import qualified Curry.Syntax.Pretty as CPP
 import qualified Text.PrettyPrint as PP
 
+import Curry.LanguageServer.Utils.General
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
@@ -37,15 +41,13 @@ curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text related
           text = T.pack $ PP.render $ CM.msgTxt msg
           related = Nothing
 
--- TODO: Use (file :: FilePath) from Curry Position to accurately
---       map diagnostics to their respective files.
 curryPos2Pos :: CP.Position -> Maybe J.Position
 curryPos2Pos CP.NoPos = Nothing
 curryPos2Pos CP.Position {..} = Just $ J.Position (line - 1) (column - 1)
 
-currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
-currySpanInfo2Range CSPI.NoSpanInfo = Nothing
-currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
+curryPos2Uri :: CP.Position -> Maybe J.Uri
+curryPos2Uri CP.NoPos = Nothing
+curryPos2Uri CP.Position {..} = Just $ J.filePathToUri file
 
 currySpan2Range :: CSP.Span -> Maybe J.Range
 currySpan2Range CSP.NoSpan = Nothing
@@ -53,6 +55,21 @@ currySpan2Range CSP.Span {..} = do
     s <- curryPos2Pos start
     e <- curryPos2Pos end
     return $ J.Range s e
+
+currySpan2Location :: CSP.Span -> Maybe J.Location
+currySpan2Location CSP.NoSpan = Nothing
+currySpan2Location span = do
+    range <- currySpan2Range span
+    uri <- curryPos2Uri $ CSP.start span
+    return $ J.Location uri range
+
+currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
+currySpanInfo2Range CSPI.NoSpanInfo = Nothing
+currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
+
+currySpanInfo2Location :: CSPI.SpanInfo -> Maybe J.Location
+currySpanInfo2Location CSPI.NoSpanInfo = Nothing
+currySpanInfo2Location CSPI.SpanInfo {..} = currySpan2Location srcSpan
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
@@ -66,12 +83,12 @@ ppPatternToName pat = case pat of
     CS.InfixFuncPattern _ _ _ ident _ -> ppToText ident
     _ -> "?"
 
-emptyRange :: J.Range
-emptyRange = J.Range (J.Position 0 0) (J.Position 0 0)
-
 documentSymbolFrom :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
 documentSymbolFrom n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
     where r' = maybe emptyRange id r
+
+symbolInformationFrom :: T.Text -> J.SymbolKind -> Maybe J.Location -> Maybe J.SymbolInformation
+symbolInformationFrom n k = ((\l -> J.SymbolInformation n k Nothing l Nothing) <$>)
 
 class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
@@ -190,7 +207,11 @@ class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> [J.SymbolInformation]
 
 instance HasWorkspaceSymbols CS.Interface where
-    workspaceSymbols (CS.Interface ident _ decl) = []
+    workspaceSymbols (CS.Interface ident _ decl) = symbolInformationFrom name symKind location `maybeCons` childs
+        where name = ppToText ident
+              symKind = J.SkModule
+              location = currySpanInfo2Location $ CSPI.getSpanInfo ident
+              childs = [] -- TODO
 
 -- Language Server Protocol -> Curry Compiler
 
