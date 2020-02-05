@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module Curry.LanguageServer.Logging (
     setupLogging,
     removeAllLogHandlers,
@@ -23,9 +23,8 @@ instance LH.LogHandler CLSLogHandler where
     getLevel = level
     setFormatter lh f = lh { formatter = f }
     getFormatter = formatter
-    -- emit lh (prio, msg) _ = return ()
-    emit lh (prio, msg) n | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack $ msg ++ " vs " ++ n
-                          | otherwise        = sendFunc lh $ NotLogMessage $ fmServerLogMessageNotification (levelToMessageType $ level lh) $ T.pack $ msg ++ " vs " ++ n
+    emit lh (prio, msg) n | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack msg
+                          | otherwise        = sendFunc lh $ NotLogMessage $ fmServerLogMessageNotification (levelToMessageType $ level lh) $ T.pack msg
         where levelToMessageType l = case l of
                                         DEBUG -> J.MtInfo
                                         INFO -> J.MtInfo
@@ -58,5 +57,8 @@ removeAllLogHandlers = LL.removeAllHandlers
 class Loggable s where
     logs :: Priority -> s -> IO ()
 
-instance Show s => Loggable s where
-    logs p = LL.logM logName p . show
+instance Loggable String where
+    logs p = LL.logM logName p
+
+instance Loggable T.Text where
+    logs p = logs p . T.unpack

@@ -38,8 +38,8 @@ runLanguageServer = flip E.catches exceptHandlers $ do
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = resultToEither . extractInitialConfig,
                                                          Core.onConfigurationChange = resultToEither . extractChangedConfig,
                                                          Core.onStartup = onStartup }
-        sessionLogFile = Just ".curry/language-server-session.log"
-        -- sessionLogFile = Nothing
+        -- sessionLogFile = Just ".curry/language-server-session.log"
+        sessionLogFile = Nothing
     
     removeAllLogHandlers
     flip E.finally removeAllLogHandlers $ do
