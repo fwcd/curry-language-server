@@ -9,6 +9,7 @@ import Control.Monad.STM
 import Curry.LanguageServer.Aliases
 import Curry.LanguageServer.Config
 import Curry.LanguageServer.Handlers
+import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Options
 import Curry.LanguageServer.Reactor
 import qualified Data.Aeson as A
@@ -32,15 +33,17 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = flip E.catches exceptHandlers $ do
     rin <- atomically newTChan :: IO (TChan ReactorInput)
-    let onStartup lf = do labelledForkIO "Reactor" $ reactor lf rin
+    let onStartup lf = do setupLogging (Core.sendFunc lf) L.DEBUG
+                          labelledForkIO "Reactor" $ reactor lf rin
                           return Nothing
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = resultToEither . extractInitialConfig,
                                                          Core.onConfigurationChange = resultToEither . extractChangedConfig,
                                                          Core.onStartup = onStartup }
+        -- sessionLogFile = Just ".curry/language-server-sessions.log"
+        sessionLogFile = Nothing
 
     flip E.finally finalProc $ do
-        Core.setupLogger (Just "curry-language-server.log") [] L.DEBUG
-        Ctrl.run initializeCallbacks (lspHandlers rin) lspOptions (Just "curry-language-server-session.log")
+        Ctrl.run initializeCallbacks (lspHandlers rin) lspOptions sessionLogFile
 
     where exceptHandlers = [E.Handler ioExcept, E.Handler someExcept]
           ioExcept (e :: E.IOException) = print e >> return 1
