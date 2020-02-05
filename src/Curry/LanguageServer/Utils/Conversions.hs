@@ -220,17 +220,24 @@ instance HasDocumentSymbols (CS.Statement a) where
 instance HasDocumentSymbols (CS.Alt a) where
     documentSymbols (CS.Alt _ _ rhs) = documentSymbols rhs
 
+instance HasDocumentSymbols CS.NewConstrDecl where
+    documentSymbols decl = case decl of
+        CS.NewConstrDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
+        CS.NewRecordDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
+        where symKind = J.SkEnumMember
+
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> [J.SymbolInformation]
 
 class HasWorkspaceSymbolsWithUri s where
     workspaceSymbolsWithUri :: J.Uri -> s -> [J.SymbolInformation]
 
-instance HasDocumentSymbols s => HasWorkspaceSymbolsWithUri s where
-    workspaceSymbolsWithUri uri = (documentSymbolToInformations =<<) . documentSymbols
-        where documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
-              documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = (J.SymbolInformation n k d l Nothing) : cis
-                  where l = J.Location uri r
+instance {-# OVERLAPPING #-} (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s where
+    workspaceSymbols s = documentSymbolToInformations =<< documentSymbols s
+        where uri = currySpanInfo2Uri $ CSPI.getSpanInfo s
+              documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
+              documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
+                  where loc = (\u -> J.Location u r) <$> uri
                         cs' = maybe [] (\(J.List cs'') -> cs'') cs
                         cis = documentSymbolToInformations =<< cs'
 
@@ -271,19 +278,6 @@ instance HasWorkspaceSymbols CS.IDecl where
                   symKind = J.SkInterface
                   location = curryPos2Location p
         _ -> []
-
-instance HasWorkspaceSymbols CS.ConstrDecl where
-    workspaceSymbols decl = maybeToList $ case decl of
-        CS.ConstrDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
-        CS.ConOpDecl spi _ ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
-        CS.RecordDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
-        where symKind = J.SkEnumMember
-
-instance HasWorkspaceSymbols CS.NewConstrDecl where
-    workspaceSymbols decl = maybeToList $ case decl of
-        CS.NewConstrDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
-        CS.NewRecordDecl spi ident _ -> symbolInformationFrom (ppToText ident) symKind (currySpanInfo2Location spi)
-        where symKind = J.SkEnumMember
 
 -- Language Server Protocol -> Curry Compiler
 
