@@ -33,22 +33,21 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = flip E.catches exceptHandlers $ do
     rin <- atomically newTChan :: IO (TChan ReactorInput)
-    let onStartup lf = do setupLogging (Core.sendFunc lf) L.DEBUG
+    let onStartup lf = do setupLogging (Core.sendFunc lf) DEBUG
                           labelledForkIO "Reactor" $ reactor lf rin
                           return Nothing
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = resultToEither . extractInitialConfig,
                                                          Core.onConfigurationChange = resultToEither . extractChangedConfig,
                                                          Core.onStartup = onStartup }
-        -- sessionLogFile = Just ".curry/language-server-sessions.log"
-        sessionLogFile = Nothing
+        sessionLogFile = Just ".curry/language-server-session.log"
+        -- sessionLogFile = Nothing
 
-    flip E.finally finalProc $ do
+    flip E.finally finalizeLogging $ do
         Ctrl.run initializeCallbacks (lspHandlers rin) lspOptions sessionLogFile
 
     where exceptHandlers = [E.Handler ioExcept, E.Handler someExcept]
           ioExcept (e :: E.IOException) = print e >> return 1
           someExcept (e :: E.SomeException) = print e >> return 1
-          finalProc = L.removeAllHandlers
           extractInitialConfig :: J.InitializeRequest -> A.Result Config
           extractInitialConfig (J.RequestMessage _ _ _ p) = maybe (A.Success def) A.fromJSON $ J._initializationOptions p
           extractChangedConfig :: J.DidChangeConfigurationNotification -> A.Result Config
