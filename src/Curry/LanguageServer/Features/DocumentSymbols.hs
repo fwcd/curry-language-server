@@ -6,7 +6,7 @@ import Curry.LanguageServer.Utils.Conversions
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
-fetchDocumentSymbols :: CompilationResult a -> IO J.DSResult
+fetchDocumentSymbols :: CompilationResult -> IO J.DSResult
 fetchDocumentSymbols compilation = do
     let symbols = maybe [] documentSymbols $ moduleAST <$> compilationToMaybe compilation
     logs DEBUG $ "Found document symbols " ++ show symbols

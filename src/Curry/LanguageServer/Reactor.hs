@@ -1,18 +1,19 @@
-module Curry.LanguageServer.Reactor (reactor) where
+module Curry.LanguageServer.Reactor (reactor, ReactorInput (..)) where
 
 import Control.Concurrent.STM.TChan
 import Control.Lens
 import Control.Monad
-import Control.Monad.Reader
+import Control.Monad.RWS
 import Control.Monad.STM
-import Curry.LanguageServer.Aliases
 import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
+import Curry.LanguageServer.IndexStore
 import Curry.LanguageServer.Features.Diagnostics
 import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
+import Curry.LanguageServer.Utils.General (slipr3)
 import Data.Default
 import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
@@ -24,13 +25,21 @@ import qualified Language.Haskell.LSP.Utility as U
 
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 
+-- | The input to the reactor.
+newtype ReactorInput = HandlerRequest FromClientMessage
+
+-- | The reactor monad holding a readable environment of LSP functions (with config)
+-- and a state containing the index store.
+type RM a = RWST (Core.LspFuncs C.Config) () IndexStore IO a
+
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides:
 -- Language server and compiler frontend
 reactor :: Core.LspFuncs C.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
     logs DEBUG "reactor: entered"
-    flip runReaderT lf $ forever $ do
+    
+    void $ slipr3 runRWST lf emptyStore $ forever $ do
         hreq <- liftIO $ atomically $ readTChan rin
         config <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
 
@@ -88,7 +97,7 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
 
-compileCurryFromUri :: C.Config -> J.Uri -> IO ConcreteCompilationResult
+compileCurryFromUri :: C.Config -> J.Uri -> IO CompilationResult
 compileCurryFromUri config uri = maybe failed (compileCurry importPaths) optFilePath
     where importPaths = C.importPaths config
           optFilePath = J.uriToFilePath uri

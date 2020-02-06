@@ -15,7 +15,7 @@ import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
-fetchHover :: Show a => CompilationResult a -> J.Position -> IO (Maybe J.Hover)
+fetchHover :: CompilationResult -> J.Position -> IO (Maybe J.Hover)
 fetchHover compilation pos = do
     let hover = toHover =<< elementAt pos =<< (expressions <$> moduleAST <$> compilationToMaybe compilation)
     logs INFO $ "fetchHover: Found " ++ show hover

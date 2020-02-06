@@ -4,10 +4,14 @@ module Curry.LanguageServer.Utils.General (
     pointRange,
     emptyRange,
     maybeCons,
-    walkFiles
+    walkFiles,
+    liftMaybe,
+    slipr3,
+    slipr4
 ) where
 
 import Control.Monad (join)
+import Control.Monad.Trans.Maybe
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -51,3 +55,15 @@ walkFiles fp = do
                     contents <- ((fp </>) <$>) <$> listDirectory fp
                     join <$> (sequence $ walkFiles <$> contents)
                 else return []
+
+-- | Lifts a Maybe into a Maybe transformer.
+liftMaybe :: Monad m => Maybe a -> MaybeT m a
+liftMaybe = MaybeT . return
+
+-- | Moves the first parameter to the end.
+slipr3 :: (a -> b -> c -> d) -> b -> c -> a -> d
+slipr3 f y z x = f x y z
+
+-- | Moves the first parameter to the end.
+slipr4 :: (a -> b -> c -> d -> e) -> b -> c -> d -> a -> e
+slipr4 f y z w x = f x y z w
