@@ -2,7 +2,9 @@
 module Curry.LanguageServer.IndexStore (
     IndexStore (..),
     emptyStore,
-    recompileEntry
+    recompileEntry,
+    getEntry,
+    getModuleAST
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -51,3 +53,11 @@ recompileEntry uri s = void $ runMaybeT $ do
                                                    compilerEnv = Just $ C.compilerEnv o,
                                                    warningMessages = warns }
     modify $ M.insert uri entry
+
+-- | Fetches an entry in the store.
+getEntry :: (MonadState IndexStore m) => J.NormalizedUri -> m (Maybe IndexStoreEntry)
+getEntry uri = M.lookup uri <$> get
+
+-- | Fetches the AST for a given URI in the store.
+getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> m (Maybe C.ModuleAST)
+getModuleAST uri = (moduleAST =<<) <$> getEntry uri
