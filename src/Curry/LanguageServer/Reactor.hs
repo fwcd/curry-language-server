@@ -41,7 +41,6 @@ reactor lf rin = do
     
     void $ slipr3 runRWST lf emptyStore $ forever $ do
         hreq <- liftIO $ atomically $ readTChan rin
-        config <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
 
         case hreq of
             HandlerRequest (NotInitialized _) -> do
@@ -56,7 +55,7 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                compilation <- liftIO $ compileCurryFromUri config uri
+                compilation <- compileCurryFromUri uri
                 diags <- liftIO $ fetchDiagnostics compilation
                 sendDiagnostics 100 uri version $ partitionBySource diags
             
@@ -66,7 +65,7 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                     version = Just 0
-                compilation <- liftIO $ compileCurryFromUri config uri
+                compilation <- compileCurryFromUri uri
                 diags <- liftIO $ fetchDiagnostics compilation
                 sendDiagnostics 100 uri version $ partitionBySource diags
                 
@@ -74,14 +73,14 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
-                compilation <- liftIO $ compileCurryFromUri config uri
+                compilation <- compileCurryFromUri uri
                 hover <- liftIO $ fetchHover compilation pos
                 send $ RspHover $ Core.makeResponseMessage req hover
             
             HandlerRequest (ReqDocumentSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
-                compilation <- liftIO $ compileCurryFromUri config uri
+                compilation <- compileCurryFromUri uri
                 symbols <- liftIO $ fetchDocumentSymbols compilation
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req symbols
             
@@ -97,10 +96,12 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
 
-compileCurryFromUri :: C.Config -> J.Uri -> IO CompilationResult
-compileCurryFromUri config uri = maybe failed (compileCurry importPaths) optFilePath
-    where importPaths = C.importPaths config
-          optFilePath = J.uriToFilePath uri
+compileCurryFromUri :: J.Uri -> RM CompilationResult
+compileCurryFromUri uri = do
+    lf <- ask
+    cfg <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
+    liftIO $ maybe failed (compileCurry $ C.importPaths cfg) optFilePath
+    where optFilePath = J.uriToFilePath uri
           failed = return $ failedCompilation "Language Server: Cannot construct file path from URI"
 
 send :: FromServerMessage -> RM ()
