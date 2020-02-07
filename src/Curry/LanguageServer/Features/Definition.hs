@@ -1,6 +1,7 @@
 module Curry.LanguageServer.Features.Definition (fetchDefinitions) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 
 import Control.Monad.Trans (liftIO)
@@ -24,4 +25,4 @@ fetchDefinitions entry pos = do
 definitionAt :: J.Position -> LM J.Location
 definitionAt pos = do
     (ident, spi) <- findAtPos pos
-    liftMaybe $ currySpanInfo2Location $ CSPI.getSpanInfo ident
+    liftMaybe $ currySpanInfo2Location $ CSPI.getSpanInfo $ CI.qidIdent ident
