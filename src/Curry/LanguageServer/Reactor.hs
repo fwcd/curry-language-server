@@ -9,6 +9,7 @@ import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
 import qualified Curry.LanguageServer.IndexStore as I
+import Curry.LanguageServer.Features.Definition
 import Curry.LanguageServer.Features.Diagnostics
 import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
@@ -75,6 +76,15 @@ reactor lf rin = do
                 hover <- liftIO $ fetchHover entry pos
                 send $ RspHover $ Core.makeResponseMessage req hover
             
+            HandlerRequest (ReqDefinition req) -> do
+                liftIO $ logs DEBUG $ "reactor: Processing definition request"
+                let uri = req ^. J.params . J.textDocument . J.uri
+                    pos = req ^. J.params . J.position
+                entry <- I.getEntry $ J.toNormalizedUri uri
+                defs <- liftIO $ fetchDefinitions entry pos
+                send $ RspDefinition $ Core.makeResponseMessage req $ case defs of [d] -> J.SingleLoc d
+                                                                                   _   -> J.MultiLoc defs
+
             HandlerRequest (ReqDocumentSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
