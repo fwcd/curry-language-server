@@ -1,5 +1,4 @@
 module Curry.LanguageServer.Compiler (
-    ModuleAST,
     CompilationOutput (..),
     CompilationResult,
     compileCurry,
@@ -10,11 +9,11 @@ module Curry.LanguageServer.Compiler (
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Files.PathUtils as CF
-import Curry.Base.Message as CM
+import qualified Curry.Base.Ident as CI
+import qualified Curry.Base.Message as CM
 import Curry.Base.Monad (CYIO, runCYIO, runCYM, failMessages)
-import Curry.Base.Position as CP
+import qualified Curry.Base.Position as CP
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
 import qualified CurryDeps as CD
 import qualified CompilerEnv as CE
 import qualified CompilerOpts as CO
@@ -24,6 +23,7 @@ import qualified Text.PrettyPrint as PP
 import Control.Monad.Reader
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.Maybe (listToMaybe, maybeToList)
@@ -31,25 +31,37 @@ import qualified Language.Haskell.LSP.Types as J
 import System.Directory
 import System.FilePath
 
-type ModuleAST = CS.Module CT.PredType -- TODO: PredType renamed to type in later versions of curry-frontend
-data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleAST :: ModuleAST }
+data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 
--- | Compiles Curry code using the given import path. If compilation
--- fails the result will be `Left` and contain error messages.
+-- | Compiles a Curry source file with it's dependencies
+-- using the given import paths. If compilation fails the
+-- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurry :: [String] -> FilePath -> IO CompilationResult
+compileCurry :: [FilePath] -> FilePath -> IO CompilationResult
 compileCurry importPaths filePath = runCYIO $ do
-    deps <- CD.flatDeps opts filePath
-    liftIO $ logs DEBUG $ "Compiling Curry, found deps: " ++ show deps
-    mdl <- justOrFail "Language Server: No module found" $ listToMaybe $ map fst $ filter (depMatches filePath . snd) $ deps
-    toCompilationOutput <$> loadAndCheckModule opts mdl filePath
+    deps <- ((maybeToList . depToFilePath) =<<) <$> CD.flatDeps opts filePath
+    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd <$> deps)
+    toCompilationOutput <$> loadAndCheckModules opts deps
     where cppOpts = CO.optCppOpts CO.defaultOptions
           cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
           opts = CO.defaultOptions { CO.optForce = True,
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
+
+-- | Compiles the given list of modules in order.
+loadAndCheckModules :: CO.Options -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+loadAndCheckModules opts deps = case deps of
+    [] -> failMessages [failMessageFrom "Language Server: No module found"]
+    [(m, fp)] -> do
+        liftIO $ logs INFO $ "Loading module " ++ takeFileName fp
+        (\ast -> [(fp, ast)]) <$.> loadAndCheckModule opts m fp
+    ((m, fp):ds) -> do
+        liftIO $ logs INFO $ "Loading modules " ++ takeFileName fp ++ ", ..."
+        (_, ast) <- loadAndCheckModule opts m fp
+        (env, asts) <- loadAndCheckModules opts ds
+        return (env, ((fp, ast) : asts))
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
@@ -60,12 +72,16 @@ parseInterface fp = do
 compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
 
+depToFilePath :: (CI.ModuleIdent, CD.Source) -> Maybe (CI.ModuleIdent, FilePath)
+depToFilePath (m, (CD.Source fp _ _)) = Just (m, fp)
+depToFilePath _ = Nothing
+
 depMatches :: FilePath -> CD.Source -> Bool
 depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2
 depMatches _ _ = False
 
-toCompilationOutput :: CE.CompEnv ModuleAST -> CompilationOutput
-toCompilationOutput (env, ast) = CompilationOutput { compilerEnv = env, moduleAST = ast }
+toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
+toCompilationOutput (env, asts) = CompilationOutput { compilerEnv = env, moduleASTs = asts }
 
 justOrFail :: String -> Maybe a -> CYIO a
 justOrFail _ (Just x) = return x

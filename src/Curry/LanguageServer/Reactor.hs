@@ -102,10 +102,10 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
 
--- | Indexes a folder recursively.
+-- | Indexes a workspace folder recursively.
 addDirToIndexStore :: FilePath -> RM ()
 addDirToIndexStore dirPath = do
-    I.compileDirRecursively dirPath
+    I.addWorkspaceDir dirPath
     entries <- I.getEntries
     void $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.IndexStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])

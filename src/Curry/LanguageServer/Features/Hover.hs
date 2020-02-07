@@ -10,7 +10,6 @@ import qualified CompilerEnv as CE
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
-import Curry.LanguageServer.Compiler (ModuleAST)
 import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions

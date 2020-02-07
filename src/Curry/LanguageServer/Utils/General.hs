@@ -8,11 +8,16 @@ module Curry.LanguageServer.Utils.General (
     liftMaybe,
     slipr3, slipr4,
     (<.$>), (<$.>),
-    joinFst, joinSnd
+    joinFst, joinSnd,
+    removeSingle,
+    expectJust,
+    insertAll,
+    groupIntoMapBy
 ) where
 
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
+import qualified Data.Map as M
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -88,3 +93,22 @@ joinSnd m = do
     (x, my) <- m
     y <- my
     return (x, y)
+
+-- | Removes a single element from the list (returning all possible solutions).
+removeSingle :: [a] -> [([a], a)]
+removeSingle [] = []
+removeSingle (x:xs) = (xs, x) : (x:) <.$> (removeSingle xs)
+
+-- | Force-unwraps a maybe, possible outputting an error message.
+expectJust :: String -> Maybe a -> a
+expectJust msg Nothing = error msg
+expectJust _ (Just x) = x
+
+-- | Inserts all key-value-pairs into the given map.
+insertAll :: Ord k => [(k, v)] -> M.Map k v -> M.Map k v
+insertAll [] = id
+insertAll ((k, v):kvs) = insertAll kvs . M.insert k v
+
+-- | Groups by key into a map.
+groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
+groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty

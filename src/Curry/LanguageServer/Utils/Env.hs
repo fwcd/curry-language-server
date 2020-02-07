@@ -15,7 +15,6 @@ import qualified Env.Value as CEV
 import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Trans.Maybe
-import Curry.LanguageServer.Compiler (ModuleAST)
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax
 import Data.Maybe (listToMaybe)

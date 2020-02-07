@@ -3,6 +3,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasDeclarations (..),
     HasQualIdentifier (..),
     HasIdentifier (..),
+    ModuleAST,
     elementAt,
     moduleIdentifier
 ) where
@@ -10,11 +11,14 @@ module Curry.LanguageServer.Utils.Syntax (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Base.Types as CT
 import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import qualified Language.Haskell.LSP.Types as J
+
+type ModuleAST = CS.Module CT.PredType -- TODO: PredType renamed to type in later versions of curry-frontend
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e

@@ -6,7 +6,7 @@ module Curry.LanguageServer.IndexStore (
     storedCount,
     storedEntry,
     storedEntries,
-    compileDirRecursively,
+    addWorkspaceDir,
     recompileEntry,
     getCount,
     getEntry,
@@ -24,24 +24,30 @@ import Control.Monad.State
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
+import Curry.LanguageServer.Logging
+import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Data.Default
+import Data.List (delete)
+import Data.Maybe (maybeToList)
 import qualified Data.Map as M
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
-data IndexStoreEntry = IndexStoreEntry { moduleAST :: Maybe C.ModuleAST,
+data IndexStoreEntry = IndexStoreEntry { moduleAST :: Maybe ModuleAST,
                                          compilerEnv :: Maybe CE.CompilerEnv,
                                          errorMessages :: [CM.Message],
-                                         warningMessages :: [CM.Message] }
+                                         warningMessages :: [CM.Message],
+                                         workspaceDir :: Maybe FilePath }
 
 -- | An in-memory map containing the parsed ASTs.
 type IndexStore = M.Map J.NormalizedUri IndexStoreEntry
 
 instance Default IndexStoreEntry where
-    def = IndexStoreEntry { moduleAST = Nothing, compilerEnv = Nothing, warningMessages = [], errorMessages = [] }
+    def = IndexStoreEntry { moduleAST = Nothing, compilerEnv = Nothing, warningMessages = [], errorMessages = [], workspaceDir = Nothing }
 
 -- | Fetches an empty index store.
 emptyStore :: IndexStore
@@ -60,25 +66,48 @@ storedEntries :: IndexStore -> [(J.NormalizedUri, IndexStoreEntry)]
 storedEntries = M.toList
 
 -- | Compiles the given directory recursively and stores its entries.
-compileDirRecursively :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
-compileDirRecursively dirPath = void $ runMaybeT $ do
-    files <- liftIO $ filter ((== ".curry") . takeExtension) <$> walkFiles dirPath
-    sequence $ recompileEntry <$> J.toNormalizedUri <$> J.filePathToUri <$> files
+addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
+addWorkspaceDir dirPath = void $ runMaybeT $ do
+    files <- liftIO $ walkCurrySourceFiles dirPath
+    sequence $ uncurry (recompileFile $ Just dirPath) <$> removeSingle files
 
--- | Recompiles the entry, stores the output in the AST
+-- | Recompiles the entry with the given URI and stores the output.
 recompileEntry :: (MonadState IndexStore m, MonadIO m) => J.NormalizedUri -> m ()
 recompileEntry uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
-    result <- liftIO $ C.compileCurry [] filePath -- TODO: Use proper import path
+    importPaths <- lift $ fmap (join . maybeToList) $ runMaybeT $ do
+        dirPath <- (liftMaybe . workspaceDir) =<< getEntry uri
+        files <- liftIO $ walkCurrySourceFiles dirPath
+        return $ delete filePath files
+    recompileFile Nothing importPaths filePath
 
-    previous <- M.findWithDefault def uri <$> get
-    let entry = case result of
-                    Left errs -> previous { errorMessages = errs, warningMessages = [] }
-                    Right (o, warns) -> previous { moduleAST = Just $ C.moduleAST o,
-                                                   compilerEnv = Just $ C.compilerEnv o,
-                                                   errorMessages = [],
-                                                   warningMessages = warns }
-    modify $ M.insert uri entry
+-- | Finds all Curry source files in a directory.
+walkCurrySourceFiles :: FilePath -> IO [FilePath]
+walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
+
+-- | Recompiles the entry with its dependencies using explicit paths and stores the output.
+recompileFile :: (MonadState IndexStore m, MonadIO m) => Maybe FilePath -> [FilePath] -> FilePath -> m ()
+recompileFile dirPath importPaths filePath = void $ do
+    liftIO $ logs INFO $ "(Re-)compiling file " ++ takeFileName filePath ++ " with import path " ++ show importPaths
+    result <- liftIO $ C.compileCurry importPaths filePath -- TODO: Use proper import path
+    
+    m <- get
+    let uri = J.toNormalizedUri $ J.filePathToUri filePath
+        previous :: J.NormalizedUri -> IndexStoreEntry
+        previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) m
+    case result of
+        Left errs -> modify $ M.insert uri
+                            $ (previous uri) { errorMessages = errs, warningMessages = [] }
+        Right (o, warns) -> put $ flip insertAll m
+                                $ (\(fp, ast) -> let u = J.toNormalizedUri $ J.filePathToUri fp
+                                                 in (u, (previous u) { moduleAST = Just ast,
+                                                                       compilerEnv = Just env,
+                                                                       errorMessages = [],
+                                                                       warningMessages = M.findWithDefault [] (Just u) ws }))
+                               <$> asts
+            where env = C.compilerEnv o
+                  asts = C.moduleASTs o
+                  ws = groupIntoMapBy ((J.toNormalizedUri <$>) . (curryPos2Uri =<<) . CM.msgPos) warns
 
 -- | Fetches the number of entries in the store in a monadic way.
 getCount :: (MonadState IndexStore m) => m Int
@@ -93,5 +122,5 @@ getEntries :: (MonadState IndexStore m) => m [(J.NormalizedUri, IndexStoreEntry)
 getEntries = storedEntries <$> get
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
-getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m C.ModuleAST
+getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
 getModuleAST uri = (liftMaybe . moduleAST) =<< getEntry uri
