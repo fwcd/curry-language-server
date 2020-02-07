@@ -34,8 +34,8 @@ import System.FilePath
 -- and diagnostic messages.
 data IndexStoreEntry = IndexStoreEntry { moduleAST :: Maybe C.ModuleAST,
                                          compilerEnv :: Maybe CE.CompilerEnv,
-                                         warningMessages :: [CM.Message],
-                                         errorMessages :: [CM.Message] }
+                                         errorMessages :: [CM.Message],
+                                         warningMessages :: [CM.Message] }
 
 -- | An in-memory map containing the parsed ASTs.
 type IndexStore = M.Map J.NormalizedUri IndexStoreEntry
@@ -73,9 +73,10 @@ recompileEntry uri = void $ runMaybeT $ do
 
     previous <- M.findWithDefault def uri <$> get
     let entry = case result of
-                    Left errs -> previous { errorMessages = errs }
+                    Left errs -> previous { errorMessages = errs, warningMessages = [] }
                     Right (o, warns) -> previous { moduleAST = Just $ C.moduleAST o,
                                                    compilerEnv = Just $ C.compilerEnv o,
+                                                   errorMessages = [],
                                                    warningMessages = warns }
     modify $ M.insert uri entry
 
