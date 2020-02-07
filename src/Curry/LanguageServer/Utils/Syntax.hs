@@ -1,8 +1,13 @@
-module Curry.LanguageServer.Utils.Syntax (HasExpressions (..), elementAt) where
+module Curry.LanguageServer.Utils.Syntax (
+    HasExpressions (..),
+    HasQualIdent (..),
+    elementAt
+) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Curry.Syntax as CS
+import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
@@ -72,3 +77,21 @@ instance HasExpressions CS.Statement where
 
 instance HasExpressions CS.Alt where
     expressions (CS.Alt _ _ rhs) = expressions rhs
+
+class HasQualIdent e where
+    qualIdent :: e -> Maybe CI.QualIdent
+
+instance HasQualIdent (CS.Expression a) where
+    qualIdent e = case e of
+        CS.Variable _ _ ident    -> Just ident
+        CS.Constructor _ _ ident -> Just ident
+        CS.Record _ _ ident _    -> Just ident
+        _                        -> Nothing
+
+instance HasQualIdent (CS.Pattern a) where
+    qualIdent e = case e of
+        CS.ConstructorPattern _ _ ident _ -> Just ident
+        CS.InfixPattern _ _ _ ident _     -> Just ident
+        CS.RecordPattern _ _ ident _      -> Just ident
+        CS.FunctionPattern _ _ ident _    -> Just ident
+        _                                 -> Nothing
