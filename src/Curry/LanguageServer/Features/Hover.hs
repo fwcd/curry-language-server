@@ -30,7 +30,8 @@ fetchHover entry pos = runMaybeT $ do
 
 hoverAt :: J.Position -> LM J.Hover
 hoverAt pos = do
-    (valueInfo, spi) <- lookupAtPos pos
+    (ident, spi) <- findAtPos pos
+    valueInfo <- lookupValueInfo ident
     let msg = J.HoverContents $ J.markedUpContent "curry" $ ppToText $ CT.origName valueInfo
         range = currySpanInfo2Range spi
     return $ J.Hover msg range
