@@ -6,7 +6,9 @@ module Curry.LanguageServer.IndexStore (
     storedCount,
     storedEntry,
     storedEntries,
+    compileWorkspace,
     recompileEntry,
+    getCount,
     getEntry,
     getEntries,
     getModuleAST
@@ -57,6 +59,12 @@ storedEntry = M.lookup
 storedEntries :: IndexStore -> [(J.NormalizedUri, IndexStoreEntry)]
 storedEntries = M.toList
 
+-- | Compiles the entire workspace under the given directory into the store.
+compileWorkspace :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
+compileWorkspace dirPath = void $ runMaybeT $ do
+    files <- liftIO $ walkFiles dirPath
+    sequence $ recompileEntry <$> J.toNormalizedUri <$> J.filePathToUri <$> files
+
 -- | Recompiles the entry, stores the output in the AST
 recompileEntry :: (MonadState IndexStore m, MonadIO m) => J.NormalizedUri -> m ()
 recompileEntry uri = void $ runMaybeT $ do
@@ -70,6 +78,10 @@ recompileEntry uri = void $ runMaybeT $ do
                                                    compilerEnv = Just $ C.compilerEnv o,
                                                    warningMessages = warns }
     modify $ M.insert uri entry
+
+-- | Fetches the number of entries in the store in a monadic way.
+getCount :: (MonadState IndexStore m) => m Int
+getCount = storedCount <$> get
 
 -- | Fetches an entry in the store in a monadic way.
 getEntry :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m IndexStoreEntry

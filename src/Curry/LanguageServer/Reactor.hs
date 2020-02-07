@@ -47,7 +47,12 @@ reactor lf rin = do
             HandlerRequest (NotInitialized _) -> do
                 let logLevel = INFO
                 liftIO $ setupLogging (Core.sendFunc lf) logLevel
-                liftIO $ logs INFO $ "reactor: Initialized"
+                liftIO $ logs INFO $ "reactor: Initialized, building index store..."
+                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
+                lift $ sequence $ I.compileWorkspace <$> folders
+                count <- lift $ I.getCount
+                liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
+                where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             HandlerRequest (RspFromClient rsp) -> do
                 liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
@@ -82,12 +87,9 @@ reactor lf rin = do
             HandlerRequest (ReqWorkspaceSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
-                -- TODO: Build index using entire workspace (not just opened documents) at initialization
-                -- folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
                 store <- get
                 symbols <- liftIO $ fetchWorkspaceSymbols query store
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
-                where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
