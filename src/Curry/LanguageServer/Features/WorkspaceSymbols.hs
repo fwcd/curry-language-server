@@ -9,8 +9,7 @@ import qualified Language.Haskell.LSP.Types as J
 
 fetchWorkspaceSymbols :: T.Text -> IndexStore -> IO [J.SymbolInformation]
 fetchWorkspaceSymbols query store = do
-    -- TODO: Handle query
-    logs INFO $ "fetchWorkspaceSymbols: Searching " ++ show (storedCount store) ++ " source file(s)..."
+    logs DEBUG $ "fetchWorkspaceSymbols: Searching " ++ show (storedCount store) ++ " source file(s)..."
     let asts = (maybeToList . moduleAST . snd) =<< storedEntries store
         symbols = filter (matchesQuery query) $ workspaceSymbols =<< asts
     logs INFO $ "fetchWorkspaceSymbols: Found " ++ show (length symbols) ++ " symbol(s)"
