@@ -62,7 +62,7 @@ storedEntries = M.toList
 -- | Compiles the entire workspace under the given directory into the store.
 compileWorkspace :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
 compileWorkspace dirPath = void $ runMaybeT $ do
-    files <- liftIO $ walkFiles dirPath
+    files <- liftIO $ filter ((== ".curry") . takeExtension) <$> walkFiles dirPath
     sequence $ recompileEntry <$> J.toNormalizedUri <$> J.filePathToUri <$> files
 
 -- | Recompiles the entry, stores the output in the AST
