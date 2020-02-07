@@ -1,17 +1,17 @@
 module Curry.LanguageServer.Features.WorkspaceSymbols (fetchWorkspaceSymbols) where
 
-import Curry.LanguageServer.Compiler
+import Curry.LanguageServer.IndexStore
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 
-fetchWorkspaceSymbols :: T.Text -> [CompilationResult] -> IO [J.SymbolInformation]
-fetchWorkspaceSymbols query compilations = do
+fetchWorkspaceSymbols :: T.Text -> IndexStore -> IO [J.SymbolInformation]
+fetchWorkspaceSymbols query store = do
     -- TODO: Handle query
-    logs INFO $ "fetchWorkspaceSymbols: Searching " ++ show (length compilations) ++ " source file(s)..."
-    let asts = moduleAST <$> ((maybeToList . compilationToMaybe) =<< compilations)
+    logs INFO $ "fetchWorkspaceSymbols: Searching " ++ show (storedCount store) ++ " source file(s)..."
+    let asts = (maybeToList . moduleAST . snd) =<< storedEntries store
         symbols = filter (matchesQuery query) $ workspaceSymbols =<< asts
     logs INFO $ "fetchWorkspaceSymbols: Found " ++ show (length symbols) ++ " symbol(s)"
     return symbols

@@ -5,7 +5,7 @@ module Curry.LanguageServer.Features.Hover (fetchHover) where
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
-import Curry.LanguageServer.Compiler
+import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
@@ -15,9 +15,9 @@ import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
-fetchHover :: CompilationResult -> J.Position -> IO (Maybe J.Hover)
-fetchHover compilation pos = do
-    let hover = toHover =<< elementAt pos =<< (expressions <$> moduleAST <$> compilationToMaybe compilation)
+fetchHover :: IndexStoreEntry -> J.Position -> IO (Maybe J.Hover)
+fetchHover entry pos = do
+    let hover = toHover =<< elementAt pos =<< (expressions <$> moduleAST entry)
     logs INFO $ "fetchHover: Found " ++ show hover
     return hover
 

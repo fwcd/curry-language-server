@@ -5,15 +5,16 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.RWS
 import Control.Monad.STM
+import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
-import Curry.LanguageServer.IndexStore
+import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Features.Diagnostics
 import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.General (slipr3)
+import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
 import Data.Default
 import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
@@ -30,7 +31,7 @@ newtype ReactorInput = HandlerRequest FromClientMessage
 
 -- | The reactor monad holding a readable environment of LSP functions (with config)
 -- and a state containing the index store.
-type RM a = RWST (Core.LspFuncs C.Config) () IndexStore IO a
+type RM a = MaybeT (RWST (Core.LspFuncs C.Config) () I.IndexStore IO) a
 
 -- | The single point that all events flow through, allowing management of state
 -- to stitch replies and requests together from the two asynchronous sides:
@@ -39,7 +40,7 @@ reactor :: Core.LspFuncs C.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
     logs DEBUG "reactor: entered"
     
-    void $ slipr3 runRWST lf emptyStore $ forever $ do
+    void $ slipr3 runRWST lf I.emptyStore $ runMaybeT $ forever $ do
         hreq <- liftIO $ atomically $ readTChan rin
 
         case hreq of
@@ -54,48 +55,54 @@ reactor lf rin = do
             HandlerRequest (NotDidOpenTextDocument notification) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
-                    version = Just 0
-                compilation <- compileCurryFromUri uri
-                diags <- liftIO $ fetchDiagnostics compilation
-                sendDiagnostics 100 uri version $ partitionBySource diags
+                updateIndexStore uri
             
             -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
             HandlerRequest (NotDidSaveTextDocument notification) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
-                    version = Just 0
-                compilation <- compileCurryFromUri uri
-                diags <- liftIO $ fetchDiagnostics compilation
-                sendDiagnostics 100 uri version $ partitionBySource diags
+                updateIndexStore uri
                 
             HandlerRequest (ReqHover req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
-                compilation <- compileCurryFromUri uri
-                hover <- liftIO $ fetchHover compilation pos
+                entry <- I.getEntry $ J.toNormalizedUri uri
+                hover <- liftIO $ fetchHover entry pos
                 send $ RspHover $ Core.makeResponseMessage req hover
             
             HandlerRequest (ReqDocumentSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
-                compilation <- compileCurryFromUri uri
-                symbols <- liftIO $ fetchDocumentSymbols compilation
+                entry <- I.getEntry $ J.toNormalizedUri uri
+                symbols <- liftIO $ fetchDocumentSymbols entry
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req symbols
             
             HandlerRequest (ReqWorkspaceSymbols req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
-                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
-                compilations <- liftIO $ join <$> (sequence $ compileCurryWorkspace <$> folders)
-                symbols <- liftIO $ fetchWorkspaceSymbols query compilations
+                -- TODO: Build index using entire workspace (not just opened documents) at initialization
+                -- folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
+                store <- get
+                symbols <- liftIO $ fetchWorkspaceSymbols query store
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
 
+-- | Recompiles and stores the updated compilation for a given URI.
+updateIndexStore :: J.Uri -> RM ()
+updateIndexStore uri = do
+    lift $ I.recompileEntry normUri
+    entry <- I.getEntry normUri
+    diags <- liftIO $ fetchDiagnostics entry
+    sendDiagnostics 100 uri version $ partitionBySource diags
+    where normUri = J.toNormalizedUri uri
+          version = Just 0
+
+-- | Compiles a curry source file (inside the reactor monad).
 compileCurryFromUri :: J.Uri -> RM CompilationResult
 compileCurryFromUri uri = do
     lf <- ask
@@ -104,11 +111,13 @@ compileCurryFromUri uri = do
     where optFilePath = J.uriToFilePath uri
           failed = return $ failedCompilation "Language Server: Cannot construct file path from URI"
 
+-- | Sends an LSP message to the client.
 send :: FromServerMessage -> RM ()
 send msg = do
     lf <- ask
     liftIO $ Core.sendFunc lf msg
 
+-- | Publishes diagnostic messages in the given source file to the client.
 sendDiagnostics :: Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
 sendDiagnostics maxToPublish uri v diags = do
     lf <- ask

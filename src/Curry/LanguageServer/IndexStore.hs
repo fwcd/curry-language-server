@@ -1,9 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Curry.LanguageServer.IndexStore (
-    IndexStore (..),
+    IndexStoreEntry (..),
+    IndexStore,
     emptyStore,
+    storedCount,
+    storedEntry,
+    storedEntries,
     recompileEntry,
     getEntry,
+    getEntries,
     getModuleAST
 ) where
 
@@ -40,9 +45,21 @@ instance Default IndexStoreEntry where
 emptyStore :: IndexStore
 emptyStore = M.empty
 
+-- | Fetches the number of stored entries.
+storedCount :: IndexStore -> Int
+storedCount = M.size
+
+-- | Fetches the given entry in the store.
+storedEntry :: J.NormalizedUri -> IndexStore -> Maybe IndexStoreEntry
+storedEntry = M.lookup
+
+-- | Fetches the entries in the store as a list.
+storedEntries :: IndexStore -> [(J.NormalizedUri, IndexStoreEntry)]
+storedEntries = M.toList
+
 -- | Recompiles the entry, stores the output in the AST
-recompileEntry :: (MonadState IndexStore m, MonadIO m) => J.NormalizedUri -> IndexStore -> m ()
-recompileEntry uri s = void $ runMaybeT $ do
+recompileEntry :: (MonadState IndexStore m, MonadIO m) => J.NormalizedUri -> m ()
+recompileEntry uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     result <- liftIO $ C.compileCurry [] filePath -- TODO: Use proper import path
 
@@ -54,10 +71,14 @@ recompileEntry uri s = void $ runMaybeT $ do
                                                    warningMessages = warns }
     modify $ M.insert uri entry
 
--- | Fetches an entry in the store.
-getEntry :: (MonadState IndexStore m) => J.NormalizedUri -> m (Maybe IndexStoreEntry)
-getEntry uri = M.lookup uri <$> get
+-- | Fetches an entry in the store in a monadic way.
+getEntry :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m IndexStoreEntry
+getEntry uri = liftMaybe =<< storedEntry uri <$> get
 
--- | Fetches the AST for a given URI in the store.
-getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> m (Maybe C.ModuleAST)
-getModuleAST uri = (moduleAST =<<) <$> getEntry uri
+-- | Fetches the entries in the store as a list in a monadic way.
+getEntries :: (MonadState IndexStore m) => m [(J.NormalizedUri, IndexStoreEntry)]
+getEntries = storedEntries <$> get
+
+-- | Fetches the AST for a given URI in the store in a monadic way.
+getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m C.ModuleAST
+getModuleAST uri = (liftMaybe . moduleAST) =<< getEntry uri
