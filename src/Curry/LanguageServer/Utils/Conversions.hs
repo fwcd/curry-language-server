@@ -10,6 +10,7 @@ module Curry.LanguageServer.Utils.Conversions (
     currySpanInfo2Range,
     currySpanInfo2Location,
     currySpanInfo2Uri,
+    ppToText,
     HasDocumentSymbols (..),
     HasWorkspaceSymbols (..)
 ) where
@@ -111,7 +112,7 @@ class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
 instance HasDocumentSymbols (CS.Module a) where
-    documentSymbols (CS.Module spi _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs]  -- TODO: Has a LayoutInfo argument in newer curry-base versions
+    documentSymbols (CS.Module spi _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs] -- TODO: Has a LayoutInfo argument in newer curry-base versions
         where name = ppToText ident
               symKind = J.SkModule
               range = currySpanInfo2Range spi
