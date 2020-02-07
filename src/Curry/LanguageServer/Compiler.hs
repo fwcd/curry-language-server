@@ -3,7 +3,6 @@ module Curry.LanguageServer.Compiler (
     CompilationOutput (..),
     CompilationResult,
     compileCurry,
-    compileCurryWorkspace,
     parseInterface,
     compilationToMaybe,
     failedCompilation
@@ -51,12 +50,6 @@ compileCurry importPaths filePath = runCYIO $ do
           opts = CO.defaultOptions { CO.optForce = True,
                                      CO.optImportPaths = importPaths,
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
-
--- TODO: Deal with importPaths correctly (exclude currently compiled file for each?)
-compileCurryWorkspace :: FilePath -> IO [CompilationResult]
-compileCurryWorkspace dirPath = do
-    files <- walkFiles dirPath
-    sequence $ (compileCurry []) <$> files
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
