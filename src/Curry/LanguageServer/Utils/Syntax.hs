@@ -1,7 +1,10 @@
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
-    HasQualIdent (..),
-    elementAt
+    HasDeclarations (..),
+    HasQualIdentifier (..),
+    HasIdentifier (..),
+    elementAt,
+    moduleIdentifier
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -20,6 +23,10 @@ elementAt pos = lastSafe . filter (elementContains pos)
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool
 elementContains pos = (maybe False (rangeElem pos)) . currySpanInfo2Range . CSPI.getSpanInfo
+
+-- | Fetches the module identifier for a module.
+moduleIdentifier :: CS.Module a -> CI.ModuleIdent
+moduleIdentifier (CS.Module _ _ ident _ _ _) = ident -- TODO: Has seven arguments in later curry-base versions
 
 class HasExpressions s where
     -- | Fetches all expressions as pre-order traversal
@@ -78,20 +85,47 @@ instance HasExpressions CS.Statement where
 instance HasExpressions CS.Alt where
     expressions (CS.Alt _ _ rhs) = expressions rhs
 
-class HasQualIdent e where
-    qualIdent :: e -> Maybe CI.QualIdent
+class HasDeclarations s where
+    -- | Fetches all declarations as pre-order traversal
+    declarations :: s a -> [CS.Decl a]
 
-instance HasQualIdent (CS.Expression a) where
-    qualIdent e = case e of
+instance HasDeclarations CS.Module where
+    declarations (CS.Module _ _ _ _ _ decls) = declarations =<< decls -- TODO: Has seven arguments in later curry-base versions
+
+instance HasDeclarations CS.Decl where
+    declarations decl = decl : case decl of
+        -- TODO: Fetch declarations inside equations/expressions/...
+        CS.ClassDecl _ _ _ _ ds     -> ds -- TODO: Has another arg in newer curry-frontend
+        CS.InstanceDecl  _ _ _ _ ds -> ds -- TODO: Has another arg in newer curry-frontend
+        _                        -> []
+
+class HasQualIdentifier e where
+    qualIdentifier :: e -> Maybe CI.QualIdent
+
+instance HasQualIdentifier (CS.Expression a) where
+    qualIdentifier e = case e of
         CS.Variable _ _ ident    -> Just ident
         CS.Constructor _ _ ident -> Just ident
         CS.Record _ _ ident _    -> Just ident
         _                        -> Nothing
 
-instance HasQualIdent (CS.Pattern a) where
-    qualIdent e = case e of
+instance HasQualIdentifier (CS.Pattern a) where
+    qualIdentifier e = case e of
         CS.ConstructorPattern _ _ ident _ -> Just ident
         CS.InfixPattern _ _ _ ident _     -> Just ident
         CS.RecordPattern _ _ ident _      -> Just ident
         CS.FunctionPattern _ _ ident _    -> Just ident
         _                                 -> Nothing
+
+class HasIdentifier e where
+    identifier :: e -> Maybe CI.Ident
+
+instance HasIdentifier (CS.Decl a) where
+    identifier decl = case decl of
+        CS.DataDecl _ ident _ _ _     -> Just ident
+        CS.ExternalDataDecl _ ident _ -> Just ident
+        CS.NewtypeDecl _ ident _ _ _  -> Just ident
+        CS.TypeDecl _ ident _ _       -> Just ident
+        CS.FunctionDecl _ _ ident _   -> Just ident
+        CS.ClassDecl _ _ ident _ _    -> Just ident -- TOOD: Has another arg in newer curry-base versions
+        _                             -> Nothing

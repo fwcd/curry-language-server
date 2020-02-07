@@ -14,7 +14,7 @@ import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, mapSnd)
+import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
 import Data.Default
 import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core

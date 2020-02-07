@@ -6,10 +6,9 @@ module Curry.LanguageServer.Utils.General (
     maybeCons,
     walkFiles,
     liftMaybe,
-    slipr3,
-    slipr4,
-    mapFst,
-    mapSnd
+    slipr3, slipr4,
+    (<.$>), (<$.>),
+    joinFst, joinSnd
 ) where
 
 import Control.Monad (join)
@@ -71,9 +70,21 @@ slipr4 :: (a -> b -> c -> d -> e) -> b -> c -> d -> a -> e
 slipr4 f y z w x = f x y z w
 
 -- | Maps over the first element of a tuple.
-mapFst :: (a -> c) -> [(a, b)] -> [(c, b)]
-mapFst f = map $ \(x, y) -> (f x, y)
+(<.$>) :: Functor f => (a -> c) -> f (a, b) -> f (c, b)
+(<.$>) f = fmap $ \(x, y) -> (f x, y)
 
 -- | Maps over the second element of a tuple.
-mapSnd :: (b -> c) -> [(a, b)] -> [(a, c)]
-mapSnd f = map $ \(x, y) -> (x, f y)
+(<$.>) :: Functor f => (b -> c) -> f (a, b) -> f (a, c)
+(<$.>) f = fmap $ \(x, y) -> (x, f y)
+
+joinFst :: Monad m => m (m a, b) -> m (a, b)
+joinFst m = do
+    (mx, y) <- m
+    x <- mx
+    return (x, y)
+
+joinSnd :: Monad m => m (a, m b) -> m (a, b)
+joinSnd m = do
+    (x, my) <- m
+    y <- my
+    return (x, y)
