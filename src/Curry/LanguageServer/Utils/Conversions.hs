@@ -63,8 +63,8 @@ currySpan2Range :: CSP.Span -> Maybe J.Range
 currySpan2Range CSP.NoSpan = Nothing
 currySpan2Range CSP.Span {..} = do
     s <- curryPos2Pos start
-    e <- curryPos2Pos end
-    return $ J.Range s e
+    J.Position el ec <- curryPos2Pos end
+    return $ J.Range s $ J.Position el (ec + 1)
 
 currySpan2Location :: CSP.Span -> Maybe J.Location
 currySpan2Location CSP.NoSpan = Nothing
