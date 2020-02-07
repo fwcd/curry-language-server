@@ -6,7 +6,7 @@ module Curry.LanguageServer.IndexStore (
     storedCount,
     storedEntry,
     storedEntries,
-    compileWorkspace,
+    compileDirRecursively,
     recompileEntry,
     getCount,
     getEntry,
@@ -59,9 +59,9 @@ storedEntry = M.lookup
 storedEntries :: IndexStore -> [(J.NormalizedUri, IndexStoreEntry)]
 storedEntries = M.toList
 
--- | Compiles the entire workspace under the given directory into the store.
-compileWorkspace :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
-compileWorkspace dirPath = void $ runMaybeT $ do
+-- | Compiles the given directory recursively and stores its entries.
+compileDirRecursively :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
+compileDirRecursively dirPath = void $ runMaybeT $ do
     files <- liftIO $ filter ((== ".curry") . takeExtension) <$> walkFiles dirPath
     sequence $ recompileEntry <$> J.toNormalizedUri <$> J.filePathToUri <$> files
 

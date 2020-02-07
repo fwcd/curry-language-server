@@ -14,7 +14,7 @@ import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
+import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, mapSnd)
 import Data.Default
 import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
@@ -49,7 +49,7 @@ reactor lf rin = do
                 liftIO $ setupLogging (Core.sendFunc lf) logLevel
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
-                lift $ sequence $ I.compileWorkspace <$> folders
+                sequence $ addDirToIndexStore <$> folders
                 count <- lift $ I.getCount
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
@@ -94,13 +94,22 @@ reactor lf rin = do
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
 
+-- | Indexes a folder recursively.
+addDirToIndexStore :: FilePath -> RM ()
+addDirToIndexStore dirPath = do
+    I.compileDirRecursively dirPath
+    entries <- I.getEntries
+    void $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
+    where withUriEntry2Diags :: (J.NormalizedUri, I.IndexStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
+          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
+
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: J.Uri -> RM ()
 updateIndexStore uri = do
     lift $ I.recompileEntry normUri
     entry <- I.getEntry normUri
     diags <- liftIO $ fetchDiagnostics entry
-    sendDiagnostics 100 uri version $ partitionBySource diags
+    sendDiagnostics normUri diags
     where normUri = J.toNormalizedUri uri
           version = Just 0
 
@@ -120,7 +129,9 @@ send msg = do
     liftIO $ Core.sendFunc lf msg
 
 -- | Publishes diagnostic messages in the given source file to the client.
-sendDiagnostics :: Int -> J.Uri -> J.TextDocumentVersion -> DiagnosticsBySource -> RM ()
-sendDiagnostics maxToPublish uri v diags = do
+sendDiagnostics :: J.NormalizedUri -> [J.Diagnostic] -> RM ()
+sendDiagnostics uri diags = do
     lf <- ask
-    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish (J.toNormalizedUri uri) v diags
+    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri version $ partitionBySource diags
+    where version = Just 0
+          maxToPublish = 100

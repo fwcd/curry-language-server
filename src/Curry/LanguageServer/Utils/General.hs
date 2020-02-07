@@ -7,7 +7,9 @@ module Curry.LanguageServer.Utils.General (
     walkFiles,
     liftMaybe,
     slipr3,
-    slipr4
+    slipr4,
+    mapFst,
+    mapSnd
 ) where
 
 import Control.Monad (join)
@@ -67,3 +69,11 @@ slipr3 f y z x = f x y z
 -- | Moves the first parameter to the end.
 slipr4 :: (a -> b -> c -> d -> e) -> b -> c -> d -> a -> e
 slipr4 f y z w x = f x y z w
+
+-- | Maps over the first element of a tuple.
+mapFst :: (a -> c) -> [(a, b)] -> [(c, b)]
+mapFst f = map $ \(x, y) -> (f x, y)
+
+-- | Maps over the second element of a tuple.
+mapSnd :: (b -> c) -> [(a, b)] -> [(a, c)]
+mapSnd f = map $ \(x, y) -> (x, f y)
