@@ -59,8 +59,6 @@ reactor lf rin = do
             
             HandlerRequest (NotDidOpenTextDocument notification) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
-                let uri = notification ^. J.params . J.textDocument . J.uri
-                updateIndexStore uri
             
             -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
