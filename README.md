@@ -7,5 +7,17 @@ An experimental [language server](https://microsoft.github.io/language-server-pr
 
 ![Screenshot](images/screenshot.png)
 
+## Building
+To build the language server, you will need the build tool [Haskell Stack](https://docs.haskellstack.org). Once installed, just run:
+
+`stack build`
+
+The final executable will be located in `[path to dist dir]/build/curry-language-server-exe` where the distribution directory can be found using `stack path --dist-dir`.
+
+## Editor Integration
+To use the language server, you will need an editor that supports LSP. This usually involves pointing the LSP client towards the built executable and setting the transport method to `stdio`.
+
+For Visual Studio Code, [this extension](https://github.com/fwcd/vscode-curry-ide) can be used.
+
 ## Known Issues
 If the language server has trouble locating an interface for the `Prelude`, you may have to place a compiled version (`Prelude.fcy`, `Prelude.fint`, `Prelude.icurry`) in the folder `[your project path]/.curry`.
