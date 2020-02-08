@@ -46,16 +46,24 @@ type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 -- warning messages.
 compileCurryFileWithDeps :: [FilePath] -> FilePath -> FilePath -> IO CompilationResult
 compileCurryFileWithDeps importPaths outDirPath filePath = runCYIO $ do
+    let cppOpts = CO.optCppOpts CO.defaultOptions
+        cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
+        opts = CO.defaultOptions { CO.optForce = True,
+                                   CO.optImportPaths = importPaths,
+                                   CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
-    deps <- ((maybeToList . depToFilePath) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd <$> deps)
+    deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
+    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
+    -- Process pragmas
+    let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> compileCurryModules opts outDirPath deps
-    where cppOpts = CO.optCppOpts CO.defaultOptions
-          cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-          opts = CO.defaultOptions { CO.optForce = True,
-                                     CO.optImportPaths = importPaths,
-                                     CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
+    toCompilationOutput <$> (compileCurryModules opts' outDirPath $ tripleToPair <$> deps)
+    where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
+          processPragmas o ps = foldl processExtensionPragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
+          processExtensionPragma :: CO.Options -> CS.KnownExtension -> CO.Options
+          processExtensionPragma o e = case e of
+              CS.CPP -> o { CO.optCppOpts = (CO.optCppOpts o) { CO.cppRun = True } }
+              _      -> o
 
 -- | Compiles the given list of modules in order.
 compileCurryModules :: CO.Options -> FilePath -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
@@ -91,9 +99,9 @@ parseInterface fp = do
 compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
 
-depToFilePath :: (CI.ModuleIdent, CD.Source) -> Maybe (CI.ModuleIdent, FilePath)
-depToFilePath (m, (CD.Source fp _ _)) = Just (m, fp)
-depToFilePath _ = Nothing
+expandDep :: (CI.ModuleIdent, CD.Source) -> Maybe (CI.ModuleIdent, FilePath, [CS.ModulePragma])
+expandDep (m, (CD.Source fp prags _)) = Just (m, fp, prags)
+expandDep _ = Nothing
 
 depMatches :: FilePath -> CD.Source -> Bool
 depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2

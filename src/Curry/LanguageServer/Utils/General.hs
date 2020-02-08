@@ -12,7 +12,9 @@ module Curry.LanguageServer.Utils.General (
     removeSingle,
     expectJust,
     insertAll,
-    groupIntoMapBy
+    groupIntoMapBy,
+    fst3, snd3, thd3,
+    tripleToPair
 ) where
 
 import Control.Monad (join)
@@ -112,3 +114,15 @@ insertAll ((k, v):kvs) = insertAll kvs . M.insert k v
 -- | Groups by key into a map.
 groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
 groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty
+
+fst3 :: (a, b, c) -> a
+fst3 (x, y, z) = x
+
+snd3 :: (a, b, c) -> b
+snd3 (x, y, z) = y
+
+thd3 :: (a, b, c) -> c
+thd3 (x, y, z) = z
+
+tripleToPair :: (a, b, c) -> (a, b)
+tripleToPair (x, y, z) = (x, y)
