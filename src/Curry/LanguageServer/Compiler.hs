@@ -25,6 +25,7 @@ import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
+import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
@@ -44,12 +45,13 @@ type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps importPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps :: CFG.Config -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
+compileCurryFileWithDeps cfg importPaths outDirPath filePath = runCYIO $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = True,
-                                   CO.optImportPaths = importPaths,
+        opts = CO.defaultOptions { CO.optForce = CFG.forceRecompilation cfg,
+                                   CO.optImportPaths = importPaths ++ CFG.importPaths cfg,
+                                   CO.optLibraryPaths = CFG.libraryPaths cfg,
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath

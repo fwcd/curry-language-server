@@ -5,18 +5,21 @@ import Data.Aeson
 import Data.Default
 import System.FilePath
 
-data Config = Config { importPaths :: [FilePath], libraryPaths :: [FilePath] }
+data Config = Config { forceRecompilation :: Bool,
+                       importPaths :: [FilePath],
+                       libraryPaths :: [FilePath] }
     deriving (Show, Eq)
 
 instance Default Config where
-    def = Config { importPaths = [], libraryPaths = [] }
+    def = Config { forceRecompilation = False, importPaths = [], libraryPaths = [] }
 
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \o -> do
         c <- o .: "curry"
         l <- c .: "languageServer"
-        importPaths <- l .:? "importPaths" .!= def
-        libraryPaths <- l .:? "libraryPaths" .!= def
+        forceRecompilation <- l .:? "forceRecompilation" .!= False
+        importPaths <- l .:? "importPaths" .!= []
+        libraryPaths <- l .:? "libraryPaths" .!= []
         return Config {..}
 
 instance ToJSON Config where
