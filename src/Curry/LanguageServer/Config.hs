@@ -12,13 +12,16 @@ instance Default Config where
     def = Config { importPaths = [], libraryPaths = [] }
 
 instance FromJSON Config where
-    parseJSON = withObject "Config.curry.languageServer" $ \c -> Config
-        <$> c .:? "importPaths" .!= importPaths def
-        <*> c .:? "libraryPaths" .!= libraryPaths def
+    parseJSON = withObject "Config" $ \o -> do
+        c <- o .: "curry"
+        l <- c .: "languageServer"
+        importPaths <- l .:? "importPaths" .!= def
+        libraryPaths <- l .:? "libraryPaths" .!= def
+        return Config {..}
 
 instance ToJSON Config where
-    toJSON Config {..} = object ["curry.languageServer" .= object [
+    toJSON Config {..} = object ["curry" .= object [ "languageServer" .= object [
             "importPaths" .= importPaths,
             "libraryPaths" .= libraryPaths
-        ]]
+        ]]]
         
