@@ -21,6 +21,8 @@ import qualified Language.Haskell.LSP.Types as J
 import System.Exit
 import qualified System.Log.Logger as L
 
+import System.IO.Unsafe
+
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 
 main :: IO ()
@@ -36,8 +38,8 @@ runLanguageServer = flip E.catches exceptHandlers $ do
         initializeCallbacks = Core.InitializeCallbacks { Core.onInitialConfiguration = resultToEither . extractInitialConfig,
                                                          Core.onConfigurationChange = resultToEither . extractChangedConfig,
                                                          Core.onStartup = onStartup }
-        -- sessionLogFile = Just ".curry/language-server-session.log"
-        sessionLogFile = Nothing
+        sessionLogFile = Just ".curry/.language-server/session.log"
+        -- sessionLogFile = Nothing
     
     removeAllLogHandlers
     flip E.finally removeAllLogHandlers $ do
@@ -47,7 +49,10 @@ runLanguageServer = flip E.catches exceptHandlers $ do
           ioExcept (e :: E.IOException) = print e >> return 1
           someExcept (e :: E.SomeException) = print e >> return 1
           extractInitialConfig :: J.InitializeRequest -> A.Result Config
-          extractInitialConfig (J.RequestMessage _ _ _ p) = maybe (A.Success def) A.fromJSON $ J._initializationOptions p
+          extractInitialConfig (J.RequestMessage _ _ _ p) = unsafePerformIO $ do
+              let result = maybe (A.Success def) A.fromJSON $ J._initializationOptions p
+              logs INFO $ "Initial config: " ++ show result
+              return result
           extractChangedConfig :: J.DidChangeConfigurationNotification -> A.Result Config
           extractChangedConfig (J.NotificationMessage _ _ (J.DidChangeConfigurationParams p)) = A.fromJSON p
           resultToEither :: A.Result a -> Either T.Text a

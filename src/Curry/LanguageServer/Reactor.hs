@@ -52,13 +52,15 @@ reactor lf rin = do
                 sequence $ addDirToIndexStore <$> folders
                 count <- lift $ I.getCount
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
-                config <- liftMaybe =<< (liftIO $ Core.config lf)
-                liftIO $ logs INFO $ "reactor: Configuration: " ++ show config
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             HandlerRequest (RspFromClient rsp) -> do
                 liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
             
+            HandlerRequest (NotDidChangeConfiguration notification) -> do
+                config <- liftMaybe =<< (liftIO $ Core.config lf)
+                liftIO $ logs INFO $ "reactor: Changed configuration: " ++ show config
+
             HandlerRequest (NotDidOpenTextDocument notification) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri

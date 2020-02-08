@@ -15,6 +15,7 @@ import qualified Language.Haskell.LSP.Utility as U
 lspHandlers :: TChan ReactorInput -> Core.Handlers
 lspHandlers rin = def { -- Notifications from the client
                         Core.initializedHandler = Just $ passHandler rin NotInitialized,
+                        Core.didChangeConfigurationParamsHandler = Just $ passHandler rin NotDidChangeConfiguration,
                         Core.didOpenTextDocumentNotificationHandler = Just $ passHandler rin NotDidOpenTextDocument,
                         Core.didSaveTextDocumentNotificationHandler = Just $ passHandler rin NotDidSaveTextDocument,
                         Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin NotDidChangeTextDocument,
