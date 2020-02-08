@@ -16,6 +16,7 @@ module Curry.LanguageServer.IndexStore (
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Message as CM
+import qualified Curry.Files.Filenames as CF
 import qualified Curry.Syntax as CS
 import qualified CompilerEnv as CE
 
@@ -69,27 +70,25 @@ storedEntries = M.toList
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => FilePath -> m ()
 addWorkspaceDir dirPath = void $ runMaybeT $ do
     files <- liftIO $ walkCurrySourceFiles dirPath
-    sequence $ uncurry (recompileFile $ Just dirPath) <$> removeSingle files
+    sequence $ recompileFile (Just dirPath) <$> files
 
 -- | Recompiles the entry with the given URI and stores the output.
 recompileEntry :: (MonadState IndexStore m, MonadIO m) => J.NormalizedUri -> m ()
 recompileEntry uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
-    importPaths <- lift $ fmap (join . maybeToList) $ runMaybeT $ do
-        dirPath <- (liftMaybe . workspaceDir) =<< getEntry uri
-        files <- liftIO $ walkCurrySourceFiles dirPath
-        return $ delete filePath files
-    recompileFile Nothing importPaths filePath
+    recompileFile Nothing filePath
 
 -- | Finds all Curry source files in a directory.
 walkCurrySourceFiles :: FilePath -> IO [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m) => Maybe FilePath -> [FilePath] -> FilePath -> m ()
-recompileFile dirPath importPaths filePath = void $ do
-    liftIO $ logs INFO $ "(Re-)compiling file " ++ takeFileName filePath ++ " with import path " ++ show importPaths
-    result <- liftIO $ C.compileCurry importPaths filePath -- TODO: Use proper import path
+recompileFile :: (MonadState IndexStore m, MonadIO m) => Maybe FilePath -> FilePath -> m ()
+recompileFile dirPath filePath = void $ do
+    liftIO $ logs INFO $ "(Re-)compiling file " ++ takeFileName filePath
+    let outDirPath = CF.currySubdir </> ".language-server"
+        importPaths = [outDirPath]
+    result <- liftIO $ C.compileCurryFileWithDeps importPaths outDirPath filePath
     
     m <- get
     let uri = J.toNormalizedUri $ J.filePathToUri filePath

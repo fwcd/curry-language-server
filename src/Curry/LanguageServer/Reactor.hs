@@ -6,7 +6,6 @@ import Control.Monad
 import Control.Monad.RWS
 import Control.Monad.STM
 import Control.Monad.Trans.Maybe
-import Curry.LanguageServer.Compiler
 import qualified Curry.LanguageServer.Config as C
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Features.Definition
@@ -120,15 +119,6 @@ updateIndexStore uri = do
     sendDiagnostics normUri diags
     where normUri = J.toNormalizedUri uri
           version = Just 0
-
--- | Compiles a curry source file (inside the reactor monad).
-compileCurryFromUri :: J.Uri -> RM CompilationResult
-compileCurryFromUri uri = do
-    lf <- ask
-    cfg <- maybe def Prelude.id <$> (liftIO $ Core.config lf)
-    liftIO $ maybe failed (compileCurry $ C.importPaths cfg) optFilePath
-    where optFilePath = J.uriToFilePath uri
-          failed = return $ failedCompilation "Language Server: Cannot construct file path from URI"
 
 -- | Sends an LSP message to the client.
 send :: FromServerMessage -> RM ()

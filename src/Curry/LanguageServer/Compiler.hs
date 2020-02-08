@@ -1,23 +1,27 @@
 module Curry.LanguageServer.Compiler (
     CompilationOutput (..),
     CompilationResult,
-    compileCurry,
+    compileCurryFileWithDeps,
     parseInterface,
     compilationToMaybe,
     failedCompilation
 ) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Files.Filenames as CFN
 import qualified Curry.Files.PathUtils as CF
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Message as CM
 import Curry.Base.Monad (CYIO, runCYIO, runCYM, failMessages)
 import qualified Curry.Base.Position as CP
 import qualified Curry.Syntax as CS
+import qualified Checks as CC
 import qualified CurryDeps as CD
 import qualified CompilerEnv as CE
 import qualified CompilerOpts as CO
+import qualified Exports as CEX
 import Modules (loadAndCheckModule)
+import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
@@ -35,15 +39,18 @@ data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, modu
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 
 -- | Compiles a Curry source file with it's dependencies
--- using the given import paths. If compilation fails the
+-- using the given import paths and the given output directory
+-- (in which the interface file will be placed). If compilation fails the
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurry :: [FilePath] -> FilePath -> IO CompilationResult
-compileCurry importPaths filePath = runCYIO $ do
+compileCurryFileWithDeps :: [FilePath] -> FilePath -> FilePath -> IO CompilationResult
+compileCurryFileWithDeps importPaths outDirPath filePath = runCYIO $ do
+    -- Resolve dependencies
     deps <- ((maybeToList . depToFilePath) =<<) <$> CD.flatDeps opts filePath
     liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd <$> deps)
-    toCompilationOutput <$> loadAndCheckModules opts deps
+    -- Compile the module and its dependencies in topological order
+    toCompilationOutput <$> compileCurryModules opts outDirPath deps
     where cppOpts = CO.optCppOpts CO.defaultOptions
           cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
           opts = CO.defaultOptions { CO.optForce = True,
@@ -51,17 +58,29 @@ compileCurry importPaths filePath = runCYIO $ do
                                      CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
 
 -- | Compiles the given list of modules in order.
-loadAndCheckModules :: CO.Options -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
-loadAndCheckModules opts deps = case deps of
+compileCurryModules :: CO.Options -> FilePath -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+compileCurryModules opts outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
-    [(m, fp)] -> do
-        liftIO $ logs INFO $ "Loading module " ++ takeFileName fp
-        (\ast -> [(fp, ast)]) <$.> loadAndCheckModule opts m fp
+    [(m, fp)] -> (\ast -> [(fp, ast)]) <$.> compileCurryModule opts outDirPath m fp
     ((m, fp):ds) -> do
-        liftIO $ logs INFO $ "Loading modules " ++ takeFileName fp ++ ", ..."
-        (_, ast) <- loadAndCheckModule opts m fp
-        (env, asts) <- loadAndCheckModules opts ds
+        (_, ast) <- compileCurryModule opts outDirPath m fp
+        (env, asts) <- compileCurryModules opts outDirPath ds
         return (env, ((fp, ast) : asts))
+
+-- | Compiles a single module.
+compileCurryModule :: CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+compileCurryModule opts outDirPath m fp = do
+    liftIO $ logs INFO $ "Compiling module " ++ takeFileName fp
+    -- Parse and check the module
+    mdl <- loadAndCheckModule opts m fp
+    -- Generate and store an on-disk interface file
+    mdl' <- CC.expandExports opts mdl
+    let interf = uncurry CEX.exportInterface $ CT.qual mdl'
+        interfFilePath = outDirPath </> (CFN.interfName $ CFN.moduleNameToFile m)
+        generated = PP.render $ CS.ppInterface interf -- TODO: Use CS.pPrint in newer curry-base
+    liftIO $ logs INFO $ "Writing interface file to " ++ interfFilePath
+    liftIO $ CF.writeModule interfFilePath generated 
+    return mdl
 
 parseInterface :: FilePath -> IO (Maybe CS.Interface)
 parseInterface fp = do
