@@ -53,7 +53,7 @@ compileCurryFileWithDeps importPaths outDirPath filePath = runCYIO $ do
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ logs INFO $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
+    liftIO $ logs DEBUG $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
@@ -86,7 +86,7 @@ compileCurryModule opts outDirPath m fp = do
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
         interfFilePath = outDirPath </> (CFN.interfName $ CFN.moduleNameToFile m)
         generated = PP.render $ CS.ppInterface interf -- TODO: Use CS.pPrint in newer curry-base
-    liftIO $ logs INFO $ "Writing interface file to " ++ interfFilePath
+    liftIO $ logs DEBUG $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl
 
