@@ -43,9 +43,8 @@ reactor lf rin = do
     logs DEBUG "reactor: entered"
     
     void $ slipr3 runRWST lf I.emptyStore $ forever $ do
-        liftIO $ logs INFO "Reading request"
+        liftIO $ logs DEBUG "Reading request"
         hreq <- liftIO $ atomically $ readTChan rin
-        liftIO $ logs INFO "Handling request"
 
         case hreq of
             HandlerRequest (NotInitialized _) -> do
@@ -121,8 +120,6 @@ reactor lf rin = do
 
             HandlerRequest req -> do
                 liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
-
-        liftIO $ logs INFO "Handled request"
 
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: FilePath -> MaybeRM ()

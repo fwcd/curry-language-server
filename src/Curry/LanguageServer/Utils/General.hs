@@ -13,12 +13,14 @@ module Curry.LanguageServer.Utils.General (
     expectJust,
     insertAll,
     groupIntoMapBy,
+    groupIntoMapByM,
     fst3, snd3, thd3,
     tripleToPair
 ) where
 
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
+import Data.Foldable (foldrM)
 import qualified Data.Map as M
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
@@ -114,6 +116,10 @@ insertAll ((k, v):kvs) = insertAll kvs . M.insert k v
 -- | Groups by key into a map.
 groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
 groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty
+
+-- | Groups by key into a map monadically.
+groupIntoMapByM :: (Ord k, Monad m) => (a -> m k) -> [a] -> m (M.Map k [a])
+groupIntoMapByM f = foldrM (\x m -> (\y -> M.insertWith (++) y [x] m) <$> f x) M.empty
 
 fst3 :: (a, b, c) -> a
 fst3 (x, y, z) = x

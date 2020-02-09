@@ -110,6 +110,7 @@ recompileFile cfg dirPath filePath = void $ do
         Left errs -> modify $ M.insert uri
                             $ (previous uri) { errorMessages = errs, warningMessages = [] }
         Right (o, warns) -> do liftIO $ logs INFO $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
+                               ws <- liftIO $ groupIntoMapByM msgNormUri warns
                                delta <- liftIO
                                             $ sequence
                                             $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
@@ -121,7 +122,9 @@ recompileFile cfg dirPath filePath = void $ do
                                put $ insertAll delta m
             where env = C.compilerEnv o
                   asts = C.moduleASTs o
-                  ws = groupIntoMapBy ((J.toNormalizedUri <$>) . (curryPos2Uri =<<) . CM.msgPos) warns
+                  msgNormUri msg = runMaybeT $ do
+                      uri <- liftMaybe $ curryPos2Uri =<< CM.msgPos msg
+                      liftIO $ normalizeUriWithPath uri
 
 -- | Fetches the number of entries in the store in a monadic way.
 getCount :: (MonadState IndexStore m) => m Int
