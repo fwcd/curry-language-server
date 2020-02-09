@@ -6,7 +6,7 @@ import qualified Curry.Base.SpanInfo as CSPI
 import qualified Base.TopEnv as CT
 
 import Control.Applicative ((<|>))
-import Control.Monad.Trans (liftIO)
+import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.IndexStore
 import Curry.LanguageServer.Logging
@@ -28,6 +28,7 @@ fetchDefinitions store entry pos = do
 definition :: IndexStore -> J.Position -> LM J.Location
 definition store pos = do
     (qident, spi) <- findAtPos pos
-    qident' <- CT.origName <$> lookupValueInfo qident
-    let ident' = CI.qidIdent qident'
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo ident')
+    qident' <- lift $ runMaybeT $ CT.origName <$> lookupValueInfo qident
+    let ident  = CI.qidIdent  $  qident
+        ident' = CI.qidIdent <$> qident'
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ maybe ident id ident')
