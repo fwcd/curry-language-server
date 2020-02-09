@@ -22,7 +22,7 @@ fetchDefinitions store entry pos = do
     defs <- runMaybeT $ do ast <- liftMaybe $ moduleAST entry
                            env <- liftMaybe $ compilerEnv entry
                            MaybeT $ runLM (definition store pos) env ast
-    liftIO $ logs INFO $ "fetchDefinitions: Found " ++ show defs
+    logs INFO $ "fetchDefinitions: Found " ++ show defs
     return $ maybeToList defs
 
 definition :: IndexStore -> J.Position -> LM J.Location

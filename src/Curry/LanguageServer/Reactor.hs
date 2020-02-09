@@ -8,6 +8,7 @@ import Control.Monad.STM
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.IndexStore as I
+import Curry.LanguageServer.Features.Completion
 import Curry.LanguageServer.Features.Definition
 import Curry.LanguageServer.Features.Diagnostics
 import Curry.LanguageServer.Features.DocumentSymbols
@@ -75,7 +76,21 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore uri) :: RM ()
-                
+            
+            HandlerRequest (ReqCompletion req) -> do
+                liftIO $ logs DEBUG $ "reactor: Processing completion request"
+                let uri = req ^. J.params . J.textDocument . J.uri
+                    pos = req ^. J.params . J.position
+                normUri <- liftIO $ normalizeUriWithPath uri
+                completions <- fmap (join . maybeToList) $ runMaybeT $ do
+                    entry <- I.getEntry normUri
+                    liftIO $ fetchCompletions entry pos
+                let maxCompletions = 25
+                    items = take maxCompletions completions
+                    incomplete = length completions > maxCompletions
+                    result = J.CompletionList $ J.CompletionListType incomplete $ J.List items
+                send $ RspCompletion $ Core.makeResponseMessage req result
+
             HandlerRequest (ReqHover req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri

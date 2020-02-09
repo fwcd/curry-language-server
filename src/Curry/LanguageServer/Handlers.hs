@@ -24,6 +24,7 @@ lspHandlers rin = def { -- Notifications from the client
                         -- Requests from the client
                         Core.renameHandler = Just $ passHandler rin ReqRename,
                         Core.hoverHandler = Just $ passHandler rin ReqHover,
+                        Core.completionHandler = Just $ passHandler rin ReqCompletion,
                         Core.definitionHandler = Just $ passHandler rin ReqDefinition,
                         Core.documentSymbolHandler = Just $ passHandler rin ReqDocumentSymbols,
                         Core.workspaceSymbolHandler = Just $ passHandler rin ReqWorkspaceSymbols,
