@@ -29,7 +29,7 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 
 -- | The input to the reactor.
-newtype ReactorInput = HandlerRequest FromClientMessage
+type ReactorInput = FromClientMessage
 
 -- | The reactor monad holding a readable environment of LSP functions (with config)
 -- and a state containing the index store.
@@ -48,7 +48,7 @@ reactor lf rin = do
         hreq <- liftIO $ atomically $ readTChan rin
 
         case hreq of
-            HandlerRequest (NotInitialized _) -> do
+            NotInitialized _ -> do
                 let logLevel = INFO
                 liftIO $ setupLogging (Core.sendFunc lf) logLevel
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
@@ -58,26 +58,26 @@ reactor lf rin = do
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
-            HandlerRequest (RspFromClient rsp) -> do
+            RspFromClient rsp -> do
                 liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
             
-            HandlerRequest (NotDidChangeConfiguration notification) -> void $ runMaybeT $ do
+            NotDidChangeConfiguration notification -> void $ runMaybeT $ do
                 cfg <- getConfig
                 liftIO $ logs INFO $ "reactor: Changed configuration: " ++ show cfg
 
-            HandlerRequest (NotDidOpenTextDocument notification) -> do
+            NotDidOpenTextDocument notification -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore uri
             
             -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
-            HandlerRequest (NotDidSaveTextDocument notification) -> (do
+            NotDidSaveTextDocument notification -> (do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore uri) :: RM ()
             
-            HandlerRequest (ReqCompletion req) -> do
+            ReqCompletion req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing completion request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
@@ -91,13 +91,13 @@ reactor lf rin = do
                     result = J.CompletionList $ J.CompletionListType incomplete $ J.List items
                 send $ RspCompletion $ Core.makeResponseMessage req result
             
-            HandlerRequest (ReqCompletionItemResolve req) -> do
+            ReqCompletionItemResolve req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing completion item resolve request"
                 let item = req ^. J.params
                 -- TODO
                 send $ RspCompletionItemResolve $ Core.makeResponseMessage req item
 
-            HandlerRequest (ReqHover req) -> do
+            ReqHover req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
@@ -108,7 +108,7 @@ reactor lf rin = do
                     liftMaybe =<< (liftIO $ fetchHover entry pos)
                 send $ RspHover $ Core.makeResponseMessage req hover
             
-            HandlerRequest (ReqDefinition req) -> do
+            ReqDefinition req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing definition request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
@@ -122,7 +122,7 @@ reactor lf rin = do
                                                                                    Just ds  -> J.MultiLoc ds
                                                                                    Nothing  -> J.MultiLoc []
 
-            HandlerRequest (ReqDocumentSymbols req) -> do
+            ReqDocumentSymbols req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                 normUri <- liftIO $ normalizeUriWithPath uri
@@ -132,15 +132,15 @@ reactor lf rin = do
                     liftIO $ fetchDocumentSymbols entry
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req $ maybe (J.DSDocumentSymbols $ J.List []) id symbols
             
-            HandlerRequest (ReqWorkspaceSymbols req) -> do
+            ReqWorkspaceSymbols req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
                 store <- get
                 symbols <- liftIO $ fetchWorkspaceSymbols query store
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
 
-            HandlerRequest req -> do
-                liftIO $ logs DEBUG $ "reactor: Other HandlerRequest: " ++ show req
+            req -> do
+                liftIO $ logs NOTICE $ "reactor: Got unrecognized request: " ++ show req
 
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: FilePath -> MaybeRM ()

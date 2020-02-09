@@ -35,7 +35,7 @@ lspHandlers rin = def { -- Notifications from the client
                         Core.responseHandler = Just $ responseHandlerCb rin }
 
 passHandler :: TChan ReactorInput -> (a -> FromClientMessage) -> Core.Handler a
-passHandler rin c notification = atomically $ writeTChan rin $ HandlerRequest $ c notification
+passHandler rin c notification = atomically $ writeTChan rin $ c notification
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
 responseHandlerCb _rin response = logs NOTICE $ "*** Got ResponseMessage, ignoring: " ++ show response
