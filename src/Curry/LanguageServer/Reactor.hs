@@ -90,6 +90,12 @@ reactor lf rin = do
                     incomplete = length completions > maxCompletions
                     result = J.CompletionList $ J.CompletionListType incomplete $ J.List items
                 send $ RspCompletion $ Core.makeResponseMessage req result
+            
+            HandlerRequest (ReqCompletionItemResolve req) -> do
+                liftIO $ logs DEBUG $ "reactor: Processing completion item resolve request"
+                let item = req ^. J.params
+                -- TODO
+                send $ RspCompletionItemResolve $ Core.makeResponseMessage req item
 
             HandlerRequest (ReqHover req) -> do
                 liftIO $ logs DEBUG $ "reactor: Processing hover request"
