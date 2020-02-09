@@ -3,7 +3,8 @@ module Curry.LanguageServer.Utils.Uri (
     filePathToUri,
     uriToFilePath,
     filePathToNormalizedUri,
-    normalizedUriToFilePath
+    normalizedUriToFilePath,
+    normalizeUriWithPath
 ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -23,3 +24,8 @@ filePathToNormalizedUri = (J.toNormalizedUri <$>) . filePathToUri
 
 normalizedUriToFilePath :: J.NormalizedUri -> Maybe FilePath
 normalizedUriToFilePath = uriToFilePath . J.fromNormalizedUri
+
+-- | Normalizes a URI by converting to a file path and back (thus ensuring
+-- consistent formatting e.g. of drive letters on Windows).
+normalizeUriWithPath :: J.Uri -> IO J.NormalizedUri
+normalizeUriWithPath uri = J.toNormalizedUri <$> (maybe (return uri) id $ filePathToUri <$> uriToFilePath uri)
