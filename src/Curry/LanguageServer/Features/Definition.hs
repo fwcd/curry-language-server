@@ -3,6 +3,7 @@ module Curry.LanguageServer.Features.Definition (fetchDefinitions) where
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Base.TopEnv as CT
 
 import Control.Monad.Trans (liftIO)
 import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))

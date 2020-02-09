@@ -45,5 +45,6 @@ class LookupValueInfo i where
 
 instance LookupValueInfo CI.QualIdent where
     lookupValueInfo ident = do
-        (env, _) <- ask
-        liftMaybe $ listToMaybe $ flip CEV.qualLookupValue (CE.valueEnv env) ident
+        (env, ast) <- ask
+        let mident = moduleIdentifier ast
+        liftMaybe $ listToMaybe $ CEV.qualLookupValueUnique mident ident $ CE.valueEnv env
