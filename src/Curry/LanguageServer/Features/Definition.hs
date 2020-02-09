@@ -29,13 +29,5 @@ definition :: IndexStore -> J.Position -> LM J.Location
 definition store pos = do
     (qident, spi) <- findAtPos pos
     qident' <- CT.origName <$> lookupValueInfo qident
-    
-    let ident = CI.qidIdent qident
-        ident' = CI.qidIdent qident'
-    srcModule <- liftMaybe $ CI.qidModule qident'
-    srcEntry <- liftIO $ storedEntryByModule srcModule store
-    let allSrcDecls = declarations =<< (maybeToList $ moduleAST =<< srcEntry)
-        matches i = ((== CI.idUnique i) . CI.idUnique)
-        origIdent = listToMaybe $ filter (matches ident') $ (maybeToList . identifier) =<< allSrcDecls
-
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ maybe ident id origIdent)
+    let ident' = CI.qidIdent qident'
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo ident')
