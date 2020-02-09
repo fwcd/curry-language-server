@@ -27,7 +27,10 @@ import qualified Curry.Syntax as CS
 import qualified Curry.Syntax.Pretty as CPP
 import qualified Text.PrettyPrint as PP
 
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Uri
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
@@ -50,13 +53,13 @@ curryPos2Pos :: CP.Position -> Maybe J.Position
 curryPos2Pos CP.NoPos = Nothing
 curryPos2Pos CP.Position {..} = Just $ J.Position (line - 1) (column - 1)
 
-curryPos2Uri :: CP.Position -> Maybe J.Uri
-curryPos2Uri CP.NoPos = Nothing
-curryPos2Uri CP.Position {..} = Just $ J.filePathToUri file
+curryPos2Uri :: CP.Position -> MaybeT IO J.Uri
+curryPos2Uri CP.NoPos = liftMaybe Nothing
+curryPos2Uri CP.Position {..} = liftIO $ filePathToUri file
 
-curryPos2Location :: CP.Position -> Maybe J.Location
+curryPos2Location :: CP.Position -> MaybeT IO J.Location
 curryPos2Location cp = do
-    p <- curryPos2Pos cp
+    p <- liftMaybe $ curryPos2Pos cp
     uri <- curryPos2Uri cp
     return $ J.Location uri $ pointRange p
 
@@ -67,27 +70,27 @@ currySpan2Range CSP.Span {..} = do
     J.Position el ec <- curryPos2Pos end
     return $ J.Range s $ J.Position el (ec + 1)
 
-currySpan2Location :: CSP.Span -> Maybe J.Location
-currySpan2Location CSP.NoSpan = Nothing
+currySpan2Location :: CSP.Span -> MaybeT IO J.Location
+currySpan2Location CSP.NoSpan = liftMaybe Nothing
 currySpan2Location span = do
-    range <- currySpan2Range span
+    range <- liftMaybe $ currySpan2Range span
     uri <- curryPos2Uri $ CSP.start span
     return $ J.Location uri range
 
-currySpan2Uri :: CSP.Span -> Maybe J.Uri
-currySpan2Uri CSP.NoSpan = Nothing
+currySpan2Uri :: CSP.Span -> MaybeT IO J.Uri
+currySpan2Uri CSP.NoSpan = liftMaybe Nothing
 currySpan2Uri CSP.Span {..} = curryPos2Uri start
 
 currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
 currySpanInfo2Range CSPI.NoSpanInfo = Nothing
 currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
 
-currySpanInfo2Location :: CSPI.SpanInfo -> Maybe J.Location
-currySpanInfo2Location CSPI.NoSpanInfo = Nothing
+currySpanInfo2Location :: CSPI.SpanInfo -> MaybeT IO J.Location
+currySpanInfo2Location CSPI.NoSpanInfo = liftMaybe Nothing
 currySpanInfo2Location CSPI.SpanInfo {..} = currySpan2Location srcSpan
 
-currySpanInfo2Uri :: CSPI.SpanInfo -> Maybe J.Uri
-currySpanInfo2Uri CSPI.NoSpanInfo = Nothing
+currySpanInfo2Uri :: CSPI.SpanInfo -> MaybeT IO J.Uri
+currySpanInfo2Uri CSPI.NoSpanInfo = liftMaybe Nothing
 currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
 
 ppToText :: CPP.Pretty p => p -> T.Text
@@ -229,19 +232,17 @@ instance HasDocumentSymbols CS.NewConstrDecl where
         where symKind = J.SkEnumMember
 
 class HasWorkspaceSymbols s where
-    workspaceSymbols :: s -> [J.SymbolInformation]
-
-class HasWorkspaceSymbolsWithUri s where
-    workspaceSymbolsWithUri :: J.Uri -> s -> [J.SymbolInformation]
+    workspaceSymbols :: s -> IO [J.SymbolInformation]
 
 instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s where
-    workspaceSymbols s = documentSymbolToInformations =<< documentSymbols s
-        where uri = currySpanInfo2Uri $ CSPI.getSpanInfo s
-              documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
-              documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
-                  where loc = (\u -> J.Location u r) <$> uri
-                        cs' = maybe [] (\(J.List cs'') -> cs'') cs
-                        cis = documentSymbolToInformations =<< cs'
+    workspaceSymbols s = do
+        uri <- runMaybeT $ currySpanInfo2Uri $ CSPI.getSpanInfo s
+        let documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
+            documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
+                where loc = (\u -> J.Location u r) <$> uri
+                      cs' = maybe [] (\(J.List cs'') -> cs'') cs
+                      cis = documentSymbolToInformations =<< cs'
+        return $ documentSymbolToInformations =<< documentSymbols s
 
 -- Language Server Protocol -> Curry Compiler
 

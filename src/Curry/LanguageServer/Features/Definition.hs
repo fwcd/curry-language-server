@@ -38,4 +38,4 @@ definition store pos = do
         matches i = ((== CI.idUnique i) . CI.idUnique)
         origIdent = listToMaybe $ filter (matches ident') $ (maybeToList . identifier) =<< allSrcDecls
 
-    liftMaybe $ currySpanInfo2Location $ CSPI.getSpanInfo $ maybe ident id origIdent
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ maybe ident id origIdent)
