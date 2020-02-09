@@ -5,6 +5,7 @@ module Curry.LanguageServer.IndexStore (
     emptyStore,
     storedCount,
     storedEntry,
+    storedEntryByModule,
     storedEntries,
     addWorkspaceDir,
     recompileEntry,
@@ -15,8 +16,9 @@ module Curry.LanguageServer.IndexStore (
 ) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Message as CM
-import qualified Curry.Files.Filenames as CF
+import qualified Curry.Files.Filenames as CFN
 import qualified Curry.Syntax as CS
 import qualified CompilerEnv as CE
 
@@ -30,6 +32,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
+import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.List (delete)
 import Data.Maybe (maybeToList)
@@ -63,6 +66,12 @@ storedCount = M.size
 storedEntry :: J.NormalizedUri -> IndexStore -> Maybe IndexStoreEntry
 storedEntry = M.lookup
 
+-- | Fetches an entry in the store by module identifier.
+storedEntryByModule :: CI.ModuleIdent -> IndexStore -> IO (Maybe IndexStoreEntry)
+storedEntryByModule mident store = flip storedEntry store <$> uri
+    where filePath = CFN.moduleNameToFile mident <.> "curry"
+          uri = filePathToNormalizedUri filePath
+
 -- | Fetches the entries in the store as a list.
 storedEntries :: IndexStore -> [(J.NormalizedUri, IndexStoreEntry)]
 storedEntries = M.toList
@@ -72,12 +81,14 @@ addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> FilePath ->
 addWorkspaceDir cfg dirPath = void $ runMaybeT $ do
     files <- liftIO $ walkCurrySourceFiles dirPath
     sequence $ recompileFile cfg (Just dirPath) <$> files
+    liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
 -- | Recompiles the entry with the given URI and stores the output.
 recompileEntry :: (MonadState IndexStore m, MonadIO m) => Config -> J.NormalizedUri -> m ()
 recompileEntry cfg uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     recompileFile cfg Nothing filePath
+    liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri
 
 -- | Finds all Curry source files in a directory.
 walkCurrySourceFiles :: FilePath -> IO [FilePath]
@@ -86,25 +97,28 @@ walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Config -> Maybe FilePath -> FilePath -> m ()
 recompileFile cfg dirPath filePath = void $ do
-    liftIO $ logs INFO $ "(Re-)compiling file " ++ takeFileName filePath
-    let outDirPath = CF.currySubdir </> ".language-server"
+    liftIO $ logs INFO $ "indexStore: (Re-)compiling file " ++ takeFileName filePath
+    let outDirPath = CFN.currySubdir </> ".language-server"
         importPaths = [outDirPath]
     result <- liftIO $ C.compileCurryFileWithDeps cfg importPaths outDirPath filePath
     
     m <- get
-    let uri = J.toNormalizedUri $ J.filePathToUri filePath
-        previous :: J.NormalizedUri -> IndexStoreEntry
+    uri <- liftIO $ filePathToNormalizedUri filePath
+    let previous :: J.NormalizedUri -> IndexStoreEntry
         previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) m
     case result of
         Left errs -> modify $ M.insert uri
                             $ (previous uri) { errorMessages = errs, warningMessages = [] }
-        Right (o, warns) -> put $ flip insertAll m
-                                $ (\(fp, ast) -> let u = J.toNormalizedUri $ J.filePathToUri fp
-                                                 in (u, (previous u) { moduleAST = Just ast,
-                                                                       compilerEnv = Just env,
-                                                                       errorMessages = [],
-                                                                       warningMessages = M.findWithDefault [] (Just u) ws }))
-                               <$> asts
+        Right (o, warns) -> do liftIO $ logs INFO $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
+                               delta <- liftIO
+                                            $ sequence
+                                            $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
+                                                                return (u, (previous u) { moduleAST = Just ast,
+                                                                                          compilerEnv = Just env,
+                                                                                          errorMessages = [],
+                                                                                          warningMessages = M.findWithDefault [] (Just u) ws }))
+                                            <$> asts
+                               put $ insertAll delta m
             where env = C.compilerEnv o
                   asts = C.moduleASTs o
                   ws = groupIntoMapBy ((J.toNormalizedUri <$>) . (curryPos2Uri =<<) . CM.msgPos) warns

@@ -21,10 +21,9 @@ import qualified Language.Haskell.LSP.Utility as U
 
 fetchHover :: IndexStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do
-    hover <- liftMaybe $ do
-        ast <- moduleAST entry
-        env <- compilerEnv entry
-        runLM (hoverAt pos) env ast
+    ast <- liftMaybe $ moduleAST entry
+    env <- liftMaybe $ compilerEnv entry
+    hover <- MaybeT $ runLM (hoverAt pos) env ast
     liftIO $ logs INFO $ "fetchHover: Found " ++ show hover
     return hover
 

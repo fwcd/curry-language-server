@@ -16,6 +16,7 @@ import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
 import Data.Default
+import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
@@ -40,7 +41,7 @@ reactor :: Core.LspFuncs CFG.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
     logs DEBUG "reactor: entered"
     
-    void $ slipr3 runRWST lf I.emptyStore $ runMaybeT $ forever $ do
+    void $ slipr3 runRWST lf I.emptyStore $ forever $ runMaybeT $ do
         hreq <- liftIO $ atomically $ readTChan rin
 
         case hreq of
@@ -85,8 +86,9 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing definition request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
+                store <- get
                 entry <- I.getEntry $ J.toNormalizedUri uri
-                defs <- liftIO $ fetchDefinitions entry pos
+                defs <- liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of [d] -> J.SingleLoc d
                                                                                    _   -> J.MultiLoc defs
 

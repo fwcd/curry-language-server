@@ -21,12 +21,12 @@ import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
 
 type LookupEnv = (CE.CompilerEnv, ModuleAST)
-type LM a = MaybeT (Reader LookupEnv) a
+type LM a = MaybeT (ReaderT LookupEnv IO) a
 
 -- | Runs the lookup monad with the given environment and
 -- module identifier.
-runLM :: LM a -> CE.CompilerEnv -> ModuleAST -> Maybe a
-runLM lm = curry $ runReader $ runMaybeT lm
+runLM :: LM a -> CE.CompilerEnv -> ModuleAST -> IO (Maybe a)
+runLM lm = curry $ runReaderT $ runMaybeT lm
 
 -- | Finds identifier and (occurrence) span info at a given position.
 findAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
