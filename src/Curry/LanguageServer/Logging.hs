@@ -51,6 +51,7 @@ setupLogging :: Core.SendFunc -> IO ()
 setupLogging sf = do
     let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.simpleLogFormatter logFormat }
         level = INFO
+    LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
     updateLoggers $ LL.setHandlers [handler] <$> LL.setLevel level
 
 updateLogLevel :: Priority -> IO ()
@@ -58,19 +59,19 @@ updateLogLevel = updateLoggers . LL.setLevel
 
 updateLoggers :: (LL.Logger -> LL.Logger) -> IO ()
 updateLoggers f = void $ sequence $ flip LL.updateGlobalLogger f <$> updatedLoggers
-    where updatedLoggers = [LL.rootLoggerName, logName, LSPConst._LOG_NAME]
+    where updatedLoggers = [logName, LSPConst._LOG_NAME]
 
-parseLogLevel :: String -> Priority
+parseLogLevel :: String -> Maybe Priority
 parseLogLevel s = case toLower <$> s of
-    "debug" -> DEBUG
-    "info" -> INFO
-    "notice" -> NOTICE
-    "warning" -> WARNING
-    "error" -> ERROR
-    "critical" -> CRITICAL
-    "alert" -> ALERT
-    "emergency" -> EMERGENCY
-    _ -> INFO
+    "debug" -> Just DEBUG
+    "info" -> Just INFO
+    "notice" -> Just NOTICE
+    "warning" -> Just WARNING
+    "error" -> Just ERROR
+    "critical" -> Just CRITICAL
+    "alert" -> Just ALERT
+    "emergency" -> Just EMERGENCY
+    _ -> Nothing
 
 removeAllLogHandlers :: IO ()
 removeAllLogHandlers = LL.removeAllHandlers

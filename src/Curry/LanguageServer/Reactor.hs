@@ -63,8 +63,14 @@ reactor lf rin = do
             
             NotDidChangeConfiguration notification -> void $ runMaybeT $ do
                 cfg <- getConfig
-                liftIO $ updateLogLevel $ parseLogLevel $ CFG.logLevel cfg
+                let rawLevel = CFG.logLevel cfg
+                    level = parseLogLevel rawLevel
                 liftIO $ logs INFO $ "reactor: Changed configuration: " ++ show cfg
+                liftIO $ case level of
+                    Just l -> do
+                        updateLogLevel l
+                        logs INFO $ "Updated log level to " ++ rawLevel
+                    Nothing -> logs INFO $ "reactor: Could not parse log level " ++ rawLevel
 
             NotDidOpenTextDocument notification -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
