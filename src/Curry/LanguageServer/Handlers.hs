@@ -29,7 +29,6 @@ lspHandlers rin = def { -- Notifications from the client
                         Core.definitionHandler = Just $ passHandler rin ReqDefinition,
                         Core.documentSymbolHandler = Just $ passHandler rin ReqDocumentSymbols,
                         Core.workspaceSymbolHandler = Just $ passHandler rin ReqWorkspaceSymbols,
-                        Core.executeCommandHandler = Just $ passHandler rin ReqExecuteCommand,
                         -- Responses
                         Core.responseHandler = Just $ responseHandlerCb rin }
 
