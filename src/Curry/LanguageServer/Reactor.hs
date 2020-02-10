@@ -50,8 +50,7 @@ reactor lf rin = do
 
         case hreq of
             NotInitialized _ -> do
-                let logLevel = INFO
-                liftIO $ setupLogging (Core.sendFunc lf) logLevel
+                liftIO $ setupLogging $ Core.sendFunc lf
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
                 runMaybeT $ sequence $ addDirToIndexStore <$> folders
@@ -64,6 +63,7 @@ reactor lf rin = do
             
             NotDidChangeConfiguration notification -> void $ runMaybeT $ do
                 cfg <- getConfig
+                liftIO $ updateLogLevel $ parseLogLevel $ CFG.logLevel cfg
                 liftIO $ logs INFO $ "reactor: Changed configuration: " ++ show cfg
 
             NotDidOpenTextDocument notification -> do
