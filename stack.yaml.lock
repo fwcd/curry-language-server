@@ -26,19 +26,19 @@ packages:
   original:
     hackage: curry-frontend-1.0.4@sha256:4ccaa709cc7ccc837c0e88cf0973681ef0f15b601519505d174e41b363f2804b,4406
 - completed:
-    hackage: haskell-lsp-0.17.0.0@sha256:ddfcc2798f04bcb1ec20fafc02c03faa197322192578e879cef5852aba43ebcb,5264
+    hackage: haskell-lsp-0.18.0.0@sha256:f0e04c740ed1a5520735605eeabb00570e42e786a46f53342f48817ad28f4f36,5264
     pantry-tree:
-      size: 1725
-      sha256: 5b36127a42d8eee41f21893da5259cac9263d9a5be46ad1e31ed1d512bbf7ac4
+      size: 1726
+      sha256: 723c4b5376038e2af2413f0ea0c8622c36e005c898e5e04f7e9aeaeb906525d0
   original:
-    hackage: haskell-lsp-0.17.0.0
+    hackage: haskell-lsp-0.18.0.0
 - completed:
-    hackage: haskell-lsp-types-0.17.0.0@sha256:9078237412d0596a7d09d432389c8fa21d6f3e21ed2ed761b3093a21607d6c28,2941
+    hackage: haskell-lsp-types-0.18.0.0@sha256:3e6768076c054457eef433617fd6b0f569ebdd0d9c652e2aa7232029adf7cdbe,2941
     pantry-tree:
       size: 2451
-      sha256: cfc8c04af6d98d314bdf47f40fd69dc37b8ba440ff2826fa6425bd66b733c2e3
+      sha256: ed80f3a1d490bd93ea63c78d2ad0cee90f14d2a17597ce99d73a43307ad2e537
   original:
-    hackage: haskell-lsp-types-0.17.0.0
+    hackage: haskell-lsp-types-0.18.0.0
 snapshots:
 - completed:
     size: 524164
