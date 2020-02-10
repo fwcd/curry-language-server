@@ -6,9 +6,11 @@ module Curry.LanguageServer.Logging (
     module System.Log
 ) where
 
+import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Core as Core
 import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Constant as LSPConst
 import Language.Haskell.LSP.Messages
 import Language.Haskell.LSP.Types
 import System.Log
@@ -45,8 +47,8 @@ logFormat = "$tid - $msg"
 setupLogging :: Core.SendFunc -> Priority -> IO ()
 setupLogging sf level = do
     let handler = CLSLogHandler { sendFunc = sf, level = level, formatter = LF.simpleLogFormatter logFormat }
-    LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
-    LL.updateGlobalLogger logName $ LL.setHandlers [handler] <$> LL.setLevel level
+    let updatedLoggers = [LL.rootLoggerName, logName, LSPConst._LOG_NAME]
+    void $ sequence $ flip LL.updateGlobalLogger (LL.setHandlers [handler] <$> LL.setLevel level) <$> updatedLoggers
 
 removeAllLogHandlers :: IO ()
 removeAllLogHandlers = LL.removeAllHandlers
