@@ -1,5 +1,6 @@
+-- | (Value) environments and position lookup in the AST.
 module Curry.LanguageServer.Utils.Env (
-    LookupValueInfo (..),
+    CanLookupValueInfo (..),
     LookupEnv,
     LM,
     runLM,
@@ -40,10 +41,10 @@ findAtPos pos = do
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
 
-class LookupValueInfo i where
+class CanLookupValueInfo i where
     lookupValueInfo :: i -> LM CEV.ValueInfo
 
-instance LookupValueInfo CI.QualIdent where
+instance CanLookupValueInfo CI.QualIdent where
     lookupValueInfo ident = do
         (env, ast) <- ask
         let mident = moduleIdentifier ast

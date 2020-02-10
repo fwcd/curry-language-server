@@ -1,3 +1,4 @@
+-- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
     rangeElem,

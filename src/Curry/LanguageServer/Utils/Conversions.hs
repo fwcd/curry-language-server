@@ -1,4 +1,4 @@
--- Conversions between Curry Compiler and language server structures
+-- | Conversions between Curry Compiler and language server structures
 {-# LANGUAGE RecordWildCards, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
 module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,

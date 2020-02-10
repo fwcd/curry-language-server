@@ -1,4 +1,4 @@
--- Provides accurate (canonicalized) mappings between URIs and file paths.
+-- | Accurate (canonicalized) mappings between URIs and file paths.
 module Curry.LanguageServer.Utils.Uri (
     filePathToUri,
     uriToFilePath,

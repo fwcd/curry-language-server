@@ -1,3 +1,4 @@
+-- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
     HasDeclarations (..),
@@ -26,7 +27,7 @@ elementAt pos = lastSafe . filter (elementContains pos)
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool
-elementContains pos = (maybe False (rangeElem pos)) . currySpanInfo2Range . CSPI.getSpanInfo
+elementContains pos = maybe False (rangeElem pos) . currySpanInfo2Range . CSPI.getSpanInfo
 
 -- | Fetches the module identifier for a module.
 moduleIdentifier :: CS.Module a -> CI.ModuleIdent
