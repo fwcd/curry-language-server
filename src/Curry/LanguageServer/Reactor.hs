@@ -44,13 +44,14 @@ reactor lf rin = do
     logs DEBUG "reactor: entered"
     
     void $ slipr3 runRWST lf I.emptyStore $ forever $ do
-        liftIO $ logs DEBUG "Reading request"
+        liftIO $ logs DEBUG "reactor: Reading request"
         hreq <- liftIO $ atomically $ readTChan rin
+        liftIO $ logs DEBUG $ "reactor: Got request: " ++ show hreq
 
         case hreq of
             NotInitialized _ -> do
                 let logLevel = INFO
-                liftIO $ setupLogging (Core.sendFunc lf) logLevel
+                -- liftIO $ setupLogging (Core.sendFunc lf) logLevel
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
                 runMaybeT $ sequence $ addDirToIndexStore <$> folders
@@ -141,6 +142,8 @@ reactor lf rin = do
 
             req -> do
                 liftIO $ logs NOTICE $ "reactor: Got unrecognized request: " ++ show req
+        
+        liftIO $ logs DEBUG $ "reactor: Handled request"
 
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: FilePath -> MaybeRM ()

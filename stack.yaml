@@ -19,6 +19,8 @@ extra-deps:
   - set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
   - curry-base-1.1.1@sha256:eb2695c6b16c8677082a6a7409dbb3315f4727335e154b0373550b0d6ea0571e,2914
   - curry-frontend-1.0.4@sha256:4ccaa709cc7ccc837c0e88cf0973681ef0f15b601519505d174e41b363f2804b,4406
+  - haskell-lsp-0.17.0.0
+  - haskell-lsp-types-0.17.0.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

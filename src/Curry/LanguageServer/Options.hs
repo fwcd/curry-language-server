@@ -6,6 +6,7 @@ import qualified Language.Haskell.LSP.Types as J
 
 lspOptions :: Core.Options
 lspOptions = def { Core.textDocumentSync = Just syncOptions }
+                --    Core.completionTriggerCharacters = Just "." }
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions {

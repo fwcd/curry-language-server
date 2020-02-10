@@ -9,8 +9,9 @@ module Curry.LanguageServer.Logging (
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Core as Core
 import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Utility as U
 import Language.Haskell.LSP.Messages
-import Language.Haskell.LSP.Types.MessageFuncs
+import Language.Haskell.LSP.Types
 import System.Log
 import qualified System.Log.Formatter as LF
 import qualified System.Log.Handler as LH
@@ -55,7 +56,8 @@ class Loggable s where
     logs :: Priority -> s -> IO ()
 
 instance Loggable String where
-    logs p = LL.logM logName p
+    logs p = U.logs
+    -- logs p = LL.logM logName p
 
 instance Loggable T.Text where
     logs p = logs p . T.unpack
