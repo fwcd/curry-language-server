@@ -6,6 +6,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Base.TopEnv as CT
 import qualified Base.Types as CTY
 import qualified CompilerEnv as CE
+import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Lens
@@ -23,10 +24,11 @@ fetchCompletions :: IndexStoreEntry -> T.Text -> J.Position -> IO [J.CompletionI
 fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry
-        smartCompletions = rmDupsOn (^. J.label) $ bindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
+        valueCompletions = bindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
+        typeCompletions = typeToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords
-        completions = filter (matchesQuery query) $ smartCompletions ++ keywordCompletions
-    logs INFO $ "fetchCompletions: Found " ++ show (length smartCompletions) ++ " smart completions with query '" ++ show query ++ "'"
+        completions = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
+    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
     return completions
     where keywords = ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
@@ -43,9 +45,8 @@ bindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
 bindingToCompletion (qident, vinfo) = item
     where name = T.pack $ CI.idName $ CI.qidIdent qident
           ciKind = case vinfo of
-              CEV.DataConstructor _ arity _ _ -> if arity > 1 then J.CiEnum
-                                                              else J.CiStruct
-              CEV.NewtypeConstructor _ _ _    -> J.CiStruct
+              CEV.DataConstructor _ arity _ _ -> J.CiEnumMember
+              CEV.NewtypeConstructor _ _ _    -> J.CiEnumMember
               -- TODO: Workaround, since constrainted arities are not properly included in ValueInfo
               CEV.Value _ _ _ t               -> if CTY.arrowArity ty > 0 then J.CiFunction
                                                                           else J.CiConstant
@@ -60,8 +61,32 @@ bindingToCompletion (qident, vinfo) = item
               CEV.Label _ _ t              -> t
           detail = Just $ ppToText vtype
           doc = case vinfo of
-              CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ T.pack <$> CI.idName <$> recordLabels
+              CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ ppToText <$> recordLabels
               _                                      -> Nothing
+          item = completionFrom name ciKind detail doc
+
+-- | Converts a Curry type to a completion item.
+typeToCompletion :: (CI.QualIdent, CETC.TypeInfo) -> J.CompletionItem
+typeToCompletion (qident, tinfo) = item
+    where name = T.pack $ CI.idName $ CI.qidIdent qident
+          ciKind = case tinfo of
+              CETC.DataType _ _ _     -> J.CiStruct
+              CETC.RenamingType _ _ _ -> J.CiInterface
+              CETC.AliasType _ _ _ _  -> J.CiInterface
+              CETC.TypeClass _ _ _    -> J.CiInterface
+              CETC.TypeVar _          -> J.CiTypeParameter
+          tkind = case tinfo of
+              CETC.DataType _ k _     -> k
+              CETC.RenamingType _ k _ -> k
+              CETC.AliasType _ k _ _  -> k
+              CETC.TypeClass _ k _    -> k
+              CETC.TypeVar k          -> k
+          detail = Just $ ppToText tkind
+          doc = case tinfo of
+              CETC.DataType _ _ cs    -> Just $ T.intercalate ", " $ ppToText <$> CTY.constrIdent <$> cs
+              CETC.RenamingType _ _ c -> Just $ ppToText c
+              CETC.AliasType _ _ _ t  -> Just $ ppToText t
+              _                       -> Nothing
           item = completionFrom name ciKind detail doc
 
 -- | Creates a completion item from a keyword.
