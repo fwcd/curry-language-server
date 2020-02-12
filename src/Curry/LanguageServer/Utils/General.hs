@@ -18,6 +18,7 @@ module Curry.LanguageServer.Utils.General (
     insertAll,
     groupIntoMapBy,
     groupIntoMapByM,
+    rmDupsOn, rmDups,
     fst3, snd3, thd3,
     tripleToPair
 ) where
@@ -26,6 +27,7 @@ import Control.Monad (join)
 import Control.Monad.Trans.Maybe
 import Data.Foldable (foldrM)
 import Data.Char (isSpace)
+import Data.List (sortOn, group)
 import qualified Data.Text as T
 import qualified Data.Map as M
 import Data.Maybe (listToMaybe)
@@ -157,6 +159,14 @@ groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty
 -- | Groups by key into a map monadically.
 groupIntoMapByM :: (Ord k, Monad m) => (a -> m k) -> [a] -> m (M.Map k [a])
 groupIntoMapByM f = foldrM (\x m -> (\y -> M.insertWith (++) y [x] m) <$> f x) M.empty
+
+-- | Removes duplicates on the given mapping in O(n log n).
+rmDupsOn :: (Ord k, Eq a) => (a -> k) -> [a] -> [a]
+rmDupsOn f = (head <$>) . group . sortOn f
+
+-- | Removes duplicates from orderable elements in O(n log n).
+rmDups :: Ord a => [a] -> [a]
+rmDups = rmDupsOn id
 
 fst3 :: (a, b, c) -> a
 fst3 (x, y, z) = x

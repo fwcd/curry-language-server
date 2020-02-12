@@ -11,6 +11,7 @@ import Control.Lens
 import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
+import Curry.LanguageServer.Utils.General (rmDupsOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
@@ -21,7 +22,7 @@ fetchCompletions :: IndexStoreEntry -> T.Text -> J.Position -> IO [J.CompletionI
 fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry
-        smartCompletions = bindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
+        smartCompletions = rmDupsOn (^. J.label) $ bindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords
         completions = filter (matchesQuery query) $ smartCompletions ++ keywordCompletions
     logs INFO $ "fetchCompletions: Found " ++ show (length smartCompletions) ++ " smart completions with query '" ++ show query ++ "'"
