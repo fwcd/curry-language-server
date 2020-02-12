@@ -15,7 +15,6 @@ import qualified Language.Haskell.LSP.Types as J
 fetchCompletions :: IndexStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
-    -- TODO: Filter based on user input (may require using the VFS to track updated document in real-time)
     let env = maybeToList $ compilerEnv entry
         completions = (maybeToList . (toCompletionItem query)) =<< (CT.allBindings . CE.valueEnv) =<< env
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
