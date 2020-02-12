@@ -15,7 +15,7 @@ import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
+import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Data.Default
 import qualified Data.Map as M
@@ -23,6 +23,7 @@ import Data.Maybe (maybeToList)
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
 import Language.Haskell.LSP.Messages
+import qualified Language.Haskell.LSP.VFS as VFS
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
@@ -89,9 +90,12 @@ reactor lf rin = do
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
+                vfile <- liftIO $ Core.getVirtualFileFunc lf normUri
                 completions <- fmap (join . maybeToList) $ runMaybeT $ do
                     entry <- I.getEntry normUri
-                    liftIO $ fetchCompletions entry pos
+                    vfile <- liftMaybe =<< (liftIO $ Core.getVirtualFileFunc lf normUri)
+                    query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
+                    liftIO $ fetchCompletions entry query pos
                 let maxCompletions = 25
                     items = take maxCompletions completions
                     incomplete = length completions > maxCompletions
@@ -143,7 +147,7 @@ reactor lf rin = do
                 liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
                 store <- get
-                symbols <- liftIO $ fetchWorkspaceSymbols query store
+                symbols <- liftIO $ fetchWorkspaceSymbols store query
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
 
             req -> do

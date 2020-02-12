@@ -18,7 +18,6 @@ lspHandlers rin = def { -- Notifications from the client
                         Core.didChangeConfigurationParamsHandler = Just $ passHandler rin NotDidChangeConfiguration,
                         Core.didOpenTextDocumentNotificationHandler = Just $ passHandler rin NotDidOpenTextDocument,
                         Core.didSaveTextDocumentNotificationHandler = Just $ passHandler rin NotDidSaveTextDocument,
-                        Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin NotDidChangeTextDocument,
                         Core.didCloseTextDocumentNotificationHandler = Just $ passHandler rin NotDidCloseTextDocument,
                         Core.cancelNotificationHandler = Just $ passHandler rin NotCancelRequestFromClient,
                         -- Requests from the client

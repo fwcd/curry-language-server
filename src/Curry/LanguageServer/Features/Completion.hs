@@ -12,15 +12,17 @@ import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 
-fetchCompletions :: IndexStoreEntry -> J.Position -> IO [J.CompletionItem]
-fetchCompletions entry pos = do
+fetchCompletions :: IndexStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
+fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
     -- TODO: Filter based on user input (may require using the VFS to track updated document in real-time)
     let env = maybeToList $ compilerEnv entry
-        completions = toCompletionItem <$> ((CT.allBindings . CE.valueEnv) =<< env)
-    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions"
+        completions = (maybeToList . (toCompletionItem query)) =<< (CT.allBindings . CE.valueEnv) =<< env
+    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
     return completions
 
-toCompletionItem :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
-toCompletionItem (qident, _) = J.CompletionItem name Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+toCompletionItem :: T.Text -> (CI.QualIdent, CEV.ValueInfo) -> Maybe J.CompletionItem
+toCompletionItem query (qident, _) | query `T.isPrefixOf` name = Just item
+                                   | otherwise = Nothing
     where name = T.pack $ CI.idName $ CI.qidIdent qident
+          item = J.CompletionItem name Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing

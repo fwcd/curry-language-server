@@ -1,9 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
     rangeElem,
-    pointRange,
-    emptyRange,
+    nth,
+    wordAtIndex, wordAtPos,
+    wordsWithSpaceCount,
+    pointRange, emptyRange,
     maybeCons,
     walkFiles,
     liftMaybe,
@@ -22,7 +25,10 @@ module Curry.LanguageServer.Utils.General (
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
 import Data.Foldable (foldrM)
+import Data.Char (isSpace)
+import qualified Data.Text as T
 import qualified Data.Map as M
+import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -39,6 +45,36 @@ rangeElem (J.Position l c) range = if l1 == l2 && l == l1 then c1 <= c && c <= c
                                    else if l == l2 then c <= c2
                                    else l1 <= l && l <= l2
     where (J.Range (J.Position l1 c1) (J.Position l2 c2)) = range
+
+-- | Safely fetches the nth entry.
+nth :: Int -> [a] -> Maybe a
+nth _ [] = Nothing
+nth n (x:xs) | n == 0 = Just x
+             | n < 0 = Nothing
+             | otherwise = nth (n - 1) xs
+
+-- | Finds the word at the given offset.
+wordAtIndex :: Int -> T.Text -> Maybe T.Text
+wordAtIndex n = wordAtIndex' n . wordsWithSpaceCount
+    where wordAtIndex' :: Int -> [(Int, T.Text)] -> Maybe T.Text
+          wordAtIndex' _ [] = Nothing
+          wordAtIndex' n' ((k, s):ss) | (n' - k) <= len = Just s
+                                      | otherwise = wordAtIndex' (n' - len - k) ss
+            where len = T.length s
+
+-- | Fetches the words with the list of spaces preceding them.
+wordsWithSpaceCount :: T.Text -> [(Int, T.Text)]
+wordsWithSpaceCount t | T.null t = []
+                      | otherwise = (T.length s, w) : wordsWithSpaceCount t''
+                          -- TODO: Implement using T.breakOnAll
+                          where s   = T.takeWhile isSpace t
+                                t'  = T.dropWhile isSpace t
+                                w   = T.takeWhile (not . isSpace) t'
+                                t'' = T.dropWhile (not . isSpace) t'
+
+-- | Finds the word at a given position.
+wordAtPos :: J.Position -> T.Text -> Maybe T.Text
+wordAtPos (J.Position l c) = (T.strip <$>) . (wordAtIndex c =<<) . nth l . T.lines 
 
 -- | The point range at the origin.
 emptyRange :: J.Range
