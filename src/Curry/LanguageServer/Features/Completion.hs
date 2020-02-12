@@ -4,6 +4,7 @@ module Curry.LanguageServer.Features.Completion (fetchCompletions) where
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Base.TopEnv as CT
+import qualified Base.Types as CTY
 import qualified CompilerEnv as CE
 import qualified Env.Value as CEV
 
@@ -45,8 +46,12 @@ bindingToCompletion (qident, vinfo) = item
               CEV.DataConstructor _ arity _ _ -> if arity > 1 then J.CiEnum
                                                               else J.CiStruct
               CEV.NewtypeConstructor _ _ _    -> J.CiStruct
-              CEV.Value _ _ arity _           -> if arity > 0 then J.CiFunction
-                                                              else J.CiConstant
+              -- TODO: Workaround, since constrainted arities are not properly included in ValueInfo
+              CEV.Value _ _ _ t               -> if CTY.arrowArity ty > 0 then J.CiFunction
+                                                                          else J.CiConstant
+                                                    -- TODO: CTY.TypeScheme/CTY.PredType have been replaced by CTY.Type in newer versions of curry-frontend
+                                                    where (CTY.ForAll _ (CTY.PredType _ ty)) = t
+                                                                
               CEV.Label _ _ _                 -> J.CiFunction -- Arity is always 1 for record labels
           vtype = case vinfo of
               CEV.DataConstructor _ _ _ t  -> t
