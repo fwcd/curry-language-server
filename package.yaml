@@ -40,7 +40,7 @@ library:
   source-dirs: src
 
 executables:
-  curry-language-server-exe:
+  curry-language-server:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

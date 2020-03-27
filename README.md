@@ -12,7 +12,7 @@ To build the language server, you will need the build tool [Haskell Stack](https
 
 `stack build`
 
-The final executable will be located in `[path to dist dir]/build/curry-language-server-exe` where the distribution directory can be found using `stack path --dist-dir`.
+The final executable will be located in `[path to dist dir]/build/curry-language-server` where the distribution directory can be found using `stack path --dist-dir`.
 
 ## Editor Integration
 To use the language server, you will need an editor that supports LSP. This usually involves pointing the LSP client towards the built executable and setting the transport method to `stdio`.
