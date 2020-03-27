@@ -14,6 +14,7 @@ import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
+import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
@@ -50,11 +51,7 @@ bindingToCompletion (qident, vinfo) = item
               CEV.Value _ _ arity _           -> if arity > 0 then J.CiFunction
                                                               else J.CiConstant
               CEV.Label _ _ _                 -> J.CiFunction -- Arity is always 1 for record labels
-          vtype = case vinfo of
-              CEV.DataConstructor _ _ _ t  -> t
-              CEV.NewtypeConstructor _ _ t -> t
-              CEV.Value _ _ _ t            -> t
-              CEV.Label _ _ t              -> t
+          vtype = valueInfoType vinfo
           detail = Just $ ppToText vtype
           doc = case vinfo of
               CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ ppToText <$> recordLabels
@@ -71,12 +68,7 @@ typeToCompletion (qident, tinfo) = item
               CETC.AliasType _ _ _ _  -> J.CiInterface
               CETC.TypeClass _ _ _    -> J.CiInterface
               CETC.TypeVar _          -> J.CiTypeParameter
-          tkind = case tinfo of
-              CETC.DataType _ k _     -> k
-              CETC.RenamingType _ k _ -> k
-              CETC.AliasType _ k _ _  -> k
-              CETC.TypeClass _ k _    -> k
-              CETC.TypeVar k          -> k
+          tkind = typeInfoKind tinfo
           detail = Just $ ppToText tkind
           doc = case tinfo of
               CETC.DataType _ _ cs    -> Just $ T.intercalate ", " $ ppToText <$> CTY.constrIdent <$> cs

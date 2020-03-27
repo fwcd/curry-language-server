@@ -4,13 +4,18 @@ module Curry.LanguageServer.Utils.Env (
     LookupEnv,
     LM,
     runLM,
-    findAtPos
+    findAtPos,
+    valueInfoType,
+    typeInfoKind
 ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Base.Kinds as CK
+import qualified Base.Types as CT
 import qualified CompilerEnv as CE
+import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Applicative
@@ -40,6 +45,23 @@ findAtPos pos = do
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
+
+-- | Fetches the type from a value info.
+valueInfoType :: CEV.ValueInfo -> CT.Type
+valueInfoType vinfo = case vinfo of
+    CEV.DataConstructor _ _ _ t  -> t
+    CEV.NewtypeConstructor _ _ t -> t
+    CEV.Value _ _ _ t            -> t
+    CEV.Label _ _ t              -> t
+
+-- | Fetches the kind from a type info.
+typeInfoKind :: CETC.TypeInfo -> CK.Kind
+typeInfoKind tinfo = case tinfo of
+    CETC.DataType _ k _     -> k
+    CETC.RenamingType _ k _ -> k
+    CETC.AliasType _ k _ _  -> k
+    CETC.TypeClass _ k _    -> k
+    CETC.TypeVar k          -> k
 
 class CanLookupValueInfo i where
     lookupValueInfo :: i -> LM CEV.ValueInfo
