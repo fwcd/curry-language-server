@@ -47,9 +47,8 @@ bindingToCompletion (qident, vinfo) = item
           ciKind = case vinfo of
               CEV.DataConstructor _ arity _ _ -> J.CiEnumMember
               CEV.NewtypeConstructor _ _ _    -> J.CiEnumMember
-              -- TODO: Workaround, since constrainted arities are not properly included in ValueInfo
-              CEV.Value _ _ _ t               -> if CTY.arrowArity t > 0 then J.CiFunction
-                                                                         else J.CiConstant
+              CEV.Value _ _ arity _           -> if arity > 0 then J.CiFunction
+                                                              else J.CiConstant
               CEV.Label _ _ _                 -> J.CiFunction -- Arity is always 1 for record labels
           vtype = case vinfo of
               CEV.DataConstructor _ _ _ t  -> t
