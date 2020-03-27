@@ -19,7 +19,7 @@ import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import qualified Language.Haskell.LSP.Types as J
 
-type ModuleAST = CS.Module CT.PredType -- TODO: PredType renamed to type in later versions of curry-frontend
+type ModuleAST = CS.Module CT.Type
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
@@ -31,14 +31,14 @@ elementContains pos = maybe False (rangeElem pos) . currySpanInfo2Range . CSPI.g
 
 -- | Fetches the module identifier for a module.
 moduleIdentifier :: CS.Module a -> CI.ModuleIdent
-moduleIdentifier (CS.Module _ _ ident _ _ _) = ident -- TODO: Has seven arguments in later curry-base versions
+moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
 
 class HasExpressions s where
     -- | Fetches all expressions as pre-order traversal
     expressions :: s a -> [CS.Expression a]
 
 instance HasExpressions CS.Module where
-    expressions (CS.Module _ _ _ _ _ decls) = decls >>= expressions -- TODO: Has seven arguments in later curry-base versions
+    expressions (CS.Module _ _ _ _ _ _ decls) = decls >>= expressions
 
 instance HasExpressions CS.Decl where
     expressions decl = case decl of
@@ -50,8 +50,8 @@ instance HasExpressions CS.Equation where
 
 instance HasExpressions CS.Rhs where
     expressions rhs = case rhs of
-        CS.SimpleRhs _ e decls      -> (expressions e) ++ (decls >>= expressions) -- TODO: Has four arguments in later curry-base versions
-        CS.GuardedRhs _ conds decls -> (conds >>= expressions) ++ (decls >>= expressions)  -- TODO: Has four arguments in later curry-base versions
+        CS.SimpleRhs _ _ e decls      -> (expressions e) ++ (decls >>= expressions)
+        CS.GuardedRhs _ _ conds decls -> (conds >>= expressions) ++ (decls >>= expressions)
 
 instance HasExpressions CS.CondExpr where
     expressions (CS.CondExpr _ e1 e2) = (expressions e1) ++ (expressions e2)
@@ -74,18 +74,18 @@ instance HasExpressions CS.Expression where
         CS.LeftSection _ e' _        -> expressions e'
         CS.RightSection _ _ e'       -> expressions e'
         CS.Lambda _ _ e'             -> expressions e'
-        CS.Let _ decls e'            -> (decls >>= expressions) ++ (expressions e') -- TODO: Has another arg in newer curry-frontend
-        CS.Do _ stmts e'             -> (stmts >>= expressions) ++ (expressions e') -- TODO: Has another arg in newer curry-frontend
+        CS.Let _ _ decls e'          -> (decls >>= expressions) ++ (expressions e')
+        CS.Do _ _ stmts e'           -> (stmts >>= expressions) ++ (expressions e')
         CS.IfThenElse _ e1 e2 e3     -> (expressions e1) ++ (expressions e2) ++ (expressions e3)
-        CS.Case _ _ e alts           -> (expressions e) ++ (alts >>= expressions) -- TODO: Has another arg in newer curry-frontend
+        CS.Case _ _ _ e alts         -> (expressions e) ++ (alts >>= expressions)
         _                            -> []
         where fieldExpressions (CS.Field _ _ e) = expressions e
 
 instance HasExpressions CS.Statement where
     expressions stmt = case stmt of
-        CS.StmtExpr _ e     -> expressions e
-        CS.StmtDecl _ decls -> decls >>= expressions -- TODO: Has three arguments in later curry-base versions
-        CS.StmtBind _ _ e   -> expressions e
+        CS.StmtExpr _ e       -> expressions e
+        CS.StmtDecl _ _ decls -> decls >>= expressions
+        CS.StmtBind _ _ e     -> expressions e
 
 instance HasExpressions CS.Alt where
     expressions (CS.Alt _ _ rhs) = expressions rhs
@@ -95,13 +95,13 @@ class HasDeclarations s where
     declarations :: s a -> [CS.Decl a]
 
 instance HasDeclarations CS.Module where
-    declarations (CS.Module _ _ _ _ _ decls) = declarations =<< decls -- TODO: Has seven arguments in later curry-base versions
+    declarations (CS.Module _ _ _ _ _ _ decls) = declarations =<< decls
 
 instance HasDeclarations CS.Decl where
     declarations decl = decl : case decl of
         -- TODO: Fetch declarations inside equations/expressions/...
-        CS.ClassDecl _ _ _ _ ds     -> ds -- TODO: Has another arg in newer curry-frontend
-        CS.InstanceDecl  _ _ _ _ ds -> ds -- TODO: Has another arg in newer curry-frontend
+        CS.ClassDecl _ _ _ _ _ ds     -> ds
+        CS.InstanceDecl  _ _ _ _ _ ds -> ds
         _                        -> []
 
 class HasQualIdentifier e where
@@ -132,5 +132,5 @@ instance HasIdentifier (CS.Decl a) where
         CS.NewtypeDecl _ ident _ _ _  -> Just ident
         CS.TypeDecl _ ident _ _       -> Just ident
         CS.FunctionDecl _ _ ident _   -> Just ident
-        CS.ClassDecl _ _ ident _ _    -> Just ident -- TOOD: Has another arg in newer curry-base versions
+        CS.ClassDecl _ _ _ ident _ _  -> Just ident
         _                             -> Nothing

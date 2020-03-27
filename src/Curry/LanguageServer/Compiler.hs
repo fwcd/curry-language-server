@@ -87,7 +87,7 @@ compileCurryModule opts outDirPath m fp = do
     mdl' <- CC.expandExports opts mdl
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
         interfFilePath = outDirPath </> (CFN.interfName $ CFN.moduleNameToFile m)
-        generated = PP.render $ CS.ppInterface interf -- TODO: Use CS.pPrint in newer curry-base
+        generated = PP.render $ CS.pPrint interf
     liftIO $ logs DEBUG $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl

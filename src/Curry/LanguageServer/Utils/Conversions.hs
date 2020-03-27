@@ -116,7 +116,7 @@ class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
 instance HasDocumentSymbols (CS.Module a) where
-    documentSymbols (CS.Module spi _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs] -- TODO: Has a LayoutInfo argument in newer curry-base versions
+    documentSymbols (CS.Module spi _ _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs]
         where name = ppToText ident
               symKind = J.SkModule
               range = currySpanInfo2Range spi
@@ -152,7 +152,7 @@ instance HasDocumentSymbols (CS.Decl a) where
                   childs = documentSymbols rhs
         -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
         -- CS.FreeDecl _ vars -> map varSymbol vars
-        CS.ClassDecl _ _ _ ident decls -> [documentSymbolFrom name symKind range $ Just childs] -- TODO: Has another argument in later curry-base
+        CS.ClassDecl _ _ _ _ ident decls -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkInterface
                   childs = decls >>= documentSymbols
@@ -185,8 +185,8 @@ instance HasDocumentSymbols (CS.Equation a) where
 
 instance HasDocumentSymbols (CS.Rhs a) where
     documentSymbols rhs = case rhs of
-        CS.SimpleRhs _ e decls      -> (documentSymbols e) ++ (decls >>= documentSymbols)
-        CS.GuardedRhs _ conds decls -> (conds >>= documentSymbols) ++ (decls >>= documentSymbols)
+        CS.SimpleRhs _ _ e decls      -> (documentSymbols e) ++ (decls >>= documentSymbols)
+        CS.GuardedRhs _ _ conds decls -> (conds >>= documentSymbols) ++ (decls >>= documentSymbols)
 
 instance HasDocumentSymbols (CS.CondExpr a) where
     documentSymbols (CS.CondExpr _ e1 e2) = (documentSymbols e1) ++ (documentSymbols e2)
@@ -209,18 +209,18 @@ instance HasDocumentSymbols (CS.Expression a) where
         CS.LeftSection _ e' _        -> documentSymbols e'
         CS.RightSection _ _ e'       -> documentSymbols e'
         CS.Lambda _ _ e'             -> documentSymbols e'
-        CS.Let _ decls e             -> (decls >>= documentSymbols) ++ (documentSymbols e) -- TODO: Has 4 arguments in current version of compiler
-        CS.Do _ stmts e'             -> (stmts >>= documentSymbols) ++ (documentSymbols e') -- TODO: Has another arg in newer curry-frontend
+        CS.Let _ _ decls e           -> (decls >>= documentSymbols) ++ (documentSymbols e)
+        CS.Do _ _ stmts e'           -> (stmts >>= documentSymbols) ++ (documentSymbols e')
         CS.IfThenElse _ e1 e2 e3     -> (documentSymbols e1) ++ (documentSymbols e2) ++ (documentSymbols e3)
-        CS.Case _ _ e alts           -> (documentSymbols e) ++ (alts >>= documentSymbols) -- TODO: Has another arg in newer curry-frontend
+        CS.Case _ _ _ e alts         -> (documentSymbols e) ++ (alts >>= documentSymbols)
         _                            -> []
         where fieldSymbols (CS.Field _ _ e) = documentSymbols e
 
 instance HasDocumentSymbols (CS.Statement a) where
     documentSymbols stmt = case stmt of
-        CS.StmtExpr _ e     -> documentSymbols e
-        CS.StmtDecl _ decls -> decls >>= documentSymbols -- TODO: Has three arguments in later curry-base versions
-        CS.StmtBind _ _ e   -> documentSymbols e
+        CS.StmtExpr _ e       -> documentSymbols e
+        CS.StmtDecl _ _ decls -> decls >>= documentSymbols
+        CS.StmtBind _ _ e     -> documentSymbols e
 
 instance HasDocumentSymbols (CS.Alt a) where
     documentSymbols (CS.Alt _ _ rhs) = documentSymbols rhs
