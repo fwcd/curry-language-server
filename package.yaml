@@ -33,8 +33,8 @@ dependencies:
   - directory == 1.3.3.0
   - haskell-lsp == 0.20.0.0
   - pretty == 1.1.3.6
-  - curry-base == 1.1.1
-  - curry-frontend == 1.0.4
+  - curry-base == 1.2.0
+  - curry-frontend == 2.0.0
 
 library:
   source-dirs: src
