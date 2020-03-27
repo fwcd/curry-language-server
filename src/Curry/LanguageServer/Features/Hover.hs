@@ -31,6 +31,6 @@ hoverAt :: J.Position -> LM J.Hover
 hoverAt pos = do
     (ident, spi) <- findAtPos pos
     valueInfo <- lookupValueInfo ident
-    let msg = J.HoverContents $ J.markedUpContent "curry" $ ppToText $ CT.origName valueInfo
+    let msg = J.HoverContents $ J.markedUpContent "curry" $ ppToText (CT.origName valueInfo) <> " :: " <> ppToText (valueInfoType valueInfo)
         range = currySpanInfo2Range spi
     return $ J.Hover msg range
