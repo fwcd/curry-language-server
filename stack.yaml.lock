@@ -12,6 +12,13 @@ packages:
   original:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
 - completed:
+    hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
+    pantry-tree:
+      size: 705
+      sha256: bdc13e00a60830edee41119af62b7203602377ccd81a6555c4fea95b0cb3a252
+  original:
+    hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
+- completed:
     hackage: haskell-lsp-0.20.0.0@sha256:819b31397450b8cd3bdb944d3844236158e518572aa846d6f80679867773c424,5315
     pantry-tree:
       size: 1726

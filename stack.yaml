@@ -17,6 +17,7 @@ packages:
 # forks / in-progress versions pinned to a git hash. For example:
 extra-deps:
   - set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
+  - bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
   - haskell-lsp-0.20.0.0
   - haskell-lsp-types-0.20.0.0
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-base.git
