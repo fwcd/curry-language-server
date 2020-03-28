@@ -126,7 +126,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 defs <- runMaybeT $ do
-                    liftIO $ logs INFO $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys store)
+                    liftIO $ logs INFO $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
                     entry <- I.getEntry normUri
                     liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
@@ -162,7 +162,7 @@ addDirToIndexStore dirPath = do
     I.addWorkspaceDir cfg dirPath
     entries <- I.getEntries
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
-    where withUriEntry2Diags :: (J.NormalizedUri, I.IndexStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
+    where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
           withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.

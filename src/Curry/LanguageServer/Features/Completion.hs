@@ -10,7 +10,7 @@ import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Lens
-import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
+import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
@@ -21,7 +21,7 @@ import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
-fetchCompletions :: IndexStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
+fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry

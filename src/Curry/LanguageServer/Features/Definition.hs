@@ -17,7 +17,7 @@ import Curry.LanguageServer.Utils.Syntax
 import Data.Maybe (maybeToList, listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
 
-fetchDefinitions :: IndexStore -> IndexStoreEntry -> J.Position -> IO [J.Location]
+fetchDefinitions :: IndexStore -> ModuleStoreEntry -> J.Position -> IO [J.Location]
 fetchDefinitions store entry pos = do
     defs <- runMaybeT $ do ast <- liftMaybe $ moduleAST entry
                            env <- liftMaybe $ compilerEnv entry

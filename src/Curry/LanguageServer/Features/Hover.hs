@@ -10,7 +10,7 @@ import qualified CompilerEnv as CE
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
-import Curry.LanguageServer.IndexStore (IndexStoreEntry (..))
+import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
@@ -19,7 +19,7 @@ import Curry.LanguageServer.Utils.Syntax
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Utility as U
 
-fetchHover :: IndexStoreEntry -> J.Position -> IO (Maybe J.Hover)
+fetchHover :: ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do
     ast <- liftMaybe $ moduleAST entry
     env <- liftMaybe $ compilerEnv entry
