@@ -41,6 +41,8 @@ matchesQuery query item = query `T.isPrefixOf` (item ^. J.label)
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
 completionFrom label ciKind detail doc = J.CompletionItem label (Just ciKind) detail (J.CompletionDocString <$> doc) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
+-- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem
+
 -- | Converts a Curry value binding to a completion item.
 valueBindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
 valueBindingToCompletion (qident, vinfo) = item
