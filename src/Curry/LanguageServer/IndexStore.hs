@@ -12,9 +12,9 @@ module Curry.LanguageServer.IndexStore (
     storedSymbolsWithPrefix,
     addWorkspaceDir,
     recompileModule,
-    getCount,
-    getEntry,
-    getEntries,
+    getModuleCount,
+    getModule,
+    getModules,
     getModuleAST
 ) where
 
@@ -148,17 +148,17 @@ recompileFile cfg dirPath filePath = void $ do
                       liftIO $ normalizeUriWithPath uri
 
 -- | Fetches the number of entries in the store in a monadic way.
-getCount :: (MonadState IndexStore m) => m Int
-getCount = storedModuleCount <$> get
+getModuleCount :: (MonadState IndexStore m) => m Int
+getModuleCount = storedModuleCount <$> get
 
 -- | Fetches an entry in the store in a monadic way.
-getEntry :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleStoreEntry
-getEntry uri = liftMaybe =<< storedModule uri <$> get
+getModule :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleStoreEntry
+getModule uri = liftMaybe =<< storedModule uri <$> get
 
 -- | Fetches the entries in the store as a list in a monadic way.
-getEntries :: (MonadState IndexStore m) => m [(J.NormalizedUri, ModuleStoreEntry)]
-getEntries = storedModules <$> get
+getModules :: (MonadState IndexStore m) => m [(J.NormalizedUri, ModuleStoreEntry)]
+getModules = storedModules <$> get
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
 getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
-getModuleAST uri = (liftMaybe . moduleAST) =<< getEntry uri
+getModuleAST uri = (liftMaybe . moduleAST) =<< getModule uri

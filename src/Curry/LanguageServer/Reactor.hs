@@ -55,7 +55,7 @@ reactor lf rin = do
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
                 runMaybeT $ sequence $ addDirToIndexStore <$> folders
-                count <- I.getCount
+                count <- I.getModuleCount
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
@@ -92,7 +92,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 vfile <- liftIO $ Core.getVirtualFileFunc lf normUri
                 completions <- fmap (join . maybeToList) $ runMaybeT $ do
-                    entry <- I.getEntry normUri
+                    entry <- I.getModule normUri
                     vfile <- liftMaybe =<< (liftIO $ Core.getVirtualFileFunc lf normUri)
                     query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
                     liftIO $ fetchCompletions entry query pos
@@ -115,7 +115,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 hover <- runMaybeT $ do
-                    entry <- I.getEntry normUri
+                    entry <- I.getModule normUri
                     liftMaybe =<< (liftIO $ fetchHover entry pos)
                 send $ RspHover $ Core.makeResponseMessage req hover
             
@@ -127,7 +127,7 @@ reactor lf rin = do
                 store <- get
                 defs <- runMaybeT $ do
                     liftIO $ logs INFO $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
-                    entry <- I.getEntry normUri
+                    entry <- I.getModule normUri
                     liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
                                                                                    Just ds  -> J.MultiLoc ds
@@ -139,7 +139,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 symbols <- runMaybeT $ do
-                    entry <- I.getEntry normUri
+                    entry <- I.getModule normUri
                     liftIO $ fetchDocumentSymbols entry
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req $ maybe (J.DSDocumentSymbols $ J.List []) id symbols
             
@@ -160,7 +160,7 @@ addDirToIndexStore :: FilePath -> MaybeRM ()
 addDirToIndexStore dirPath = do
     cfg <- getConfig
     I.addWorkspaceDir cfg dirPath
-    entries <- I.getEntries
+    entries <- I.getModules
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
           withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
@@ -171,7 +171,7 @@ updateIndexStore uri = do
     cfg <- getConfig
     normUri <- liftIO $ normalizeUriWithPath uri
     lift $ I.recompileModule cfg normUri
-    entry <- I.getEntry normUri
+    entry <- I.getModule normUri
     diags <- liftIO $ fetchDiagnostics entry
     lift $ sendDiagnostics normUri diags
     where version = Just 0
