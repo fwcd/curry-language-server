@@ -1,14 +1,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Curry.LanguageServer.IndexStore (
     ModuleStoreEntry (..),
+    SymbolStoreEntry (..),
     IndexStore (..),
     emptyStore,
     storedModuleCount,
+    storedSymbolCount,
     storedModule,
     storedModuleByIdent,
     storedModules,
+    storedSymbolsWithPrefix,
     addWorkspaceDir,
-    recompileEntry,
+    recompileModule,
     getCount,
     getEntry,
     getEntries,
@@ -34,6 +37,8 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import qualified Data.ByteString as B
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import Data.Default
 import Data.List (delete)
@@ -50,10 +55,15 @@ data ModuleStoreEntry = ModuleStoreEntry { moduleAST :: Maybe ModuleAST,
                                            warningMessages :: [CM.Message],
                                            workspaceDir :: Maybe FilePath }
 
+-- | An index store entry containing a symbol.
+data SymbolStoreEntry = SymbolStoreEntry { symbol :: J.SymbolInformation }
+
 -- | An in-memory map of URIs to parsed modules and
--- fully-qualified symbol names to actual symbols/symbol information.
+-- unqualified symbol names to actual symbols/symbol information.
+-- Since (unqualified) symbol names can be ambiguous, a trie leaf
+-- holds a list of symbol entries rather than just a single one.
 data IndexStore = IndexStore { modules :: M.Map J.NormalizedUri ModuleStoreEntry,
-                               symbols :: TR.Trie J.DocumentSymbol }
+                               symbols :: TR.Trie [SymbolStoreEntry] }
 
 instance Default ModuleStoreEntry where
     def = ModuleStoreEntry { moduleAST = Nothing, compilerEnv = Nothing, warningMessages = [], errorMessages = [], workspaceDir = Nothing }
@@ -65,6 +75,10 @@ emptyStore = IndexStore { modules = M.empty, symbols = TR.empty }
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int
 storedModuleCount = M.size . modules
+
+-- | Fetches the number of stored symbols.
+storedSymbolCount :: IndexStore -> Int
+storedSymbolCount = TR.size . symbols
 
 -- | Fetches the given entry in the store.
 storedModule :: J.NormalizedUri -> IndexStore -> Maybe ModuleStoreEntry
@@ -80,6 +94,10 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . modules
 
+-- | Fetches the list of symbols starting with the given prefix.
+storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
+storedSymbolsWithPrefix pre = join . TR.elems . (TR.submap $ TE.encodeUtf8 pre) . symbols
+
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> FilePath -> m ()
 addWorkspaceDir cfg dirPath = void $ runMaybeT $ do
@@ -87,9 +105,9 @@ addWorkspaceDir cfg dirPath = void $ runMaybeT $ do
     sequence $ recompileFile cfg (Just dirPath) <$> files
     liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
--- | Recompiles the entry with the given URI and stores the output.
-recompileEntry :: (MonadState IndexStore m, MonadIO m) => Config -> J.NormalizedUri -> m ()
-recompileEntry cfg uri = void $ runMaybeT $ do
+-- | Recompiles the module entry with the given URI and stores the output.
+recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> J.NormalizedUri -> m ()
+recompileModule cfg uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     recompileFile cfg Nothing filePath
     liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri

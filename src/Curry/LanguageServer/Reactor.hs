@@ -170,7 +170,7 @@ updateIndexStore :: J.Uri -> MaybeRM ()
 updateIndexStore uri = do
     cfg <- getConfig
     normUri <- liftIO $ normalizeUriWithPath uri
-    lift $ I.recompileEntry cfg normUri
+    lift $ I.recompileModule cfg normUri
     entry <- I.getEntry normUri
     diags <- liftIO $ fetchDiagnostics entry
     lift $ sendDiagnostics normUri diags
