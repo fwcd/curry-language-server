@@ -13,7 +13,9 @@ module Curry.LanguageServer.Utils.Conversions (
     currySpanInfo2Uri,
     ppToText,
     HasDocumentSymbols (..),
-    HasWorkspaceSymbols (..)
+    HasSymbolKind (..),
+    HasWorkspaceSymbols (..),
+    bindingToQualSymbols
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -25,6 +27,8 @@ import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 import qualified Curry.Syntax.Pretty as CPP
+import qualified Env.TypeConstructor as CETC
+import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.IO.Class (liftIO)
@@ -231,18 +235,43 @@ instance HasDocumentSymbols CS.NewConstrDecl where
         CS.NewRecordDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
         where symKind = J.SkEnumMember
 
+class HasSymbolKind s where
+    symbolKind :: s -> J.SymbolKind
+    
+instance HasSymbolKind CEV.ValueInfo where
+    symbolKind vinfo = case vinfo of
+        CEV.DataConstructor _ arity _ _ -> J.SkEnumMember
+        CEV.NewtypeConstructor _ _ _    -> J.SkEnumMember
+        CEV.Value _ _ arity _           -> if arity > 0 then J.SkFunction
+                                                        else J.SkConstant
+        CEV.Label _ _ _                 -> J.SkFunction -- Arity is always 1 for record labels
+
+instance HasSymbolKind CETC.TypeInfo where
+    symbolKind tinfo = case tinfo of
+        CETC.DataType _ _ _     -> J.SkStruct
+        CETC.RenamingType _ _ _ -> J.SkInterface
+        CETC.AliasType _ _ _ _  -> J.SkInterface
+        CETC.TypeClass _ _ _    -> J.SkInterface
+        CETC.TypeVar _          -> J.SkTypeParameter
+
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]
 
 instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s where
     workspaceSymbols s = do
-        uri <- runMaybeT $ currySpanInfo2Uri $ CSPI.getSpanInfo s
+        loc <- runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo s
         let documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
             documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
-                where loc = (\u -> J.Location u r) <$> uri
-                      cs' = maybe [] (\(J.List cs'') -> cs'') cs
+                where cs' = maybe [] (\(J.List cs'') -> cs'') cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s
+
+bindingToQualSymbols :: HasSymbolKind k => (CI.QualIdent, k) -> IO [(CI.QualIdent, J.SymbolInformation)]
+bindingToQualSymbols (qident, v) = do
+    loc <- runMaybeT $ currySpanInfo2Location $ CI.qidSpanInfo qident
+    let name = T.pack $ CI.idName $ CI.qidIdent qident
+        symKind = symbolKind v
+    return $ maybeToList $ pair qident <$> symbolInformationFrom name symKind loc
 
 -- Language Server Protocol -> Curry Compiler
 

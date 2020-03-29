@@ -9,7 +9,7 @@ import qualified CompilerEnv as CE
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
-import Control.Lens
+import Control.Lens ((^.))
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
@@ -25,8 +25,8 @@ fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.Completion
 fetchCompletions entry query pos = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry
-        valueCompletions = bindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
-        typeCompletions = typeToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
+        valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
+        typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords
         completions = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
@@ -41,9 +41,9 @@ matchesQuery query item = query `T.isPrefixOf` (item ^. J.label)
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
 completionFrom label ciKind detail doc = J.CompletionItem label (Just ciKind) detail (J.CompletionDocString <$> doc) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
--- | Converts a Curry binding to a completion item.
-bindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
-bindingToCompletion (qident, vinfo) = item
+-- | Converts a Curry value binding to a completion item.
+valueBindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
+valueBindingToCompletion (qident, vinfo) = item
     where name = T.pack $ CI.idName $ CI.qidIdent qident
           ciKind = case vinfo of
               CEV.DataConstructor _ arity _ _ -> J.CiEnumMember
@@ -58,9 +58,9 @@ bindingToCompletion (qident, vinfo) = item
               _                                      -> Nothing
           item = completionFrom name ciKind detail doc
 
--- | Converts a Curry type to a completion item.
-typeToCompletion :: (CI.QualIdent, CETC.TypeInfo) -> J.CompletionItem
-typeToCompletion (qident, tinfo) = item
+-- | Converts a Curry type binding to a completion item.
+typeBindingToCompletion :: (CI.QualIdent, CETC.TypeInfo) -> J.CompletionItem
+typeBindingToCompletion (qident, tinfo) = item
     where name = T.pack $ CI.idName $ CI.qidIdent qident
           ciKind = case tinfo of
               CETC.DataType _ _ _     -> J.CiStruct

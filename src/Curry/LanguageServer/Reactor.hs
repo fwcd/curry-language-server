@@ -160,7 +160,7 @@ addDirToIndexStore :: FilePath -> MaybeRM ()
 addDirToIndexStore dirPath = do
     cfg <- getConfig
     I.addWorkspaceDir cfg dirPath
-    entries <- I.getModules
+    entries <- I.getModuleList
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
           withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)

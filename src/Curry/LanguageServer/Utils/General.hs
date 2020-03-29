@@ -1,9 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses, FlexibleInstances #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
     rangeElem,
     nth,
+    pair,
+    dup,
     wordAtIndex, wordAtPos,
     wordsWithSpaceCount,
     pointRange, emptyRange,
@@ -15,7 +17,9 @@ module Curry.LanguageServer.Utils.General (
     joinFst, joinSnd,
     removeSingle,
     expectJust,
+    Insertable (..),
     insertAll,
+    insertAllIntoTrieWith,
     groupIntoMapBy,
     groupIntoMapByM,
     rmDupsOn, rmDups,
@@ -25,10 +29,12 @@ module Curry.LanguageServer.Utils.General (
 
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
-import Data.Foldable (foldrM)
+import qualified Data.ByteString as B
 import Data.Char (isSpace)
+import Data.Foldable (foldrM)
 import Data.List (sortOn, group)
 import qualified Data.Text as T
+import qualified Data.Trie as TR
 import qualified Data.Map as M
 import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
@@ -54,6 +60,14 @@ nth _ [] = Nothing
 nth n (x:xs) | n == 0 = Just x
              | n < 0 = Nothing
              | otherwise = nth (n - 1) xs
+
+-- | Creates a pair. Useful in conjunction with partial application.
+pair :: a -> b -> (a, b)
+pair x y = (x, y)
+
+-- | Duplicates.
+dup :: a -> (a, a)
+dup x = (x, x)
 
 -- | Finds the word at the given offset.
 wordAtIndex :: Int -> T.Text -> Maybe T.Text
@@ -147,10 +161,25 @@ expectJust :: String -> Maybe a -> a
 expectJust msg Nothing = error msg
 expectJust _ (Just x) = x
 
--- | Inserts all key-value-pairs into the given map.
-insertAll :: Ord k => [(k, v)] -> M.Map k v -> M.Map k v
+class Insertable m a where
+    insert :: a -> m -> m
+
+instance Ord k => Insertable (M.Map k v) (k, v) where
+    insert = uncurry M.insert
+
+instance Insertable (TR.Trie a) (B.ByteString, a) where
+    insert = uncurry TR.insert
+
+-- | Inserts all entries into the given Insertable. Useful for maps.
+insertAll :: Insertable m a => [a] -> m -> m
 insertAll [] = id
-insertAll ((k, v):kvs) = insertAll kvs . M.insert k v
+insertAll (x:xs) = insertAll xs . insert x
+
+-- | Inserts the given elements into the trie using the given combination function.
+-- The combination function takes the new value on the left and the old one on the right.
+insertAllIntoTrieWith :: (b -> a -> a) -> [(B.ByteString, b)] -> TR.Trie a -> TR.Trie a
+insertAllIntoTrieWith f [] = id
+insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . TR.adjust (f x) s
 
 -- | Groups by key into a map.
 groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]

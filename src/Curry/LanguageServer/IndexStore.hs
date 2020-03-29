@@ -14,7 +14,7 @@ module Curry.LanguageServer.IndexStore (
     recompileModule,
     getModuleCount,
     getModule,
-    getModules,
+    getModuleList,
     getModuleAST
 ) where
 
@@ -23,8 +23,11 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Message as CM
 import qualified Curry.Files.Filenames as CFN
 import qualified Curry.Syntax as CS
+import qualified Base.TopEnv as CT
+import qualified Base.Types as CT
 import qualified CompilerEnv as CE
 
+import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.State
 import Control.Monad.Trans (liftIO)
@@ -41,10 +44,11 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import Data.Default
-import Data.List (delete)
+import Data.List (unionBy, delete)
 import Data.Maybe (maybeToList)
 import qualified Data.Map as M
 import qualified Language.Haskell.LSP.Types as J
+import qualified Language.Haskell.LSP.Types.Lens as J
 import System.FilePath
 
 -- | An index store entry containing the parsed AST, the compilation environment
@@ -56,7 +60,8 @@ data ModuleStoreEntry = ModuleStoreEntry { moduleAST :: Maybe ModuleAST,
                                            workspaceDir :: Maybe FilePath }
 
 -- | An index store entry containing a symbol.
-data SymbolStoreEntry = SymbolStoreEntry { symbol :: J.SymbolInformation }
+data SymbolStoreEntry = SymbolStoreEntry { symbol :: J.SymbolInformation,
+                                           qualIdent :: CI.QualIdent }
 
 -- | An in-memory map of URIs to parsed modules and
 -- unqualified symbol names to actual symbols/symbol information.
@@ -124,15 +129,16 @@ recompileFile cfg dirPath filePath = void $ do
         importPaths = [outDirPath]
     result <- liftIO $ C.compileCurryFileWithDeps cfg importPaths outDirPath filePath
     
-    m <- modules <$> get
+    ms <- modules <$> get
+    ss <- symbols <$> get
     uri <- liftIO $ filePathToNormalizedUri filePath
     let previous :: J.NormalizedUri -> ModuleStoreEntry
-        previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) m
+        previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) ms
     case result of
-        Left errs -> modify $ \s -> s { modules = M.insert uri ((previous uri) { errorMessages = errs, warningMessages = [] }) m }
+        Left errs -> modify $ \s -> s { modules = M.insert uri ((previous uri) { errorMessages = errs, warningMessages = [] }) ms }
         Right (o, warns) -> do liftIO $ logs INFO $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
                                ws <- liftIO $ groupIntoMapByM msgNormUri warns
-                               delta <- liftIO
+                               moduleDelta <- liftIO
                                             $ sequence
                                             $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
                                                                 return (u, (previous u) { moduleAST = Just ast,
@@ -140,24 +146,32 @@ recompileFile cfg dirPath filePath = void $ do
                                                                                           errorMessages = [],
                                                                                           warningMessages = M.findWithDefault [] (Just u) ws }))
                                             <$> asts
-                               modify $ \s -> s { modules = insertAll delta m }
+
+                               valueSymbols <- liftIO $ join <$> (mapM bindingToQualSymbols $ CT.allBindings $ CE.valueEnv env)
+                               typeSymbols  <- liftIO $ join <$> (mapM bindingToQualSymbols $ CT.allBindings $ CE.tyConsEnv env)
+
+                               let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
+                               liftIO $ logs INFO $ "indexStore: Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
+
+                               modify $ \s -> s { modules = insertAll moduleDelta ms,
+                                                  symbols = insertAllIntoTrieWith (unionBy $ \x y -> qualIdent x == qualIdent y) symbolDelta ss }
             where env = C.compilerEnv o
                   asts = C.moduleASTs o
                   msgNormUri msg = runMaybeT $ do
                       uri <- curryPos2Uri =<< (liftMaybe $ CM.msgPos msg)
                       liftIO $ normalizeUriWithPath uri
 
--- | Fetches the number of entries in the store in a monadic way.
+-- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int
 getModuleCount = storedModuleCount <$> get
 
--- | Fetches an entry in the store in a monadic way.
+-- | Fetches a module entry in the store in a monadic way.
 getModule :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleStoreEntry
 getModule uri = liftMaybe =<< storedModule uri <$> get
 
--- | Fetches the entries in the store as a list in a monadic way.
-getModules :: (MonadState IndexStore m) => m [(J.NormalizedUri, ModuleStoreEntry)]
-getModules = storedModules <$> get
+-- | Fetches the module entries in the store as a list in a monadic way.
+getModuleList :: (MonadState IndexStore m) => m [(J.NormalizedUri, ModuleStoreEntry)]
+getModuleList = storedModules <$> get
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
 getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
