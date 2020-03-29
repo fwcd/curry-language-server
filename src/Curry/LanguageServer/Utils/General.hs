@@ -19,6 +19,7 @@ module Curry.LanguageServer.Utils.General (
     expectJust,
     Insertable (..),
     insertAll,
+    insertIntoTrieWith,
     insertAllIntoTrieWith,
     groupIntoMapBy,
     groupIntoMapByM,
@@ -175,11 +176,17 @@ insertAll :: Insertable m a => [a] -> m -> m
 insertAll [] = id
 insertAll (x:xs) = insertAll xs . insert x
 
--- | Inserts the given elements into the trie using the given combination function.
+-- | Inserts the given element into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
-insertAllIntoTrieWith :: (b -> a -> a) -> [(B.ByteString, b)] -> TR.Trie a -> TR.Trie a
+insertIntoTrieWith :: (a -> a -> a) -> B.ByteString -> a -> TR.Trie a -> TR.Trie a
+insertIntoTrieWith f s x t | TR.member s t = TR.adjust (f x) s t
+                           | otherwise     = TR.insert s x t
+
+-- | Inserts the given elements into the trie using the combination function.
+-- The combination function takes the new value on the left and the old one on the right.
+insertAllIntoTrieWith :: (a -> a -> a) -> [(B.ByteString, a)] -> TR.Trie a -> TR.Trie a
 insertAllIntoTrieWith f [] = id
-insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . TR.adjust (f x) s
+insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . insertIntoTrieWith f s x
 
 -- | Groups by key into a map.
 groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
