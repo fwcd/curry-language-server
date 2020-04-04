@@ -158,7 +158,7 @@ recompileFile cfg dirPath filePath = void $ do
             where env = C.compilerEnv o
                   asts = C.moduleASTs o
                   msgNormUri msg = runMaybeT $ do
-                      uri <- curryPos2Uri =<< (liftMaybe $ CM.msgPos msg)
+                      uri <- currySpanInfo2Uri $ CM.msgSpanInfo msg
                       liftIO $ normalizeUriWithPath uri
 
 -- | Fetches the number of module entries in the store in a monadic way.

@@ -41,25 +41,25 @@ packages:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-base.git
     pantry-tree:
       size: 3790
-      sha256: 3c5ffb4f443ace4e6fd80ae1ee341c855dd96c281a54b86fd38626452a2297ab
-    commit: 56d707053d159cfe6b283aa30fe7361f007a2752
+      sha256: 68c7804d84189ef29b8d419db9a6189df20ee4a625fe001f5f558faa047b6265
+    commit: 670525abee5cc6a593e8ab6954c20fcb1373cd59
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-base.git
-    commit: 56d707053d159cfe6b283aa30fe7361f007a2752
+    commit: 670525abee5cc6a593e8ab6954c20fcb1373cd59
 - completed:
     cabal-file:
-      size: 4319
-      sha256: eeaee59c8eddde7c250c13ad9d9f1bd5d0771eb5b392b70ef2586695174879ed
+      size: 4336
+      sha256: ddf5d4bb77262a93f42530ccdeee25943e7b435077e241a687c78e043b030023
     name: curry-frontend
     version: 2.0.0
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     pantry-tree:
       size: 14825
-      sha256: 9621c8e978ae12bd19721bfcb8f488c26e7d2baeafcf8b65c06a4806cb817cd6
-    commit: 8fba4c4f127d833d2668ca121cf5d7d4a159c043
+      sha256: d67d55a32e95eae57d8d5b372845ecd7715af07804b56c190aeb1ecd1f7c18f3
+    commit: 9dcf4624e808e525d94baff90318c3e7a57f4802
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 8fba4c4f127d833d2668ca121cf5d7d4a159c043
+    commit: 9dcf4624e808e525d94baff90318c3e7a57f4802
 snapshots:
 - completed:
     size: 524164
