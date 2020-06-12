@@ -9,20 +9,29 @@ module Curry.LanguageServer.Compiler (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Files.Filenames as CFN
 import qualified Curry.Files.PathUtils as CF
+import qualified Curry.Files.Unlit as CUL
 import qualified Curry.Base.Ident as CI
+import qualified Curry.Base.Span as CSP
+import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Base.Message as CM
-import Curry.Base.Monad (CYIO, runCYIO, runCYM, failMessages)
+import Curry.Base.Monad (CYIO, CYT, runCYIO, runCYM, liftCYM, silent, failMessages, warnMessages)
 import qualified Curry.Base.Position as CP
 import qualified Curry.Syntax as CS
+import qualified Base.Messages as CBM
 import qualified Checks as CC
 import qualified CurryDeps as CD
 import qualified CompilerEnv as CE
+import qualified CondCompile as CNC
 import qualified CompilerOpts as CO
+import qualified Env.Interface as CEI
 import qualified Exports as CEX
-import Modules (loadAndCheckModule)
+import qualified Imports as CIM
+import qualified Interfaces as CIF
+import qualified Modules as CMD
 import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
+import Control.Monad (liftM)
 import Control.Monad.Reader
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Logging
@@ -37,6 +46,7 @@ import System.FilePath
 
 data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
+type FileLoader = FilePath -> String
 
 -- | Compiles a Curry source file with it's dependencies
 -- using the given import paths and the given output directory
@@ -81,7 +91,7 @@ compileCurryModule :: CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CY
 compileCurryModule opts outDirPath m fp = do
     liftIO $ logs INFO $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
-    mdl <- loadAndCheckModule opts m fp
+    mdl <- loadAndCheckCurryModule opts m fp
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
@@ -90,6 +100,77 @@ compileCurryModule opts outDirPath m fp = do
     liftIO $ logs DEBUG $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl
+
+-- The following functions partially reimplement
+-- https://git.ps.informatik.uni-kiel.de/curry/curry-frontend/-/blob/master/src/Modules.hs
+-- since the original module loader/parser does not support virtualized file systems.
+-- License     :  BSD-3-clause
+-- Copyright   :  (c) 1999 - 2004 Wolfgang Lux
+--                    2005        Martin Engelke
+--                    2007        Sebastian Fischer
+--                    2011 - 2015 Björn Peemöller
+--                    2016        Jan Tikovsky
+--                    2016 - 2017 Finn Teegen
+--                    2018        Kai-Oliver Prott
+
+-- | Loads a single module and performs checks.
+loadAndCheckCurryModule :: CO.Options -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule opts m fp = do
+    -- TODO: Use custom virtual file loader
+    src <- liftIO $ readFile fp
+    ce <- CMD.checkModule opts =<< loadCurryModule opts m src fp
+    warnMessages $ uncurry (CC.warnCheck opts) ce
+    return ce
+
+-- | Loads a single module.
+loadCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO (CE.CompEnv (CS.Module()))
+loadCurryModule opts m src fp = do
+    -- Parse the module
+    (lex, ast) <- parseCurryModule opts m src fp
+    -- Load the imported interfaces into an InterfaceEnv
+    let paths = (CFN.addCurrySubdir $ CO.optUseSubdir opts) <$> ("." : CO.optImportPaths opts)
+    let withPrelude = importCurryPrelude opts ast
+    iEnv <- CIF.loadInterfaces paths withPrelude
+    checkInterfaces opts iEnv
+    is <- importSyntaxCheck iEnv withPrelude
+    -- Add Information of imported modules
+    cEnv <- CIM.importModules withPrelude iEnv is
+    return (cEnv { CE.filePath = fp, CE.tokens = lex }, ast)
+
+-- | Checks all interfaces.
+checkInterfaces :: Monad m => CO.Options -> CEI.InterfaceEnv -> CYT m ()
+checkInterfaces opts iEnv = mapM_ checkInterface $ M.elems iEnv
+    where checkInterface intf = do
+            let env = CIM.importInterfaces intf iEnv
+            CC.interfaceCheck opts (env, intf)
+
+-- | Checks all imports in the module.
+importSyntaxCheck :: Monad m => CEI.InterfaceEnv -> CS.Module a -> CYT m [CS.ImportDecl]
+importSyntaxCheck iEnv (CS.Module _ _ _ _ _ is _) = mapM checkImportDecl is
+    where checkImportDecl (CS.ImportDecl p m q asM is) = case M.lookup m iEnv of
+            Just intf -> CS.ImportDecl p m q asM `liftM` CC.importCheck intf is
+            Nothing   -> CBM.internalError $ "importSyntaxCheck: No interface for " ++ show m
+
+-- | Ensures that a Prelude is present in the module.
+importCurryPrelude :: CO.Options -> CS.Module () -> CS.Module ()
+importCurryPrelude opts m@(CS.Module spi li ps mid es is ds) | needed    = CS.Module spi li ps mid es (preludeImpl : is) ds
+                                                             | otherwise = m
+    where isPrelude = mid == CI.preludeMIdent
+          disabled = CS.NoImplicitPrelude `elem` CO.optExtensions opts || m `CS.hasLanguageExtension` CS.NoImplicitPrelude
+          imported = CI.preludeMIdent `elem` ((\(CS.ImportDecl _ i _ _ _) -> i) <$> is)
+          needed = not isPrelude && not disabled && not imported
+          preludeImpl = CS.ImportDecl CSPI.NoSpanInfo CI.preludeMIdent False Nothing Nothing
+
+-- | Parses a single module.
+parseCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO ([(CSP.Span, CS.Token)], CS.Module ())
+parseCurryModule opts m src fp = do
+    ul <- liftCYM $ CUL.unlit fp src
+    -- TODO: Preprocess
+    cc <- CNC.condCompile (CO.optCppOpts opts) fp ul
+    lex <- liftCYM $ silent $ CS.lexSource fp cc
+    ast <- liftCYM $ CS.parseModule fp cc
+    -- TODO: Check module/file mismatch?
+    return (lex, ast)
 
 compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
