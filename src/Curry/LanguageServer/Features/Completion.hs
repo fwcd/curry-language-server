@@ -15,6 +15,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
+import Curry.LanguageServer.Utils.Syntax (elementAt, HasExpressions (..))
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
@@ -23,12 +24,15 @@ import qualified Language.Haskell.LSP.Types.Lens as J
 
 fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query pos = do
-    -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry
-        valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
-        typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
-        keywordCompletions = keywordToCompletion <$> keywords
-        completions = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
+        maybeExpr = elementAt pos <$> expressions <$> moduleAST entry
+        completions = case maybeExpr of
+            Just expr -> []
+            Nothing -> let valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
+                           typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
+                           keywordCompletions = keywordToCompletion <$> keywords
+                       in rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
+    
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
     return completions
     where keywords = ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
