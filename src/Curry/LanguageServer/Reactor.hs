@@ -56,7 +56,10 @@ reactor lf rin = do
             fileLoader fp = do
                 normUri <- filePathToNormalizedUri fp
                 vfile <- Core.getVirtualFileFunc lf normUri
-                return $ maybe "" id $ T.unpack <$> VFS.virtualFileText <$> vfile
+                
+                case T.unpack <$> VFS.virtualFileText <$> vfile of
+                    Just vfsContent -> return vfsContent
+                    Nothing -> readFile fp
 
         case hreq of
             NotInitialized _ -> do
@@ -87,7 +90,10 @@ reactor lf rin = do
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri
             
-            -- TODO: Respond to changes before saving (possibly requires using the VFS)
+            NotDidChangeTextDocument notification -> do
+                liftIO $ logs DEBUG $ "reactor: Processing change notification"
+                let uri = notification ^. J.params . J.textDocument . J.uri
+                void $ runMaybeT $ updateIndexStore fileLoader uri
 
             NotDidSaveTextDocument notification -> (do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
