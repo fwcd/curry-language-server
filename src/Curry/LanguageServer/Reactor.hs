@@ -20,6 +20,7 @@ import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Data.Default
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
+import qualified Data.SortedList as SL
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
 import Language.Haskell.LSP.Messages
@@ -186,9 +187,12 @@ send msg = do
 sendDiagnostics :: J.NormalizedUri -> [J.Diagnostic] -> RM ()
 sendDiagnostics uri diags = do
     lf <- ask
-    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri version $ partitionBySource diags
+    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri version diagsBySource
     where version = Just 0
           maxToPublish = 100
+          -- Workaround for empty diagnostics: https://github.com/alanz/haskell-lsp/issues/139
+          diagsBySource | null diags = M.singleton Nothing (SL.toSortedList [])
+                        | otherwise  = partitionBySource diags
 
 -- | Fetches the configuration 
 getConfig :: MaybeRM CFG.Config
