@@ -2,7 +2,6 @@ module Curry.LanguageServer.Compiler (
     CompilationOutput (..),
     CompilationResult,
     compileCurryFileWithDeps,
-    parseInterface,
     compilationToMaybe,
     failedCompilation
 ) where
@@ -91,12 +90,6 @@ compileCurryModule opts outDirPath m fp = do
     liftIO $ logs DEBUG $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl
-
-parseInterface :: FilePath -> IO (Maybe CS.Interface)
-parseInterface fp = do
-    logs DEBUG $ "parseInterface: Parsing interface at " ++ fp
-    src <- CF.readModule fp
-    return $ (eitherToMaybe . (fst <$>) . runCYM . CS.parseInterface fp) =<< src
 
 compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
