@@ -6,6 +6,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasIdentifier (..),
     ModuleAST,
     elementAt,
+    elementContains,
     moduleIdentifier
 ) where
 

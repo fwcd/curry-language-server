@@ -3,6 +3,8 @@ module Curry.LanguageServer.Features.Completion (fetchCompletions) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
+import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Syntax as CS
 import qualified Base.TopEnv as CT
 import qualified Base.Types as CTY
 import qualified CompilerEnv as CE
@@ -11,24 +13,25 @@ import qualified Env.Value as CEV
 
 import Control.Applicative (Alternative (..))
 import Control.Lens ((^.))
-import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
+import Curry.LanguageServer.IndexStore (storedModules, IndexStore, ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import Curry.LanguageServer.Utils.Syntax (elementAt, ModuleAST, HasExpressions (..), HasDeclarations (..))
+import Curry.LanguageServer.Utils.Syntax (elementAt, elementContains, ModuleAST, HasExpressions (..), HasDeclarations (..))
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
-fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
-fetchCompletions entry query pos = do
+fetchCompletions :: IndexStore -> ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
+fetchCompletions store entry query pos = do
     let env = compilerEnv entry
         ast = moduleAST entry
         completions = expressionCompletions ast pos
                   <|> declarationCompletions ast pos
+                  <|> importCompletions store ast pos
                   <|> generalCompletions env query
     
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
@@ -47,6 +50,18 @@ declarationCompletions ast pos = do
     case expr of
         -- TODO: Implement declaration completions
         _ -> []
+
+importCompletions :: IndexStore -> Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+importCompletions store ast pos = do
+    CS.Module _ _ _ _ _ is _ <- maybeToList ast
+    CS.ImportDecl _ _ _ mid spec <- maybeToList $ elementAt pos is
+    case spec of
+        Just (CS.Importing _ is) | not (null is) -> case last is of
+            CS.Import _ ident -> moduleCompletions store
+        _ -> []
+
+moduleCompletions :: IndexStore -> [J.CompletionItem]
+moduleCompletions store = moduleToCompletion <$> ((maybeToList . moduleAST) =<< snd <$> storedModules store)
 
 generalCompletions :: Maybe CE.CompilerEnv -> T.Text -> [J.CompletionItem]
 generalCompletions env query = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions env ++ typeCompletions env ++ keywordCompletions
@@ -68,6 +83,15 @@ matchesQuery query item = query `T.isPrefixOf` (item ^. J.label)
 -- | Creates a completion item using the given label, kind, a detail and doc.
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
 completionFrom label ciKind detail doc = J.CompletionItem label (Just ciKind) detail (J.CompletionDocString <$> doc) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+-- | Converts a module to a completion item.
+moduleToCompletion :: CS.Module a -> J.CompletionItem
+moduleToCompletion (CS.Module _ _ _ mid _ _ _) = item
+    where name = T.pack $ CI.moduleName mid
+          ciKind = J.CiModule
+          detail = Nothing
+          doc = Nothing
+          item = completionFrom name ciKind detail doc
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem
 

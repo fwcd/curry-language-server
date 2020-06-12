@@ -106,11 +106,12 @@ reactor lf rin = do
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
                 vfile <- liftIO $ Core.getVirtualFileFunc lf normUri
+                store <- get
                 completions <- fmap (join . maybeToList) $ runMaybeT $ do
                     entry <- I.getModule normUri
                     vfile <- liftMaybe =<< (liftIO $ Core.getVirtualFileFunc lf normUri)
                     query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
-                    liftIO $ fetchCompletions entry query pos
+                    liftIO $ fetchCompletions store entry query pos
                 let maxCompletions = 25
                     items = take maxCompletions completions
                     incomplete = length completions > maxCompletions
