@@ -16,7 +16,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import Curry.LanguageServer.Utils.Syntax (elementAt, ModuleAST, HasExpressions (..))
+import Curry.LanguageServer.Utils.Syntax (elementAt, ModuleAST, HasExpressions (..), HasDeclarations (..))
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
@@ -27,7 +27,9 @@ fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.Completion
 fetchCompletions entry query pos = do
     let env = compilerEnv entry
         ast = moduleAST entry
-        completions = (expressionCompletions ast pos) <|> (generalCompletions env query)
+        completions = expressionCompletions ast pos
+                  <|> declarationCompletions ast pos
+                  <|> generalCompletions env query
     
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
     return completions
@@ -37,6 +39,13 @@ expressionCompletions ast pos = do
     expr <- maybeToList $ elementAt pos =<< (expressions <$> ast)
     case expr of
         -- TODO: Implement expression completions
+        _ -> []
+
+declarationCompletions :: Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+declarationCompletions ast pos = do
+    expr <- maybeToList $ elementAt pos =<< (declarations <$> ast)
+    case expr of
+        -- TODO: Implement declaration completions
         _ -> []
 
 generalCompletions :: Maybe CE.CompilerEnv -> T.Text -> [J.CompletionItem]
