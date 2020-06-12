@@ -9,32 +9,47 @@ import qualified CompilerEnv as CE
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
+import Control.Applicative (Alternative (..))
 import Control.Lens ((^.))
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import Curry.LanguageServer.Utils.Syntax (elementAt, HasExpressions (..))
+import Curry.LanguageServer.Utils.Syntax (elementAt, ModuleAST, HasExpressions (..))
 import qualified Data.Map as M
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
 fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query pos = do
-    let env = maybeToList $ compilerEnv entry
-        maybeExpr = elementAt pos <$> expressions <$> moduleAST entry
-        completions = case maybeExpr of
-            Just expr -> []
-            Nothing -> let valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
-                           typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
-                           keywordCompletions = keywordToCompletion <$> keywords
-                       in rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
+    let env = compilerEnv entry
+        ast = moduleAST entry
+        completions = (expressionCompletions ast pos) <|> (generalCompletions env query)
     
-    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
+    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
     return completions
+
+expressionCompletions :: Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+expressionCompletions ast pos = do
+    expr <- maybeToList $ elementAt pos =<< (expressions <$> ast)
+    case expr of
+        -- TODO: Implement expression completions
+        _ -> []
+
+generalCompletions :: Maybe CE.CompilerEnv -> T.Text -> [J.CompletionItem]
+generalCompletions env query = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions env ++ typeCompletions env ++ keywordCompletions
+
+valueCompletions :: Maybe CE.CompilerEnv -> [J.CompletionItem]
+valueCompletions env = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< maybeToList env)
+
+typeCompletions :: Maybe CE.CompilerEnv -> [J.CompletionItem]
+typeCompletions env = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< maybeToList env)
+
+keywordCompletions :: [J.CompletionItem]
+keywordCompletions = keywordToCompletion <$> keywords
     where keywords = ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
 -- | Tests whether a completion item matches the user's query.

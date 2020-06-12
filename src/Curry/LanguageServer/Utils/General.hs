@@ -6,6 +6,7 @@ module Curry.LanguageServer.Utils.General (
     nth,
     pair,
     dup,
+    guarded,
     wordAtIndex, wordAtPos,
     wordsWithSpaceCount,
     pointRange, emptyRange,
@@ -28,6 +29,7 @@ module Curry.LanguageServer.Utils.General (
     tripleToPair
 ) where
 
+import Control.Applicative
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
@@ -69,6 +71,10 @@ pair x y = (x, y)
 -- | Duplicates.
 dup :: a -> (a, a)
 dup x = (x, x)
+
+-- | Creates a wrapped alternative value if it satisfies the predicate, otherwise empty
+guarded :: Alternative f => (a -> Bool) -> a -> f a
+guarded p x = if p x then pure x else empty
 
 -- | Finds the word at the given offset.
 wordAtIndex :: Int -> T.Text -> Maybe T.Text
