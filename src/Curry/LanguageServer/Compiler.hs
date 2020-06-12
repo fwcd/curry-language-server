@@ -1,6 +1,7 @@
 module Curry.LanguageServer.Compiler (
     CompilationOutput (..),
     CompilationResult,
+    FileLoader,
     compileCurryFileWithDeps,
     compilationToMaybe,
     failedCompilation
@@ -46,7 +47,7 @@ import System.FilePath
 
 data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
-type FileLoader = FilePath -> String
+type FileLoader = FilePath -> IO String
 
 -- | Compiles a Curry source file with it's dependencies
 -- using the given import paths and the given output directory
@@ -54,8 +55,8 @@ type FileLoader = FilePath -> String
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: CFG.Config -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps cfg importPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
+compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
         opts = CO.defaultOptions { CO.optForce = CFG.forceRecompilation cfg,
@@ -68,7 +69,7 @@ compileCurryFileWithDeps cfg importPaths outDirPath filePath = runCYIO $ do
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> (compileCurryModules opts' outDirPath $ tripleToPair <$> deps)
+    toCompilationOutput <$> (compileCurryModules opts' fl outDirPath $ tripleToPair <$> deps)
     where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
           processPragmas o ps = foldl processExtensionPragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
           processExtensionPragma :: CO.Options -> CS.KnownExtension -> CO.Options
@@ -77,21 +78,21 @@ compileCurryFileWithDeps cfg importPaths outDirPath filePath = runCYIO $ do
               _      -> o
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: CO.Options -> FilePath -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
-compileCurryModules opts outDirPath deps = case deps of
+compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
-    [(m, fp)] -> (\ast -> [(fp, ast)]) <$.> compileCurryModule opts outDirPath m fp
+    [(m, fp)] -> (\ast -> [(fp, ast)]) <$.> compileCurryModule opts fl outDirPath m fp
     ((m, fp):ds) -> do
-        (_, ast) <- compileCurryModule opts outDirPath m fp
-        (env, asts) <- compileCurryModules opts outDirPath ds
+        (_, ast) <- compileCurryModule opts fl outDirPath m fp
+        (env, asts) <- compileCurryModules opts fl outDirPath ds
         return (env, ((fp, ast) : asts))
 
 -- | Compiles a single module.
-compileCurryModule :: CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
-compileCurryModule opts outDirPath m fp = do
+compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+compileCurryModule opts fl outDirPath m fp = do
     liftIO $ logs INFO $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
-    mdl <- loadAndCheckCurryModule opts m fp
+    mdl <- loadAndCheckCurryModule opts fl m fp
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
@@ -114,10 +115,11 @@ compileCurryModule opts outDirPath m fp = do
 --                    2018        Kai-Oliver Prott
 
 -- | Loads a single module and performs checks.
-loadAndCheckCurryModule :: CO.Options -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
-loadAndCheckCurryModule opts m fp = do
-    -- TODO: Use custom virtual file loader
-    src <- liftIO $ readFile fp
+loadAndCheckCurryModule :: CO.Options -> FileLoader -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule opts fl m fp = do
+    -- Read source file (possibly from VFS)
+    src <- liftIO $ fl fp
+    -- Load and check module
     ce <- CMD.checkModule opts =<< loadCurryModule opts m src fp
     warnMessages $ uncurry (CC.warnCheck opts) ce
     return ce

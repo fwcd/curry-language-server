@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.RWS
 import Control.Monad.STM
 import Control.Monad.Trans.Maybe
+import qualified Curry.LanguageServer.Compiler as C
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Features.Completion
@@ -16,10 +17,11 @@ import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
-import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri, normalizeUriWithPath)
 import Data.Default
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
+import qualified Data.Text as T
 import qualified Data.SortedList as SL
 import qualified Language.Haskell.LSP.Core as Core
 import Language.Haskell.LSP.Diagnostics
@@ -50,12 +52,18 @@ reactor lf rin = do
         hreq <- liftIO $ atomically $ readTChan rin
         liftIO $ logs DEBUG $ "reactor: Got request: " ++ show hreq
 
+        let fileLoader :: C.FileLoader
+            fileLoader fp = do
+                normUri <- filePathToNormalizedUri fp
+                vfile <- Core.getVirtualFileFunc lf normUri
+                return $ maybe "" id $ T.unpack <$> VFS.virtualFileText <$> vfile
+
         case hreq of
             NotInitialized _ -> do
                 liftIO $ setupLogging $ Core.sendFunc lf
                 liftIO $ logs INFO $ "reactor: Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
-                runMaybeT $ sequence $ addDirToIndexStore <$> folders
+                runMaybeT $ sequence $ addDirToIndexStore fileLoader <$> folders
                 count <- I.getModuleCount
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
@@ -77,14 +85,14 @@ reactor lf rin = do
             NotDidOpenTextDocument notification -> do
                 liftIO $ logs DEBUG $ "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
-                void $ runMaybeT $ updateIndexStore uri
+                void $ runMaybeT $ updateIndexStore fileLoader uri
             
             -- TODO: Respond to changes before saving (possibly requires using the VFS)
 
             NotDidSaveTextDocument notification -> (do
                 liftIO $ logs DEBUG $ "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
-                void $ runMaybeT $ updateIndexStore uri) :: RM ()
+                void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
             ReqCompletion req -> do
                 liftIO $ logs DEBUG $ "reactor: Processing completion request"
@@ -157,21 +165,21 @@ reactor lf rin = do
         liftIO $ logs DEBUG $ "reactor: Handled request"
 
 -- | Indexes a workspace folder recursively.
-addDirToIndexStore :: FilePath -> MaybeRM ()
-addDirToIndexStore dirPath = do
+addDirToIndexStore :: C.FileLoader -> FilePath -> MaybeRM ()
+addDirToIndexStore fl dirPath = do
     cfg <- getConfig
-    I.addWorkspaceDir cfg dirPath
+    I.addWorkspaceDir cfg fl dirPath
     entries <- I.getModuleList
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
           withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.
-updateIndexStore :: J.Uri -> MaybeRM ()
-updateIndexStore uri = do
+updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()
+updateIndexStore fl uri = do
     cfg <- getConfig
     normUri <- liftIO $ normalizeUriWithPath uri
-    lift $ I.recompileModule cfg normUri
+    lift $ I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
     diags <- liftIO $ fetchDiagnostics entry
     lift $ sendDiagnostics normUri diags

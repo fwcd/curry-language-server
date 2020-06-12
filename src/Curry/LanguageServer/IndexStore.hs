@@ -104,17 +104,17 @@ storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
 storedSymbolsWithPrefix pre = join . TR.elems . (TR.submap $ TE.encodeUtf8 pre) . symbols
 
 -- | Compiles the given directory recursively and stores its entries.
-addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> FilePath -> m ()
-addWorkspaceDir cfg dirPath = void $ runMaybeT $ do
+addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> FilePath -> m ()
+addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- liftIO $ walkCurrySourceFiles dirPath
-    sequence $ recompileFile cfg (Just dirPath) <$> files
+    sequence $ recompileFile cfg fl (Just dirPath) <$> files
     liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
-recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> J.NormalizedUri -> m ()
-recompileModule cfg uri = void $ runMaybeT $ do
+recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> J.NormalizedUri -> m ()
+recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
-    recompileFile cfg Nothing filePath
+    recompileFile cfg fl Nothing filePath
     liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri
 
 -- | Finds all Curry source files in a directory.
@@ -122,12 +122,12 @@ walkCurrySourceFiles :: FilePath -> IO [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m) => Config -> Maybe FilePath -> FilePath -> m ()
-recompileFile cfg dirPath filePath = void $ do
+recompileFile :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> Maybe FilePath -> FilePath -> m ()
+recompileFile cfg fl dirPath filePath = void $ do
     liftIO $ logs INFO $ "indexStore: (Re-)compiling file " ++ takeFileName filePath
     let outDirPath = CFN.currySubdir </> ".language-server"
         importPaths = [outDirPath]
-    result <- liftIO $ C.compileCurryFileWithDeps cfg importPaths outDirPath filePath
+    result <- liftIO $ C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath
     
     ms <- modules <$> get
     ss <- symbols <$> get
