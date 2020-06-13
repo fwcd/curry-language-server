@@ -20,7 +20,7 @@ import Curry.LanguageServer.Compiler (parseCurryModule)
 import Curry.LanguageServer.IndexStore (storedModules, IndexStore, ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
-import Curry.LanguageServer.Utils.General (rmDupsOn, wordAtPos)
+import Curry.LanguageServer.Utils.General (rmDupsOn, wordAtPos, guarded)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import Curry.LanguageServer.Utils.Syntax (elementAt, elementContains, HasExpressions (..), HasDeclarations (..))
 import qualified Data.Map as M
@@ -44,15 +44,15 @@ fetchCompletions store entry content pos = do
                 _ -> Nothing
         _ -> return Nothing
     
-    logs INFO $ "decl: " ++ show (elementAt pos =<< (\(CS.Module _ _ _ _ _ is _) -> is) <$> ast')
-
-    let completions = expressionCompletions ast' pos
-                  <|> declarationCompletions ast' pos
-                  <|> importCompletions store ast' pos
-                  <|> generalCompletions env query
+    let completions = maybe [] id
+                   $  (takeIfNonEmpty $ expressionCompletions ast' pos)
+                  <|> (takeIfNonEmpty $ declarationCompletions ast' pos)
+                  <|> (takeIfNonEmpty $ importCompletions store ast' pos)
+                  <|> (takeIfNonEmpty $ generalCompletions env query)
     
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
     return completions
+    where takeIfNonEmpty = guarded (not . null)
 
 expressionCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 expressionCompletions ast pos = do
@@ -72,7 +72,8 @@ importCompletions :: IndexStore -> Maybe (CS.Module a) -> J.Position -> [J.Compl
 importCompletions store ast pos = do
     CS.Module _ _ _ _ _ is _ <- maybeToList ast
     CS.ImportDecl _ mid _ _ _ <- maybeToList $ elementAt pos is
-    moduleCompletions store
+    let mName = T.pack $ CI.moduleName mid
+    filter (\c -> mName `T.isPrefixOf` (c ^. J.label)) $ moduleCompletions store
 
 moduleCompletions :: IndexStore -> [J.CompletionItem]
 moduleCompletions store = moduleToCompletion <$> ((maybeToList . moduleAST) =<< snd <$> storedModules store)
