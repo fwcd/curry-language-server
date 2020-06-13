@@ -46,7 +46,6 @@ fetchCompletions store entry content pos = do
     
     let completions = maybe [] id
                    $  (takeIfNonEmpty $ expressionCompletions ast' pos)
-                  <|> (takeIfNonEmpty $ declarationCompletions ast' pos)
                   <|> (takeIfNonEmpty $ importCompletions store ast' pos)
                   <|> (takeIfNonEmpty $ generalCompletions env ast' pos query)
     
@@ -58,14 +57,7 @@ expressionCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 expressionCompletions ast pos = do
     expr <- maybeToList $ elementAt pos =<< (expressions <$> ast)
     case expr of
-        -- TODO: Implement expression completions
-        _ -> []
-
-declarationCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
-declarationCompletions ast pos = do
-    expr <- maybeToList $ elementAt pos =<< (declarations <$> ast)
-    case expr of
-        -- TODO: Implement declaration completions
+        -- TODO: Implement expression-specific completions
         _ -> []
 
 importCompletions :: IndexStore -> Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
@@ -83,6 +75,8 @@ generalCompletions env ast pos query = rmDupsOn (^. J.label) $ filter (matchesQu
                                                              $ valueCompletions env ++ localCompletions ast pos
                                                                                     ++ typeCompletions env
                                                                                     ++ keywordCompletions
+
+-- TODO: Re-implement localCompletions using NestEnvs and bindings
 
 localCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 localCompletions ast pos = declarationToCompletions =<< (elementsAt pos $ declarations =<< maybeToList ast)
