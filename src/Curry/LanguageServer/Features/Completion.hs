@@ -43,6 +43,8 @@ fetchCompletions store entry content pos = do
                 Right (_, m) -> Just m
                 _ -> Nothing
         _ -> return Nothing
+    
+    logs INFO $ "decl: " ++ show (elementAt pos =<< (\(CS.Module _ _ _ _ _ is _) -> is) <$> ast')
 
     let completions = expressionCompletions ast' pos
                   <|> declarationCompletions ast' pos
@@ -69,11 +71,8 @@ declarationCompletions ast pos = do
 importCompletions :: IndexStore -> Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 importCompletions store ast pos = do
     CS.Module _ _ _ _ _ is _ <- maybeToList ast
-    CS.ImportDecl _ _ _ mid spec <- maybeToList $ elementAt pos is
-    case spec of
-        Just (CS.Importing _ is) | not (null is) -> case last is of
-            CS.Import _ ident -> moduleCompletions store
-        _ -> []
+    CS.ImportDecl _ mid _ _ _ <- maybeToList $ elementAt pos is
+    moduleCompletions store
 
 moduleCompletions :: IndexStore -> [J.CompletionItem]
 moduleCompletions store = moduleToCompletion <$> ((maybeToList . moduleAST) =<< snd <$> storedModules store)
