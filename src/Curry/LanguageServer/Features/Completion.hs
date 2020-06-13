@@ -4,21 +4,25 @@ module Curry.LanguageServer.Features.Completion (fetchCompletions) where
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import Curry.Base.Monad (runCYIOIgnWarn)
+import qualified Curry.Files.Filenames as CFN
 import qualified Curry.Syntax as CS
 import qualified Base.TopEnv as CT
 import qualified Base.Types as CTY
 import qualified CompilerEnv as CE
+import qualified CompilerOpts as CO
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Applicative (Alternative (..))
 import Control.Lens ((^.))
+import Curry.LanguageServer.Compiler (parseCurryModule)
 import Curry.LanguageServer.IndexStore (storedModules, IndexStore, ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
-import Curry.LanguageServer.Utils.General (rmDupsOn)
+import Curry.LanguageServer.Utils.General (rmDupsOn, wordAtPos)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import Curry.LanguageServer.Utils.Syntax (elementAt, elementContains, ModuleAST, HasExpressions (..), HasDeclarations (..))
+import Curry.LanguageServer.Utils.Syntax (elementAt, elementContains, HasExpressions (..), HasDeclarations (..))
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
@@ -26,32 +30,43 @@ import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
 fetchCompletions :: IndexStore -> ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
-fetchCompletions store entry query pos = do
-    let env = compilerEnv entry
+fetchCompletions store entry content pos = do
+    let query = maybe "" id $ wordAtPos pos content
+        env = compilerEnv entry
         ast = moduleAST entry
-        completions = expressionCompletions ast pos
-                  <|> declarationCompletions ast pos
-                  <|> importCompletions store ast pos
+
+    -- Workaround: Re-parse AST since stored AST is not updated after errors
+    ast' <- case (\(CS.Module _ _ _ mid _ _ _) -> parseCurryModule CO.defaultOptions mid (T.unpack content) $ CFN.moduleNameToFile mid) <$> ast of
+        Just p -> do
+            out <- runCYIOIgnWarn p
+            return $ case out of
+                Right (_, m) -> Just m
+                _ -> Nothing
+        _ -> return Nothing
+
+    let completions = expressionCompletions ast' pos
+                  <|> declarationCompletions ast' pos
+                  <|> importCompletions store ast' pos
                   <|> generalCompletions env query
     
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
     return completions
 
-expressionCompletions :: Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+expressionCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 expressionCompletions ast pos = do
     expr <- maybeToList $ elementAt pos =<< (expressions <$> ast)
     case expr of
         -- TODO: Implement expression completions
         _ -> []
 
-declarationCompletions :: Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+declarationCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 declarationCompletions ast pos = do
     expr <- maybeToList $ elementAt pos =<< (declarations <$> ast)
     case expr of
         -- TODO: Implement declaration completions
         _ -> []
 
-importCompletions :: IndexStore -> Maybe ModuleAST -> J.Position -> [J.CompletionItem]
+importCompletions :: IndexStore -> Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
 importCompletions store ast pos = do
     CS.Module _ _ _ _ _ is _ <- maybeToList ast
     CS.ImportDecl _ _ _ mid spec <- maybeToList $ elementAt pos is

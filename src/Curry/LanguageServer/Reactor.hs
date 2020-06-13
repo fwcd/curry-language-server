@@ -16,7 +16,7 @@ import Curry.LanguageServer.Features.DocumentSymbols
 import Curry.LanguageServer.Features.Hover
 import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
+import Curry.LanguageServer.Utils.General (liftMaybe, slipr3)
 import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri, normalizeUriWithPath)
 import Data.Default
 import qualified Data.Map as M
@@ -110,8 +110,7 @@ reactor lf rin = do
                 completions <- fmap (join . maybeToList) $ runMaybeT $ do
                     entry <- I.getModule normUri
                     vfile <- liftMaybe =<< (liftIO $ Core.getVirtualFileFunc lf normUri)
-                    query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
-                    liftIO $ fetchCompletions store entry query pos
+                    liftIO $ fetchCompletions store entry (VFS.virtualFileText vfile) pos
                 let maxCompletions = 25
                     items = take maxCompletions completions
                     incomplete = length completions > maxCompletions
