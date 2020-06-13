@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -101,9 +103,24 @@ instance HasDeclarations CS.Module where
 instance HasDeclarations CS.Decl where
     declarations decl = decl : case decl of
         -- TODO: Fetch declarations inside equations/expressions/...
-        CS.ClassDecl _ _ _ _ _ ds     -> ds
-        CS.InstanceDecl  _ _ _ _ _ ds -> ds
-        _                        -> []
+        CS.ClassDecl _ _ _ _ _ ds     -> declarations =<< ds
+        CS.InstanceDecl  _ _ _ _ _ ds -> declarations =<< ds
+        CS.FunctionDecl _ _ _ eqs     -> declarations =<< eqs
+        _                             -> []
+
+instance HasDeclarations CS.Equation where
+    declarations eqn = declarations =<< expressions eqn
+
+instance HasDeclarations CS.Rhs where
+    declarations rhs = declarations =<< expressions rhs
+
+instance HasDeclarations CS.CondExpr where
+    declarations ce = declarations =<< expressions ce
+
+instance HasDeclarations CS.Expression where
+    declarations e = expressions e >>= \case
+        CS.Let _ _ ds e -> declarations =<< ds
+        _               -> []
 
 class HasQualIdentifier e where
     qualIdentifier :: e -> Maybe CI.QualIdent
