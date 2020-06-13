@@ -114,16 +114,19 @@ instance HasDeclarations CS.Decl where
         _                             -> []
 
 instance HasDeclarations CS.Equation where
-    declarations eqn = declarations =<< expressions eqn
+    declarations (CS.Equation _ _ rhs) = declarations rhs
 
 instance HasDeclarations CS.Rhs where
-    declarations rhs = declarations =<< expressions rhs
+    declarations rhs = case rhs of
+        CS.SimpleRhs _ _ e decls      -> (declarations e) ++ (declarations =<< decls)
+        CS.GuardedRhs _ _ conds decls -> (declarations =<< conds) ++ (declarations =<< decls)
 
 instance HasDeclarations CS.CondExpr where
     declarations ce = declarations =<< expressions ce
 
 instance HasDeclarations CS.Expression where
     declarations e = expressions e >>= \case
+        -- TODO: Declarations in do-statements etc.
         CS.Let _ _ ds e -> declarations =<< ds
         _               -> []
 
