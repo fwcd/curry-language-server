@@ -8,6 +8,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasIdentifier (..),
     ModuleAST,
     elementAt,
+    elementsAt,
     elementContains,
     moduleIdentifier
 ) where
@@ -24,9 +25,13 @@ import qualified Language.Haskell.LSP.Types as J
 
 type ModuleAST = CS.Module CT.PredType
 
--- | Fetches the element at the given position.
+-- | Fetches the innermost element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
-elementAt pos = lastSafe . filter (elementContains pos)
+elementAt pos = lastSafe . elementsAt pos
+
+-- | Fetches the elements at the given position.
+elementsAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> [e]
+elementsAt pos = filter (elementContains pos)
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool

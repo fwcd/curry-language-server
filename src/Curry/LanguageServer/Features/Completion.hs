@@ -22,7 +22,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn, wordAtPos, guarded)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import Curry.LanguageServer.Utils.Syntax (elementAt, elementContains, HasExpressions (..), HasDeclarations (..))
+import Curry.LanguageServer.Utils.Syntax (elementAt, elementsAt, elementContains, HasExpressions (..), HasDeclarations (..))
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
@@ -48,7 +48,7 @@ fetchCompletions store entry content pos = do
                    $  (takeIfNonEmpty $ expressionCompletions ast' pos)
                   <|> (takeIfNonEmpty $ declarationCompletions ast' pos)
                   <|> (takeIfNonEmpty $ importCompletions store ast' pos)
-                  <|> (takeIfNonEmpty $ generalCompletions env query)
+                  <|> (takeIfNonEmpty $ generalCompletions env ast' pos query)
     
     logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query
     return completions
@@ -78,8 +78,14 @@ importCompletions store ast pos = do
 moduleCompletions :: IndexStore -> [J.CompletionItem]
 moduleCompletions store = moduleToCompletion <$> ((maybeToList . moduleAST) =<< snd <$> storedModules store)
 
-generalCompletions :: Maybe CE.CompilerEnv -> T.Text -> [J.CompletionItem]
-generalCompletions env query = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions env ++ typeCompletions env ++ keywordCompletions
+generalCompletions :: Maybe CE.CompilerEnv -> Maybe (CS.Module a) -> J.Position -> T.Text -> [J.CompletionItem]
+generalCompletions env ast pos query = rmDupsOn (^. J.label) $ filter (matchesQuery query)
+                                                             $ valueCompletions env ++ localCompletions ast pos
+                                                                                    ++ typeCompletions env
+                                                                                    ++ keywordCompletions
+
+localCompletions :: Maybe (CS.Module a) -> J.Position -> [J.CompletionItem]
+localCompletions ast pos = declarationToCompletions =<< (elementsAt pos $ declarations =<< maybeToList ast)
 
 valueCompletions :: Maybe CE.CompilerEnv -> [J.CompletionItem]
 valueCompletions env = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< maybeToList env)
@@ -107,6 +113,15 @@ moduleToCompletion (CS.Module _ _ _ mid _ _ _) = item
           detail = Nothing
           doc = Nothing
           item = completionFrom name ciKind detail doc
+
+-- | Converts a declaration to a completion item.
+declarationToCompletions :: CS.Decl a -> [J.CompletionItem]
+declarationToCompletions decl = (\n -> completionFrom n J.CiVariable Nothing Nothing) <$> names
+    where names = T.pack <$> CI.idName <$> case decl of
+            CS.FunctionDecl _ _ ident _ -> [ident]
+            CS.ExternalDecl _ vars      -> (\(CS.Var _ ident) -> ident) <$> vars
+            CS.FreeDecl _ vars          -> (\(CS.Var _ ident) -> ident) <$> vars
+            _                           -> []
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem
 
