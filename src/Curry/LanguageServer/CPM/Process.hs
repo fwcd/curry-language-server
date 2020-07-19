@@ -11,8 +11,7 @@ import System.Exit (ExitCode (..))
 import System.FilePath (FilePath)
 import System.Process
 
--- Invokes the Curry Package Manager executable (assuming it is on PATH)
--- with the specified args.
+-- | Invokes the Curry Package Manager executable (assuming it is on PATH) with the specified args.
 invokeCPM :: FilePath -> [String] -> CM String
 invokeCPM dir args = do
     let executableName = "cypm"

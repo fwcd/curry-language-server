@@ -10,7 +10,7 @@ import Text.Parsec
 
 type Parser a = Parsec String () a
 
--- Finds the dependencies (name-version) in the project with the given path.
+-- | Finds the dependencies (name-version) in the project with the given path.
 invokeCPMDeps :: FilePath -> CM [String]
 invokeCPMDeps fp = ((mapMaybe $ rightToMaybe . parse depLine "") . lines) <$> invokeCPM fp ["deps"]
 
