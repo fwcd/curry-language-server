@@ -3,6 +3,7 @@ module Curry.LanguageServer.CPM.Process
     , CM (..)
     ) where
 
+import Control.Exception (try, SomeException)
 import Control.Monad (when, fail)
 import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.CPM.Monad
@@ -14,6 +15,11 @@ import System.Process
 -- with the specified args.
 invokeCPM :: FilePath -> [String] -> CM String
 invokeCPM dir args = do
-    (exitCode, out, err) <- liftIO $ readCreateProcessWithExitCode (proc "cypm" args) { cwd = Just dir } ""
-    when (exitCode /= ExitSuccess) $ fail err
-    return out
+    let executableName = "cypm"
+    res <- liftIO $ try $ readCreateProcessWithExitCode (proc executableName args) { cwd = Just dir } ""
+
+    case res of
+        Left e -> fail $ show (e :: SomeException) <> " (Please make sure that '" <> executableName <> "' is on your PATH!)"
+        Right (exitCode, out, err) -> do
+            when (exitCode /= ExitSuccess) $ fail err
+            return out
