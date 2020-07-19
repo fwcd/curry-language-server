@@ -14,6 +14,6 @@ import System.Process
 -- with the specified args.
 invokeCPM :: FilePath -> [String] -> CM String
 invokeCPM dir args = do
-    (exitCode, out, err) <- liftIO $ readCreateProcessWithExitCode (proc "cpm" args) { cwd = Just dir } ""
+    (exitCode, out, err) <- liftIO $ readCreateProcessWithExitCode (proc "cypm" args) { cwd = Just dir } ""
     when (exitCode /= ExitSuccess) $ fail err
     return out
