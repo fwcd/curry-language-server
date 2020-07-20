@@ -136,9 +136,13 @@ findCurrySourcesInProject dirPath = do
             deps   <- fromRight (error "Could not fetch CPM deps")   <$> (runCM $ invokeCPMDeps   dirPath)
 
             let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
+                curryBinPath = fromJust $ lookup "CURRY_BIN" config
+                curryLibPath = (takeDirectory $ takeDirectory curryBinPath) </> "lib"
+            
             depSources <- join <$> (mapM walkCurrySourceFiles $ (packagePath </>) <$> deps)
+            libSources <- walkCurrySourceFiles curryLibPath
 
-            return $ projSources ++ depSources
+            return $ projSources ++ depSources ++ libSources
         else walkCurrySourceFiles dirPath
 
 -- | Recursively all Curry source files in a directory.
