@@ -33,6 +33,9 @@ import Control.Monad.State
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
+import Curry.LanguageServer.CPM.Config
+import Curry.LanguageServer.CPM.Deps
+import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.Config
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
@@ -44,11 +47,13 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import Data.Default
+import Data.Either.Combinators (fromRight)
 import Data.List (unionBy, delete)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromJust)
 import qualified Data.Map as M
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
+import System.Directory (doesFileExist)
 import System.FilePath
 
 -- | An index store entry containing the parsed AST, the compilation environment
@@ -106,7 +111,7 @@ storedSymbolsWithPrefix pre = join . TR.elems . (TR.submap $ TE.encodeUtf8 pre) 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
-    files <- liftIO $ walkCurrySourceFiles dirPath
+    files <- liftIO $ findCurrySourcesInProject dirPath
     sequence $ recompileFile cfg fl (Just dirPath) <$> files
     liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
@@ -117,7 +122,26 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
     recompileFile cfg fl Nothing filePath
     liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri
 
--- | Finds all Curry source files in a directory.
+-- | Finds the Curry source files in a directory. Recognizes CPM projects.
+findCurrySourcesInProject :: FilePath -> IO [FilePath]
+findCurrySourcesInProject dirPath = do
+    e <- doesFileExist $ dirPath </> "package.json"
+    if e
+        then do
+            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <>"', searching for sources and dependencies..."
+            projSources <- walkCurrySourceFiles $ dirPath </> "src"
+
+            -- TODO: Perform proper error handling
+            config <- fromRight (error "Could not fetch CPM config") <$> (runCM $ invokeCPMConfig dirPath)
+            deps   <- fromRight (error "Could not fetch CPM deps")   <$> (runCM $ invokeCPMDeps   dirPath)
+
+            let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
+            depSources <- join <$> (mapM walkCurrySourceFiles $ (packagePath </>) <$> deps)
+
+            return $ projSources ++ depSources
+        else walkCurrySourceFiles dirPath
+
+-- | Recursively all Curry source files in a directory.
 walkCurrySourceFiles :: FilePath -> IO [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
 
