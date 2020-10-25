@@ -27,6 +27,7 @@ import qualified Base.TopEnv as CT
 import qualified Base.Types as CT
 import qualified CompilerEnv as CE
 
+import Control.Exception (catch, SomeException)
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.State
@@ -155,7 +156,7 @@ recompileFile cfg fl dirPath filePath = void $ do
     liftIO $ logs INFO $ "indexStore: (Re-)compiling file " ++ takeFileName filePath
     let outDirPath = CFN.currySubdir </> ".language-server"
         importPaths = [outDirPath]
-    result <- liftIO $ C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath
+    result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
     ms <- modules <$> get
     ss <- symbols <$> get
