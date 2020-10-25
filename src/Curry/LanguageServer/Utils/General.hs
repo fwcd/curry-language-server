@@ -16,7 +16,7 @@ module Curry.LanguageServer.Utils.General (
     (<.$>), (<$.>),
     joinFst, joinSnd,
     removeSingle,
-    expectJust,
+    replaceString,
     Insertable (..),
     insertAll,
     insertIntoTrieWith,
@@ -157,10 +157,8 @@ removeSingle :: [a] -> [([a], a)]
 removeSingle [] = []
 removeSingle (x:xs) = (xs, x) : (x:) <.$> (removeSingle xs)
 
--- | Force-unwraps a maybe, possible outputting an error message.
-expectJust :: String -> Maybe a -> a
-expectJust msg Nothing = error msg
-expectJust _ (Just x) = x
+replaceString :: String -> String -> String -> String
+replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 class Insertable m a where
     insert :: a -> m -> m
