@@ -129,21 +129,33 @@ findCurrySourcesInProject dirPath = do
     e <- doesFileExist $ dirPath </> "package.json"
     if e
         then do
-            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <>"', searching for sources and dependencies..."
+            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <>"', searching for sources..."
             projSources <- walkCurrySourceFiles $ dirPath </> "src"
 
-            -- TODO: Perform proper error handling
-            config <- fromRight (error "Could not fetch CPM config") <$> (runCM $ invokeCPMConfig dirPath)
-            deps   <- fromRight (error "Could not fetch CPM deps")   <$> (runCM $ invokeCPMDeps   dirPath)
-
-            let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
-                curryBinPath = fromJust $ lookup "CURRY_BIN" config
-                curryLibPath = (takeDirectory $ takeDirectory curryBinPath) </> "lib"
+            logs INFO $ "Invoking CPM to fetch project configuration and dependencies..."
+            result <- runCM $ do
+                config <- invokeCPMConfig dirPath
+                deps   <- invokeCPMDeps   dirPath
+                return (config, deps)
             
-            depSources <- join <$> (mapM walkCurrySourceFiles $ (packagePath </>) <$> deps)
-            libSources <- walkCurrySourceFiles curryLibPath
+            case result of
+                Right (config, deps) -> do
+                    let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
+                        curryBinPath = fromJust $ lookup "CURRY_BIN" config
+                        curryLibPath = (takeDirectory $ takeDirectory curryBinPath) </> "lib"
+                    
+                    logs INFO $ "Package path: " ++ packagePath
+                    logs INFO $ "Curry bin path: " ++ curryBinPath
+                    logs INFO $ "Curry lib path: " ++ curryLibPath
 
-            return $ projSources ++ depSources ++ libSources
+                    depSources <- join <$> (mapM walkCurrySourceFiles $ (packagePath </>) <$> deps)
+                    libSources <- walkCurrySourceFiles curryLibPath
+
+                    return $ projSources ++ depSources ++ libSources
+                Left err -> do
+                    logs ERROR $ "Could not fetch CPM configuration/dependencies: " ++ err
+
+                    return projSources
         else walkCurrySourceFiles dirPath
 
 -- | Recursively all Curry source files in a directory.
