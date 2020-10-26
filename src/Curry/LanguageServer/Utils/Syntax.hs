@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -6,6 +8,8 @@ module Curry.LanguageServer.Utils.Syntax (
     HasIdentifier (..),
     ModuleAST,
     elementAt,
+    elementsAt,
+    elementContains,
     moduleIdentifier
 ) where
 
@@ -21,9 +25,13 @@ import qualified Language.Haskell.LSP.Types as J
 
 type ModuleAST = CS.Module CT.PredType
 
--- | Fetches the element at the given position.
+-- | Fetches the innermost element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
-elementAt pos = lastSafe . filter (elementContains pos)
+elementAt pos = lastSafe . elementsAt pos
+
+-- | Fetches the elements at the given position.
+elementsAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> [e]
+elementsAt pos = filter (elementContains pos)
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool
@@ -100,9 +108,27 @@ instance HasDeclarations CS.Module where
 instance HasDeclarations CS.Decl where
     declarations decl = decl : case decl of
         -- TODO: Fetch declarations inside equations/expressions/...
-        CS.ClassDecl _ _ _ _ _ ds     -> ds
-        CS.InstanceDecl  _ _ _ _ _ ds -> ds
-        _                        -> []
+        CS.ClassDecl _ _ _ _ _ ds     -> declarations =<< ds
+        CS.InstanceDecl  _ _ _ _ _ ds -> declarations =<< ds
+        CS.FunctionDecl _ _ _ eqs     -> declarations =<< eqs
+        _                             -> []
+
+instance HasDeclarations CS.Equation where
+    declarations (CS.Equation _ _ rhs) = declarations rhs
+
+instance HasDeclarations CS.Rhs where
+    declarations rhs = case rhs of
+        CS.SimpleRhs _ _ e decls      -> (declarations e) ++ (declarations =<< decls)
+        CS.GuardedRhs _ _ conds decls -> (declarations =<< conds) ++ (declarations =<< decls)
+
+instance HasDeclarations CS.CondExpr where
+    declarations ce = declarations =<< expressions ce
+
+instance HasDeclarations CS.Expression where
+    declarations e = expressions e >>= \case
+        -- TODO: Declarations in do-statements etc.
+        CS.Let _ _ ds e -> declarations =<< ds
+        _               -> []
 
 class HasQualIdentifier e where
     qualIdentifier :: e -> Maybe CI.QualIdent

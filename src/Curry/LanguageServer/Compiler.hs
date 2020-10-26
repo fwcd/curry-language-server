@@ -4,7 +4,8 @@ module Curry.LanguageServer.Compiler (
     FileLoader,
     compileCurryFileWithDeps,
     compilationToMaybe,
-    failedCompilation
+    failedCompilation,
+    parseCurryModule
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -125,7 +126,7 @@ loadAndCheckCurryModule opts fl m fp = do
     return ce
 
 -- | Loads a single module.
-loadCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO (CE.CompEnv (CS.Module()))
+loadCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO (CE.CompEnv (CS.Module ()))
 loadCurryModule opts m src fp = do
     -- Parse the module
     (lex, ast) <- parseCurryModule opts m src fp

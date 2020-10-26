@@ -4,7 +4,7 @@ module Curry.LanguageServer.Utils.Env (
     LookupEnv,
     LM,
     runLM,
-    findAtPos,
+    qualIdentAtPos,
     valueInfoType,
     typeInfoKind
 ) where
@@ -12,6 +12,7 @@ module Curry.LanguageServer.Utils.Env (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Syntax as CS
 import qualified Base.Kinds as CK
 import qualified Base.Types as CT
 import qualified CompilerEnv as CE
@@ -35,8 +36,8 @@ runLM :: LM a -> CE.CompilerEnv -> ModuleAST -> IO (Maybe a)
 runLM lm = curry $ runReaderT $ runMaybeT lm
 
 -- | Finds identifier and (occurrence) span info at a given position.
-findAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
-findAtPos pos = do
+qualIdentAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
+qualIdentAtPos pos = do
     (env, ast) <- lift ask
     let mident = moduleIdentifier ast
         exprIdent = joinFst $ qualIdentifier <.$> (withSpanInfo <$> (elementAt pos $ expressions ast))

@@ -1,7 +1,5 @@
 module Test where
 
-import Demo
-
 f x = case x of
-    _ -> 3
-    _ -> 5
+    _ -> let y = 4 in f y
+    _ -> 4
