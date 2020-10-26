@@ -1,6 +1,8 @@
 ![Curry Language Server](images/banner.svg)
 
 [![CI Badge](https://github.com/fwcd/curry-language-server/workflows/Linux/badge.svg)](https://github.com/fwcd/curry-language-server/actions)
+![Haskell](https://img.shields.io/badge/language-Haskell-7363a3.svg)
+![BSD3 License](https://img.shields.io/badge/license-BSD3-333333.svg)
 
 An experimental [language server](https://microsoft.github.io/language-server-protocol/) providing IDE support for the functional logic programming language [Curry](https://en.wikipedia.org/wiki/Curry_(programming_language)).
 
