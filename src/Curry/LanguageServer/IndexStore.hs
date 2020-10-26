@@ -121,7 +121,7 @@ recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoade
 recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     recompileFile 1 1 cfg fl Nothing filePath
-    liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri
+    liftIO $ logs DEBUG $ "indexStore: Recompiled entry " ++ show uri
 
 -- | Finds the Curry source files in a directory. Recognizes CPM projects.
 findCurrySourcesInProject :: FilePath -> IO [FilePath]
@@ -178,7 +178,7 @@ recompileFile i total cfg fl dirPath filePath = void $ do
         previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) ms
     case result of
         Left errs -> modify $ \s -> s { modules = M.insert uri ((previous uri) { errorMessages = errs, warningMessages = [] }) ms }
-        Right (o, warns) -> do liftIO $ logs INFO $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
+        Right (o, warns) -> do liftIO $ logs DEBUG $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
                                ws <- liftIO $ groupIntoMapByM msgNormUri warns
                                moduleDelta <- liftIO
                                             $ sequence
@@ -193,7 +193,7 @@ recompileFile i total cfg fl dirPath filePath = void $ do
                                typeSymbols  <- liftIO $ join <$> (mapM bindingToQualSymbols $ CT.allBindings $ CE.tyConsEnv env)
 
                                let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
-                               liftIO $ logs INFO $ "indexStore: Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
+                               liftIO $ logs DEBUG $ "indexStore: Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
                                modify $ \s -> s { modules = insertAll moduleDelta ms,
                                                   symbols = insertAllIntoTrieWith (unionBy $ \x y -> qualIdent x == qualIdent y) symbolDelta ss }
