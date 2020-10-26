@@ -113,14 +113,14 @@ storedSymbolsWithPrefix pre = join . TR.elems . (TR.submap $ TE.encodeUtf8 pre) 
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- liftIO $ findCurrySourcesInProject dirPath
-    sequence $ recompileFile cfg fl (Just dirPath) <$> files
+    sequence $ (\(i, f) -> recompileFile i (length files) cfg fl (Just dirPath) f) <$> zip [1..] files
     liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
 recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> J.NormalizedUri -> m ()
 recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
-    recompileFile cfg fl Nothing filePath
+    recompileFile 1 1 cfg fl Nothing filePath
     liftIO $ logs INFO $ "indexStore: Recompiled entry " ++ show uri
 
 -- | Finds the Curry source files in a directory. Recognizes CPM projects.
@@ -163,9 +163,10 @@ walkCurrySourceFiles :: FilePath -> IO [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> Maybe FilePath -> FilePath -> m ()
-recompileFile cfg fl dirPath filePath = void $ do
-    liftIO $ logs INFO $ "indexStore: (Re-)compiling file " ++ takeFileName filePath
+recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> Config -> C.FileLoader -> Maybe FilePath -> FilePath -> m ()
+recompileFile i total cfg fl dirPath filePath = void $ do
+    liftIO $ logs INFO $ "indexStore: [" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
+
     let outDirPath = CFN.currySubdir </> ".language-server"
         importPaths = [outDirPath]
     result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
