@@ -141,7 +141,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 defs <- runMaybeT $ do
-                    liftIO $ logs INFO $ "reactor: Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
+                    liftIO $ logs DEBUG $ "reactor: Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
                     entry <- I.getModule normUri
                     liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
