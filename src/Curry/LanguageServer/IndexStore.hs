@@ -129,7 +129,7 @@ findCurrySourcesInProject dirPath = do
     e <- doesFileExist $ dirPath </> "package.json"
     if e
         then do
-            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <>"', searching for sources..."
+            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <> "', searching for sources..."
             projSources <- walkCurrySourceFiles $ dirPath </> "src"
 
             logs INFO $ "Invoking CPM to fetch project configuration and dependencies..."
