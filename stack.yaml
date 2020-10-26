@@ -20,10 +20,8 @@ extra-deps:
   - bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
   - haskell-lsp-0.20.0.0
   - haskell-lsp-types-0.20.0.0
-  - git: https://git.ps.informatik.uni-kiel.de/curry/curry-base.git
-    commit: 670525abee5cc6a593e8ab6954c20fcb1373cd59
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 9dcf4624e808e525d94baff90318c3e7a57f4802
+    commit: 1fce67643b8c5cab7da71ebef59e7b734c168d64
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

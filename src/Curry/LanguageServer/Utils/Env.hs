@@ -47,7 +47,7 @@ withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
 
 -- | Fetches the type from a value info.
-valueInfoType :: CEV.ValueInfo -> CT.Type
+valueInfoType :: CEV.ValueInfo -> CT.TypeScheme
 valueInfoType vinfo = case vinfo of
     CEV.DataConstructor _ _ _ t  -> t
     CEV.NewtypeConstructor _ _ t -> t

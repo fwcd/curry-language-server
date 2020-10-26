@@ -19,7 +19,7 @@ import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import qualified Language.Haskell.LSP.Types as J
 
-type ModuleAST = CS.Module CT.Type
+type ModuleAST = CS.Module CT.PredType
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e

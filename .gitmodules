@@ -1,0 +1,3 @@
+[submodule "curry-libs"]
+	path = curry-libs
+	url = https://git.ps.informatik.uni-kiel.de/curry/curry-libs.git

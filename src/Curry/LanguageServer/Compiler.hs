@@ -65,7 +65,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ logs DEBUG $ "Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
+    liftIO $ logs DEBUG $ "compiler: Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
@@ -90,7 +90,7 @@ compileCurryModules opts fl outDirPath deps = case deps of
 -- | Compiles a single module.
 compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
 compileCurryModule opts fl outDirPath m fp = do
-    liftIO $ logs INFO $ "Compiling module " ++ takeFileName fp
+    liftIO $ logs DEBUG $ "compiler: Compiling module " ++ takeFileName fp
     -- Parse and check the module
     mdl <- loadAndCheckCurryModule opts fl m fp
     -- Generate and store an on-disk interface file
@@ -98,7 +98,7 @@ compileCurryModule opts fl outDirPath m fp = do
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
         interfFilePath = outDirPath </> (CFN.interfName $ CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
-    liftIO $ logs DEBUG $ "Writing interface file to " ++ interfFilePath
+    liftIO $ logs DEBUG $ "compiler: Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl
 
@@ -151,7 +151,7 @@ importSyntaxCheck :: Monad m => CEI.InterfaceEnv -> CS.Module a -> CYT m [CS.Imp
 importSyntaxCheck iEnv (CS.Module _ _ _ _ _ is _) = mapM checkImportDecl is
     where checkImportDecl (CS.ImportDecl p m q asM is) = case M.lookup m iEnv of
             Just intf -> CS.ImportDecl p m q asM `liftM` CC.importCheck intf is
-            Nothing   -> CBM.internalError $ "importSyntaxCheck: No interface for " ++ show m
+            Nothing   -> CBM.internalError $ "compiler: No interface for " ++ show m
 
 -- | Ensures that a Prelude is present in the module.
 importCurryPrelude :: CO.Options -> CS.Module () -> CS.Module ()

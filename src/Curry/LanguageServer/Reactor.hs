@@ -45,7 +45,7 @@ type MaybeRM a = MaybeT (RWST (Core.LspFuncs CFG.Config) () I.IndexStore IO) a
 -- Language server and compiler frontend
 reactor :: Core.LspFuncs CFG.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
-    logs DEBUG "reactor: entered"
+    logs DEBUG "reactor: Entered"
     
     void $ slipr3 runRWST lf I.emptyStore $ forever $ do
         liftIO $ logs DEBUG "reactor: Reading request"
@@ -82,7 +82,7 @@ reactor lf rin = do
                 liftIO $ case level of
                     Just l -> do
                         updateLogLevel l
-                        logs INFO $ "Updated log level to " ++ rawLevel
+                        logs INFO $ "reactor: Updated log level to " ++ rawLevel
                     Nothing -> logs INFO $ "reactor: Could not parse log level " ++ rawLevel
 
             NotDidOpenTextDocument notification -> do
@@ -141,7 +141,7 @@ reactor lf rin = do
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 defs <- runMaybeT $ do
-                    liftIO $ logs INFO $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
+                    liftIO $ logs DEBUG $ "reactor: Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
                     entry <- I.getModule normUri
                     liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
@@ -178,7 +178,7 @@ addDirToIndexStore fl dirPath = do
     entries <- I.getModuleList
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
-          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
+          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics uri entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()
@@ -187,7 +187,7 @@ updateIndexStore fl uri = do
     normUri <- liftIO $ normalizeUriWithPath uri
     lift $ I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
-    diags <- liftIO $ fetchDiagnostics entry
+    diags <- liftIO $ fetchDiagnostics normUri entry
     lift $ sendDiagnostics normUri diags
     where version = Just 0
 
