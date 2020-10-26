@@ -178,7 +178,7 @@ addDirToIndexStore fl dirPath = do
     entries <- I.getModuleList
     void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
-          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics entry)
+          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics uri entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()
@@ -187,7 +187,7 @@ updateIndexStore fl uri = do
     normUri <- liftIO $ normalizeUriWithPath uri
     lift $ I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
-    diags <- liftIO $ fetchDiagnostics entry
+    diags <- liftIO $ fetchDiagnostics normUri entry
     lift $ sendDiagnostics normUri diags
     where version = Just 0
 
