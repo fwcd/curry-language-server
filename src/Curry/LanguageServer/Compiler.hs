@@ -49,7 +49,7 @@ data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, modu
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 type FileLoader = FilePath -> IO String
 
--- | Compiles a Curry source file with it's dependencies
+-- | Compiles a Curry source file with its dependencies
 -- using the given import paths and the given output directory
 -- (in which the interface file will be placed). If compilation fails the
 -- result will be `Left` and contain error messages.
