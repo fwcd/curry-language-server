@@ -21,7 +21,7 @@ extra-deps:
   - haskell-lsp-0.20.0.0
   - haskell-lsp-types-0.20.0.0
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 1fce67643b8c5cab7da71ebef59e7b734c168d64
+    commit: a4d5f1307c4afd72d0eab8cb48306fc38ae880b0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

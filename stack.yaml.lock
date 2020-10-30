@@ -38,11 +38,11 @@ packages:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     pantry-tree:
       size: 16427
-      sha256: 16ff695bf3a6f76a0a191f67ccfc5d51070bbcb103b2ef6f53fa54bfaf8c48fc
-    commit: 1fce67643b8c5cab7da71ebef59e7b734c168d64
+      sha256: ef59127e4a172918641085b77c64c07f07fb9370f4a3f29efd087147d41ad911
+    commit: a4d5f1307c4afd72d0eab8cb48306fc38ae880b0
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 1fce67643b8c5cab7da71ebef59e7b734c168d64
+    commit: a4d5f1307c4afd72d0eab8cb48306fc38ae880b0
 snapshots:
 - completed:
     size: 524164
