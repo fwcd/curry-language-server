@@ -235,11 +235,11 @@ class HasSymbolKind s where
     
 instance HasSymbolKind CEV.ValueInfo where
     symbolKind vinfo = case vinfo of
-        CEV.DataConstructor _ arity _ _ -> J.SkEnumMember
-        CEV.NewtypeConstructor _ _ _    -> J.SkEnumMember
-        CEV.Value _ _ arity _           -> if arity > 0 then J.SkFunction
-                                                        else J.SkConstant
-        CEV.Label _ _ _                 -> J.SkFunction -- Arity is always 1 for record labels
+        CEV.DataConstructor _ _ _ _  -> J.SkEnumMember
+        CEV.NewtypeConstructor _ _ _ -> J.SkEnumMember
+        CEV.Value _ _ arity _        -> if arity > 0 then J.SkFunction
+                                                     else J.SkConstant
+        CEV.Label _ _ _              -> J.SkFunction -- Arity is always 1 for record labels
 
 instance HasSymbolKind CETC.TypeInfo where
     symbolKind tinfo = case tinfo of
@@ -256,7 +256,7 @@ instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s whe
     workspaceSymbols s = do
         loc <- runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo s
         let documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
-            documentSymbolToInformations (J.DocumentSymbol n _ k d r _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
+            documentSymbolToInformations (J.DocumentSymbol n _ k d _ _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
                 where cs' = maybe [] (\(J.List cs'') -> cs'') cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s

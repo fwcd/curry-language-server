@@ -161,7 +161,7 @@ importCurryPrelude opts m@(CS.Module spi li ps mid es is ds) | needed    = CS.Mo
 
 -- | Parses a single module.
 parseCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO ([(CSP.Span, CS.Token)], CS.Module ())
-parseCurryModule opts m src fp = do
+parseCurryModule opts _ src fp = do
     ul <- liftCYM $ CUL.unlit fp src
     -- TODO: Preprocess
     cc <- CNC.condCompile (CO.optCppOpts opts) fp ul

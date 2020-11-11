@@ -25,4 +25,4 @@ normalizedUriToFilePath = uriToFilePath . J.fromNormalizedUri
 -- | Normalizes a URI by converting to a file path and back (thus ensuring
 -- consistent formatting e.g. of drive letters on Windows).
 normalizeUriWithPath :: J.Uri -> IO J.NormalizedUri
-normalizeUriWithPath uri = J.toNormalizedUri <$> (maybe (return uri) id $ filePathToUri <$> uriToFilePath uri)
+normalizeUriWithPath uri = J.toNormalizedUri <$> maybe (return uri) filePathToUri (uriToFilePath uri)

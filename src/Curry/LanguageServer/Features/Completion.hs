@@ -15,7 +15,6 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
-import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J

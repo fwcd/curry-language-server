@@ -31,6 +31,7 @@ module Curry.LanguageServer.Utils.General (
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
+import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
 import Data.Foldable (foldrM)
 import Data.List (sortOn, group)
@@ -133,11 +134,11 @@ slipr4 f y z w x = f x y z w
 
 -- | Maps over the first element of a tuple.
 (<.$>) :: Functor f => (a -> c) -> f (a, b) -> f (c, b)
-(<.$>) f = fmap $ \(x, y) -> (f x, y)
+(<.$>) f = fmap $ first f
 
 -- | Maps over the second element of a tuple.
 (<$.>) :: Functor f => (b -> c) -> f (a, b) -> f (a, c)
-(<$.>) f = fmap $ \(x, y) -> (x, f y)
+(<$.>) f = fmap $ second f
 
 joinFst :: Monad m => m (m a, b) -> m (a, b)
 joinFst m = do

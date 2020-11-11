@@ -37,7 +37,7 @@ runLM lm = curry $ runReaderT $ runMaybeT lm
 -- | Finds identifier and (occurrence) span info at a given position.
 findAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
 findAtPos pos = do
-    (env, ast) <- lift ask
+    (_, ast) <- lift ask
     let mident = moduleIdentifier ast
         exprIdent = joinFst $ qualIdentifier <.$> (withSpanInfo <$> (elementAt pos $ expressions ast))
         declIdent = CI.qualifyWith mident <.$> (joinFst $ identifier <.$> (withSpanInfo <$> (elementAt pos $ declarations ast)))
