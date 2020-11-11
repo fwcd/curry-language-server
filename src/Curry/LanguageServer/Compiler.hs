@@ -40,9 +40,7 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
-import Data.Maybe (listToMaybe, maybeToList)
-import qualified Language.Haskell.LSP.Types as J
-import System.Directory
+import Data.Maybe (maybeToList)
 import System.FilePath
 
 data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
@@ -65,11 +63,11 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ logs DEBUG $ "compiler: Compiling Curry, found deps: " ++ show (takeFileName <$> snd3 <$> deps)
+    liftIO $ logs DEBUG $ "compiler: Compiling Curry, found deps: " ++ show (takeFileName . snd3 <$> deps)
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> (compileCurryModules opts' fl outDirPath $ tripleToPair <$> deps)
+    toCompilationOutput <$> compileCurryModules opts' fl outDirPath (tripleToPair <$> deps)
     where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
           processPragmas o ps = foldl processExtensionPragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
           processExtensionPragma :: CO.Options -> CS.KnownExtension -> CO.Options
@@ -85,7 +83,7 @@ compileCurryModules opts fl outDirPath deps = case deps of
     ((m, fp):ds) -> do
         (_, ast) <- compileCurryModule opts fl outDirPath m fp
         (env, asts) <- compileCurryModules opts fl outDirPath ds
-        return (env, ((fp, ast) : asts))
+        return (env, (fp, ast) : asts)
 
 -- | Compiles a single module.
 compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
@@ -96,7 +94,7 @@ compileCurryModule opts fl outDirPath m fp = do
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
-        interfFilePath = outDirPath </> (CFN.interfName $ CFN.moduleNameToFile m)
+        interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
     liftIO $ logs DEBUG $ "compiler: Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 

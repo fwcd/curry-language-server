@@ -3,7 +3,6 @@ module Curry.LanguageServer.Config (Config (..)) where
 
 import Data.Aeson
 import Data.Default
-import System.FilePath
 
 data Config = Config { forceRecompilation :: Bool,
                        importPaths :: [FilePath],

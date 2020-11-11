@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Curry.LanguageServer.Reactor (reactor, ReactorInput (..)) where
 
 import Control.Concurrent.STM.TChan
@@ -18,9 +19,8 @@ import Curry.LanguageServer.Features.WorkspaceSymbols
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
 import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri, normalizeUriWithPath)
-import Data.Default
 import qualified Data.Map as M
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Data.SortedList as SL
 import qualified Language.Haskell.LSP.Core as Core
@@ -57,15 +57,15 @@ reactor lf rin = do
                 normUri <- filePathToNormalizedUri fp
                 vfile <- Core.getVirtualFileFunc lf normUri
                 
-                case T.unpack <$> VFS.virtualFileText <$> vfile of
+                case T.unpack . VFS.virtualFileText <$> vfile of
                     Just vfsContent -> return vfsContent
                     Nothing -> readFile fp
 
         case hreq of
             NotInitialized _ -> do
                 liftIO $ setupLogging $ Core.sendFunc lf
-                liftIO $ logs INFO $ "reactor: Initialized, building index store..."
-                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (maybe [] id <$> Core.getWorkspaceFolders lf)
+                liftIO $ logs INFO "reactor: Initialized, building index store..."
+                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (fromMaybe [] <$> Core.getWorkspaceFolders lf)
                 runMaybeT $ sequence $ addDirToIndexStore fileLoader <$> folders
                 count <- I.getModuleCount
                 liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
@@ -74,7 +74,7 @@ reactor lf rin = do
             RspFromClient rsp -> do
                 liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
             
-            NotDidChangeConfiguration notification -> void $ runMaybeT $ do
+            NotDidChangeConfiguration _ -> void $ runMaybeT $ do
                 cfg <- getConfig
                 let rawLevel = CFG.logLevel cfg
                     level = parseLogLevel rawLevel
@@ -86,29 +86,28 @@ reactor lf rin = do
                     Nothing -> logs INFO $ "reactor: Could not parse log level " ++ rawLevel
 
             NotDidOpenTextDocument notification -> do
-                liftIO $ logs DEBUG $ "reactor: Processing open notification"
+                liftIO $ logs DEBUG "reactor: Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri
             
             NotDidChangeTextDocument notification -> do
-                liftIO $ logs DEBUG $ "reactor: Processing change notification"
+                liftIO $ logs DEBUG "reactor: Processing change notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri
 
             NotDidSaveTextDocument notification -> (do
-                liftIO $ logs DEBUG $ "reactor: Processing save notification"
+                liftIO $ logs DEBUG "reactor: Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
             ReqCompletion req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing completion request"
+                liftIO $ logs DEBUG "reactor: Processing completion request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
-                vfile <- liftIO $ Core.getVirtualFileFunc lf normUri
                 completions <- fmap (join . maybeToList) $ runMaybeT $ do
                     entry <- I.getModule normUri
-                    vfile <- liftMaybe =<< (liftIO $ Core.getVirtualFileFunc lf normUri)
+                    vfile <- liftMaybe =<< liftIO (Core.getVirtualFileFunc lf normUri)
                     query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
                     liftIO $ fetchCompletions entry query pos
                 let maxCompletions = 25
@@ -118,24 +117,23 @@ reactor lf rin = do
                 send $ RspCompletion $ Core.makeResponseMessage req result
             
             ReqCompletionItemResolve req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing completion item resolve request"
+                liftIO $ logs DEBUG "reactor: Processing completion item resolve request"
                 let item = req ^. J.params
                 -- TODO
                 send $ RspCompletionItemResolve $ Core.makeResponseMessage req item
 
             ReqHover req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing hover request"
+                liftIO $ logs DEBUG "reactor: Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
-                store <- get
                 hover <- runMaybeT $ do
                     entry <- I.getModule normUri
-                    liftMaybe =<< (liftIO $ fetchHover entry pos)
+                    liftMaybe =<< liftIO (fetchHover entry pos)
                 send $ RspHover $ Core.makeResponseMessage req hover
             
             ReqDefinition req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing definition request"
+                liftIO $ logs DEBUG "reactor: Processing definition request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
@@ -149,17 +147,16 @@ reactor lf rin = do
                                                                                    Nothing  -> J.MultiLoc []
 
             ReqDocumentSymbols req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing document symbols request"
+                liftIO $ logs DEBUG "reactor: Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                 normUri <- liftIO $ normalizeUriWithPath uri
-                store <- get
                 symbols <- runMaybeT $ do
                     entry <- I.getModule normUri
                     liftIO $ fetchDocumentSymbols entry
-                send $ RspDocumentSymbols $ Core.makeResponseMessage req $ maybe (J.DSDocumentSymbols $ J.List []) id symbols
+                send $ RspDocumentSymbols $ Core.makeResponseMessage req $ fromMaybe (J.DSDocumentSymbols $ J.List []) symbols
             
             ReqWorkspaceSymbols req -> do
-                liftIO $ logs DEBUG $ "reactor: Processing workspace symbols request"
+                liftIO $ logs DEBUG "reactor: Processing workspace symbols request"
                 let query = req ^. J.params . J.query
                 store <- get
                 symbols <- liftIO $ fetchWorkspaceSymbols store query
@@ -168,7 +165,7 @@ reactor lf rin = do
             req -> do
                 liftIO $ logs NOTICE $ "reactor: Got unrecognized request: " ++ show req
         
-        liftIO $ logs DEBUG $ "reactor: Handled request"
+        liftIO $ logs DEBUG "reactor: Handled request"
 
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: C.FileLoader -> FilePath -> MaybeRM ()
@@ -176,9 +173,9 @@ addDirToIndexStore fl dirPath = do
     cfg <- getConfig
     I.addWorkspaceDir cfg fl dirPath
     entries <- I.getModuleList
-    void $ lift $ sequence $ (uncurry sendDiagnostics =<<) <$> withUriEntry2Diags <$> entries
+    void $ lift $ sequence $ (uncurry sendDiagnostics <=< withUriEntry2Diags) <$> entries
     where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
-          withUriEntry2Diags (uri, entry) = (\ds -> (uri, ds)) <$> (liftIO $ fetchDiagnostics uri entry)
+          withUriEntry2Diags (uri, entry) = (uri,) <$> liftIO (fetchDiagnostics uri entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()
@@ -189,7 +186,6 @@ updateIndexStore fl uri = do
     entry <- I.getModule normUri
     diags <- liftIO $ fetchDiagnostics normUri entry
     lift $ sendDiagnostics normUri diags
-    where version = Just 0
 
 -- | Sends an LSP message to the client.
 send :: FromServerMessage -> RM ()
@@ -201,7 +197,7 @@ send msg = do
 sendDiagnostics :: J.NormalizedUri -> [J.Diagnostic] -> RM ()
 sendDiagnostics uri diags = do
     lf <- ask
-    liftIO $ (Core.publishDiagnosticsFunc lf) maxToPublish uri version diagsBySource
+    liftIO $ Core.publishDiagnosticsFunc lf maxToPublish uri version diagsBySource
     where version = Just 0
           maxToPublish = 100
           -- Workaround for empty diagnostics: https://github.com/alanz/haskell-lsp/issues/139
@@ -212,4 +208,4 @@ sendDiagnostics uri diags = do
 getConfig :: MaybeRM CFG.Config
 getConfig = do
     lf <- ask
-    liftMaybe =<< (liftIO $ Core.config lf)
+    liftMaybe =<< liftIO (Core.config lf)

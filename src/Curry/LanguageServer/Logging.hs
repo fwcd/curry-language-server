@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Curry.LanguageServer.Logging (
     setupLogging,
     parseLogLevel,
@@ -8,14 +8,12 @@ module Curry.LanguageServer.Logging (
     module System.Log
 ) where
 
-import Control.Monad (void)
 import Data.Char (toLower)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Core as Core
 import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Constant as LSPConst
 import Language.Haskell.LSP.Messages
-import Language.Haskell.LSP.Types
 import System.Log
 import qualified System.Log.Formatter as LF
 import qualified System.Log.Handler as LH
@@ -28,7 +26,7 @@ instance LH.LogHandler CLSLogHandler where
     getLevel = level
     setFormatter lh f = lh { formatter = f }
     getFormatter = formatter
-    emit lh (prio, msg) n | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack msg
+    emit lh (prio, msg) _ | prio >= CRITICAL = sendFunc lh $ NotShowMessage $ fmServerShowMessageNotification (levelToMessageType $ level lh) $ T.pack msg
                           | otherwise        = sendFunc lh $ NotLogMessage $ fmServerLogMessageNotification (levelToMessageType $ level lh) $ T.pack msg
         where levelToMessageType l = case l of
                                         DEBUG -> J.MtInfo
@@ -58,7 +56,7 @@ updateLogLevel :: Priority -> IO ()
 updateLogLevel = updateLoggers . LL.setLevel
 
 updateLoggers :: (LL.Logger -> LL.Logger) -> IO ()
-updateLoggers f = void $ sequence $ flip LL.updateGlobalLogger f <$> updatedLoggers
+updateLoggers f = sequence_ $ flip LL.updateGlobalLogger f <$> updatedLoggers
     where updatedLoggers = [logName, LSPConst._LOG_NAME]
 
 parseLogLevel :: String -> Maybe Priority

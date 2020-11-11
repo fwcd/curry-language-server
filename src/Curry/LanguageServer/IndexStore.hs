@@ -104,7 +104,7 @@ storedModules = M.toList . modules
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
-storedSymbolsWithPrefix pre = join . TR.elems . (TR.submap $ TE.encodeUtf8 pre) . symbols
+storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . symbols
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> FilePath -> m ()
@@ -146,13 +146,13 @@ findCurrySourcesInProject dirPath = do
                 Right (config, deps) -> do
                     let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
                         curryBinPath = fromJust $ lookup "CURRY_BIN" config
-                        curryLibPath = (takeDirectory $ takeDirectory curryBinPath) </> "lib"
+                        curryLibPath = takeDirectory (takeDirectory curryBinPath) </> "lib"
                     
                     logs INFO $ "Package path: " ++ packagePath
                     logs INFO $ "Curry bin path: " ++ curryBinPath
                     logs INFO $ "Curry lib path: " ++ curryLibPath
 
-                    depSources <- join <$> (mapM walkCurrySourceFiles $ (packagePath </>) <$> deps)
+                    depSources <- join <$> mapM walkCurrySourceFiles ((packagePath </>) <$> deps)
                     libSources <- walkCurrySourceFiles curryLibPath
 
                     return $ projSources ++ depSources ++ libSources
@@ -179,8 +179,8 @@ recompileFile i total cfg fl dirPath filePath = void $ do
         importPaths = [outDirPath]
     result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
-    ms <- modules <$> get
-    ss <- symbols <$> get
+    ms <- gets modules
+    ss <- gets symbols
     uri <- liftIO $ filePathToNormalizedUri filePath
     let previous :: J.NormalizedUri -> ModuleStoreEntry
         previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) ms
@@ -197,8 +197,8 @@ recompileFile i total cfg fl dirPath filePath = void $ do
                                                                                           warningMessages = M.findWithDefault [] (Just u) ws }))
                                             <$> asts
 
-                               valueSymbols <- liftIO $ join <$> (mapM bindingToQualSymbols $ CT.allBindings $ CE.valueEnv env)
-                               typeSymbols  <- liftIO $ join <$> (mapM bindingToQualSymbols $ CT.allBindings $ CE.tyConsEnv env)
+                               valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
+                               typeSymbols  <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.tyConsEnv env)
 
                                let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
                                liftIO $ logs DEBUG $ "indexStore: Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
@@ -213,15 +213,15 @@ recompileFile i total cfg fl dirPath filePath = void $ do
 
 -- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int
-getModuleCount = storedModuleCount <$> get
+getModuleCount = gets storedModuleCount
 
 -- | Fetches a module entry in the store in a monadic way.
 getModule :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleStoreEntry
-getModule uri = liftMaybe =<< storedModule uri <$> get
+getModule uri = liftMaybe =<< gets (storedModule uri)
 
 -- | Fetches the module entries in the store as a list in a monadic way.
 getModuleList :: (MonadState IndexStore m) => m [(J.NormalizedUri, ModuleStoreEntry)]
-getModuleList = storedModules <$> get
+getModuleList = gets storedModules
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
 getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
