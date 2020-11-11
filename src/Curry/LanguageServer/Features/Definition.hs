@@ -5,7 +5,6 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Base.TopEnv as CT
 
-import Control.Applicative ((<|>))
 import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.IndexStore
@@ -13,8 +12,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Syntax
-import Data.Maybe (maybeToList, listToMaybe)
+import Data.Maybe (fromMaybe, maybeToList)
 import qualified Language.Haskell.LSP.Types as J
 
 fetchDefinitions :: IndexStore -> ModuleStoreEntry -> J.Position -> IO [J.Location]
@@ -26,9 +24,9 @@ fetchDefinitions store entry pos = do
     return $ maybeToList defs
 
 definition :: IndexStore -> J.Position -> LM J.Location
-definition store pos = do
-    (qident, spi) <- findAtPos pos
+definition _ pos = do
+    (qident, _) <- findAtPos pos
     qident' <- lift $ runMaybeT $ CT.origName <$> lookupValueInfo qident
-    let ident  = CI.qidIdent  $  qident
+    let ident  = CI.qidIdent     qident
         ident' = CI.qidIdent <$> qident'
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ maybe ident id ident')
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ fromMaybe ident ident')

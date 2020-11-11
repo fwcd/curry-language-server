@@ -7,12 +7,10 @@ module Curry.LanguageServer.CPM.Process
 
 import Control.Exception (try, IOException)
 import Control.Monad (when, fail, join)
-import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.Utils.General (replaceString)
 import Data.Either.Combinators (mapLeft)
 import Data.Either.Extra (maybeToEither)
-import Data.List.Extra (trim)
 import System.Exit (ExitCode (..))
 import System.FilePath (FilePath)
 import System.Process

@@ -2,11 +2,7 @@
 module Curry.LanguageServer.Features.Hover (fetchHover) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Curry.Base.Ident as CI
-import qualified Curry.Base.SpanInfo as CSPI
-import qualified Curry.Syntax as CS
 import qualified Base.TopEnv as CT
-import qualified CompilerEnv as CE
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
@@ -15,9 +11,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Syntax
 import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Utility as U
 
 fetchHover :: ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do

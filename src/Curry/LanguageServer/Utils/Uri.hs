@@ -7,11 +7,8 @@ module Curry.LanguageServer.Utils.Uri (
     normalizeUriWithPath
 ) where
 
-import Control.Monad.IO.Class (liftIO)
-import Curry.LanguageServer.Logging
 import qualified Language.Haskell.LSP.Types as J
 import System.Directory
-import System.FilePath
 
 filePathToUri :: FilePath -> IO J.Uri
 filePathToUri = (J.filePathToUri <$>) . canonicalizePath

@@ -26,7 +26,6 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Curry.Syntax.Pretty as CPP
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
@@ -38,13 +37,12 @@ import Curry.LanguageServer.Utils.Uri
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
-import System.FilePath
 
 -- Curry Compiler -> Language Server Protocol
 
 curryMsg2Diagnostic :: J.DiagnosticSeverity -> CM.Message -> J.Diagnostic
 curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text related
-    where range = maybe emptyRange id $ currySpanInfo2Range $ CM.msgSpanInfo msg
+    where range = fromMaybe emptyRange $ currySpanInfo2Range $ CM.msgSpanInfo msg
           severity = Just s
           code = Nothing
           src = Nothing
@@ -109,7 +107,7 @@ ppPatternToName pat = case pat of
 
 documentSymbolFrom :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
 documentSymbolFrom n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
-    where r' = maybe emptyRange id r
+    where r' = fromMaybe emptyRange r
 
 symbolInformationFrom :: T.Text -> J.SymbolKind -> Maybe J.Location -> Maybe J.SymbolInformation
 symbolInformationFrom n k = ((\l -> J.SymbolInformation n k Nothing l Nothing) <$>)
@@ -180,41 +178,40 @@ instance HasDocumentSymbols CS.ConstrDecl where
         CS.ConOpDecl _ _ ident _ -> [documentSymbolFrom (ppToText ident) J.SkOperator range Nothing]
         CS.RecordDecl _ ident _  -> [documentSymbolFrom (ppToText ident) J.SkEnumMember range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
-              rangeOrDefault = maybe emptyRange id range
 
 instance HasDocumentSymbols (CS.Equation a) where
     documentSymbols (CS.Equation _ _ rhs) = documentSymbols rhs
 
 instance HasDocumentSymbols (CS.Rhs a) where
     documentSymbols rhs = case rhs of
-        CS.SimpleRhs _ _ e decls      -> (documentSymbols e) ++ (decls >>= documentSymbols)
+        CS.SimpleRhs _ _ e decls      -> documentSymbols e ++ (decls >>= documentSymbols)
         CS.GuardedRhs _ _ conds decls -> (conds >>= documentSymbols) ++ (decls >>= documentSymbols)
 
 instance HasDocumentSymbols (CS.CondExpr a) where
-    documentSymbols (CS.CondExpr _ e1 e2) = (documentSymbols e1) ++ (documentSymbols e2)
+    documentSymbols (CS.CondExpr _ e1 e2) = documentSymbols e1 ++ documentSymbols e2
 
 instance HasDocumentSymbols (CS.Expression a) where
     documentSymbols e = case e of
         CS.Paren _ e'                -> documentSymbols e'
         CS.Typed _ e' _              -> documentSymbols e'
         CS.Record _ _ _ fields       -> fields >>= fieldSymbols
-        CS.RecordUpdate _ e' fields  -> (documentSymbols e') ++ (fields >>= fieldSymbols)
+        CS.RecordUpdate _ e' fields  -> documentSymbols e' ++ (fields >>= fieldSymbols)
         CS.Tuple _ entries           -> entries >>= documentSymbols
         CS.List _ _ entries          -> entries >>= documentSymbols
-        CS.ListCompr _ e' stmts      -> (documentSymbols e') ++ (stmts >>= documentSymbols)
+        CS.ListCompr _ e' stmts      -> documentSymbols e' ++ (stmts >>= documentSymbols)
         CS.EnumFrom _ e'             -> documentSymbols e'
-        CS.EnumFromThen _ e1 e2      -> (documentSymbols e1) ++ (documentSymbols e2)
-        CS.EnumFromThenTo _ e1 e2 e3 -> (documentSymbols e1) ++ (documentSymbols e2) ++ (documentSymbols e3)
+        CS.EnumFromThen _ e1 e2      -> documentSymbols e1 ++ documentSymbols e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> documentSymbols e1 ++ documentSymbols e2 ++ documentSymbols e3
         CS.UnaryMinus _ e'           -> documentSymbols e'
-        CS.Apply _ e1 e2             -> (documentSymbols e1) ++ (documentSymbols e2)
-        CS.InfixApply _ e1 _ e2      -> (documentSymbols e1) ++ (documentSymbols e2)
+        CS.Apply _ e1 e2             -> documentSymbols e1 ++ documentSymbols e2
+        CS.InfixApply _ e1 _ e2      -> documentSymbols e1 ++ documentSymbols e2
         CS.LeftSection _ e' _        -> documentSymbols e'
         CS.RightSection _ _ e'       -> documentSymbols e'
         CS.Lambda _ _ e'             -> documentSymbols e'
-        CS.Let _ _ decls e           -> (decls >>= documentSymbols) ++ (documentSymbols e)
-        CS.Do _ _ stmts e'           -> (stmts >>= documentSymbols) ++ (documentSymbols e')
-        CS.IfThenElse _ e1 e2 e3     -> (documentSymbols e1) ++ (documentSymbols e2) ++ (documentSymbols e3)
-        CS.Case _ _ _ e alts         -> (documentSymbols e) ++ (alts >>= documentSymbols)
+        CS.Let _ _ decls e           -> (decls >>= documentSymbols) ++ documentSymbols e
+        CS.Do _ _ stmts e'           -> (stmts >>= documentSymbols) ++ documentSymbols e'
+        CS.IfThenElse _ e1 e2 e3     -> documentSymbols e1 ++ documentSymbols e2 ++ documentSymbols e3
+        CS.Case _ _ _ e alts         -> documentSymbols e ++ (alts >>= documentSymbols)
         _                            -> []
         where fieldSymbols (CS.Field _ _ e) = documentSymbols e
 

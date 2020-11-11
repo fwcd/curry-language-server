@@ -1,6 +1,5 @@
 module Curry.LanguageServer.CPM.Config (invokeCPMConfig) where
 
-import Control.Monad.Trans.Class (lift)
 import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.CPM.Process (invokeCPM)
 import Data.Either.Combinators (rightToMaybe)
@@ -12,7 +11,7 @@ type Parser a = Parsec String () a
 
 -- | Finds the dependencies (name-version) in the project with the given path.
 invokeCPMConfig :: FilePath -> CM [(String, String)]
-invokeCPMConfig fp = ((mapMaybe $ rightToMaybe . parse configLine "") . lines) <$> invokeCPM fp ["config"]
+invokeCPMConfig fp = (mapMaybe $ rightToMaybe . parse configLine "") . lines <$> invokeCPM fp ["config"]
 
 configLine :: Parser (String, String)
 configLine = do

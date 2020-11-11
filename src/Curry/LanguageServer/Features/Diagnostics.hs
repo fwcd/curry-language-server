@@ -1,7 +1,6 @@
 module Curry.LanguageServer.Features.Diagnostics (fetchDiagnostics) where
 
 import Control.Monad
-import Control.Monad.Reader
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
@@ -16,7 +15,7 @@ fetchDiagnostics uri entry = do
         diags = warnings ++ errors
         name = maybe "?" takeBaseName $ normalizedUriToFilePath uri
     
-    when (length diags > 0) $
+    unless (null diags) $
         logs INFO $ "fetchDiagnostics: Found " ++ show (length diags) ++ " message(s) in " ++ name
 
     return diags

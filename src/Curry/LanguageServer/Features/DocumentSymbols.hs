@@ -4,7 +4,6 @@ import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Utility as U
 
 fetchDocumentSymbols :: ModuleStoreEntry -> IO J.DSResult
 fetchDocumentSymbols entry = do

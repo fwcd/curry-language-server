@@ -1,0 +1,4 @@
+- ignore: { name: "Functor law" }
+- ignore: { name: "Move brackets to avoid $" }
+- ignore: { name: "Use <=<" }
+- ignore: { name: "Use record patterns" }

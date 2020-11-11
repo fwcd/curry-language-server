@@ -15,8 +15,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Base.Message as CM
-import Curry.Base.Monad (CYIO, CYT, runCYIO, runCYM, liftCYM, silent, failMessages, warnMessages)
-import qualified Curry.Base.Position as CP
+import Curry.Base.Monad (CYIO, CYT, runCYIO, liftCYM, silent, failMessages, warnMessages)
 import qualified Curry.Syntax as CS
 import qualified Base.Messages as CBM
 import qualified Checks as CC
@@ -32,7 +31,6 @@ import qualified Modules as CMD
 import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Monad (liftM)
 import Control.Monad.Reader
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Logging
@@ -148,7 +146,7 @@ checkInterfaces opts iEnv = mapM_ checkInterface $ M.elems iEnv
 importSyntaxCheck :: Monad m => CEI.InterfaceEnv -> CS.Module a -> CYT m [CS.ImportDecl]
 importSyntaxCheck iEnv (CS.Module _ _ _ _ _ is _) = mapM checkImportDecl is
     where checkImportDecl (CS.ImportDecl p m q asM is) = case M.lookup m iEnv of
-            Just intf -> CS.ImportDecl p m q asM `liftM` CC.importCheck intf is
+            Just intf -> CS.ImportDecl p m q asM `fmap` CC.importCheck intf is
             Nothing   -> CBM.internalError $ "compiler: No interface for " ++ show m
 
 -- | Ensures that a Prelude is present in the module.
@@ -176,19 +174,11 @@ compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
 
 expandDep :: (CI.ModuleIdent, CD.Source) -> Maybe (CI.ModuleIdent, FilePath, [CS.ModulePragma])
-expandDep (m, (CD.Source fp prags _)) = Just (m, fp, prags)
+expandDep (m, CD.Source fp prags _) = Just (m, fp, prags)
 expandDep _ = Nothing
-
-depMatches :: FilePath -> CD.Source -> Bool
-depMatches fp1 (CD.Source fp2 _ _) = fp1 == fp2
-depMatches _ _ = False
 
 toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
 toCompilationOutput (env, asts) = CompilationOutput { compilerEnv = env, moduleASTs = asts }
-
-justOrFail :: String -> Maybe a -> CYIO a
-justOrFail _ (Just x) = return x
-justOrFail msg Nothing = failMessages [failMessageFrom msg]
 
 failedCompilation :: String -> CompilationResult
 failedCompilation msg = Left [failMessageFrom msg]

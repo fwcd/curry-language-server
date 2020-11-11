@@ -37,7 +37,6 @@ import Data.List (sortOn, group)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
-import Data.Maybe (listToMaybe)
 import qualified Language.Haskell.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -49,10 +48,10 @@ lastSafe xs | null xs = Nothing
 
 -- | Tests whether a position is inside a given range.
 rangeElem :: J.Position -> J.Range -> Bool
-rangeElem (J.Position l c) range = if l1 == l2 && l == l1 then c1 <= c && c <= c2
-                                   else if l == l1 then c1 <= c
-                                   else if l == l2 then c <= c2
-                                   else l1 <= l && l <= l2
+rangeElem (J.Position l c) range | l1 == l2 && l == l1 = c1 <= c && c <= c2
+                                 | l == l1             = c1 <= c
+                                 | l == l2             = c <= c2
+                                 | otherwise           = l1 <= l && l <= l2
     where (J.Range (J.Position l1 c1) (J.Position l2 c2)) = range
 
 -- | Safely fetches the nth entry.
@@ -155,7 +154,7 @@ joinSnd m = do
 -- | Removes a single element from the list (returning all possible solutions).
 removeSingle :: [a] -> [([a], a)]
 removeSingle [] = []
-removeSingle (x:xs) = (xs, x) : (x:) <.$> (removeSingle xs)
+removeSingle (x:xs) = (xs, x) : (x:) <.$> removeSingle xs
 
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
@@ -183,7 +182,7 @@ insertIntoTrieWith f s x t | TR.member s t = TR.adjust (f x) s t
 -- | Inserts the given elements into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
 insertAllIntoTrieWith :: (a -> a -> a) -> [(B.ByteString, a)] -> TR.Trie a -> TR.Trie a
-insertAllIntoTrieWith f [] = id
+insertAllIntoTrieWith _ [] = id
 insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . insertIntoTrieWith f s x
 
 -- | Groups by key into a map.
@@ -203,13 +202,13 @@ rmDups :: Ord a => [a] -> [a]
 rmDups = rmDupsOn id
 
 fst3 :: (a, b, c) -> a
-fst3 (x, y, z) = x
+fst3 (x, _, _) = x
 
 snd3 :: (a, b, c) -> b
-snd3 (x, y, z) = y
+snd3 (_, y, _) = y
 
 thd3 :: (a, b, c) -> c
-thd3 (x, y, z) = z
+thd3 (_, _, z) = z
 
 tripleToPair :: (a, b, c) -> (a, b)
-tripleToPair (x, y, z) = (x, y)
+tripleToPair (x, y, _) = (x, y)

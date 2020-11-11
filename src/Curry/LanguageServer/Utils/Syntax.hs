@@ -50,34 +50,34 @@ instance HasExpressions CS.Equation where
 
 instance HasExpressions CS.Rhs where
     expressions rhs = case rhs of
-        CS.SimpleRhs _ _ e decls      -> (expressions e) ++ (decls >>= expressions)
+        CS.SimpleRhs _ _ e decls      -> expressions e ++ (decls >>= expressions)
         CS.GuardedRhs _ _ conds decls -> (conds >>= expressions) ++ (decls >>= expressions)
 
 instance HasExpressions CS.CondExpr where
-    expressions (CS.CondExpr _ e1 e2) = (expressions e1) ++ (expressions e2)
+    expressions (CS.CondExpr _ e1 e2) = expressions e1 ++ expressions e2
 
 instance HasExpressions CS.Expression where
     expressions e = e : case e of
         CS.Paren _ e'                -> expressions e'
         CS.Typed _ e' _              -> expressions e'
         CS.Record _ _ _ fields       -> fields >>= fieldExpressions
-        CS.RecordUpdate _ e' fields  -> (expressions e') ++ (fields >>= fieldExpressions)
+        CS.RecordUpdate _ e' fields  -> expressions e' ++ (fields >>= fieldExpressions)
         CS.Tuple _ entries           -> entries >>= expressions
         CS.List _ _ entries          -> entries >>= expressions
-        CS.ListCompr _ e' stmts      -> (expressions e') ++ (stmts >>= expressions)
+        CS.ListCompr _ e' stmts      -> expressions e' ++ (stmts >>= expressions)
         CS.EnumFrom _ e'             -> expressions e'
-        CS.EnumFromThen _ e1 e2      -> (expressions e1) ++ (expressions e2)
-        CS.EnumFromThenTo _ e1 e2 e3 -> (expressions e1) ++ (expressions e2) ++ (expressions e3)
+        CS.EnumFromThen _ e1 e2      -> expressions e1 ++ expressions e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> expressions e1 ++ expressions e2 ++ expressions e3
         CS.UnaryMinus _ e'           -> expressions e'
-        CS.Apply _ e1 e2             -> (expressions e1) ++ (expressions e2)
-        CS.InfixApply _ e1 _ e2      -> (expressions e1) ++ (expressions e2)
+        CS.Apply _ e1 e2             -> expressions e1 ++ expressions e2
+        CS.InfixApply _ e1 _ e2      -> expressions e1 ++ expressions e2
         CS.LeftSection _ e' _        -> expressions e'
         CS.RightSection _ _ e'       -> expressions e'
         CS.Lambda _ _ e'             -> expressions e'
-        CS.Let _ _ decls e'          -> (decls >>= expressions) ++ (expressions e')
-        CS.Do _ _ stmts e'           -> (stmts >>= expressions) ++ (expressions e')
-        CS.IfThenElse _ e1 e2 e3     -> (expressions e1) ++ (expressions e2) ++ (expressions e3)
-        CS.Case _ _ _ e alts         -> (expressions e) ++ (alts >>= expressions)
+        CS.Let _ _ decls e'          -> (decls >>= expressions) ++ expressions e'
+        CS.Do _ _ stmts e'           -> (stmts >>= expressions) ++ expressions e'
+        CS.IfThenElse _ e1 e2 e3     -> expressions e1 ++ expressions e2 ++ expressions e3
+        CS.Case _ _ _ e alts         -> expressions e ++ (alts >>= expressions)
         _                            -> []
         where fieldExpressions (CS.Field _ _ e) = expressions e
 

@@ -22,7 +22,7 @@ import qualified Language.Haskell.LSP.Types as J
 import qualified Language.Haskell.LSP.Types.Lens as J
 
 fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
-fetchCompletions entry query pos = do
+fetchCompletions entry query _ = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ compilerEnv entry
         valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
@@ -48,11 +48,11 @@ valueBindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
 valueBindingToCompletion (qident, vinfo) = item
     where name = T.pack $ CI.idName $ CI.qidIdent qident
           ciKind = case vinfo of
-              CEV.DataConstructor _ arity _ _ -> J.CiEnumMember
-              CEV.NewtypeConstructor _ _ _    -> J.CiEnumMember
-              CEV.Value _ _ arity _           -> if arity > 0 then J.CiFunction
-                                                              else J.CiConstant
-              CEV.Label _ _ _                 -> J.CiFunction -- Arity is always 1 for record labels
+              CEV.DataConstructor _ _ _ _  -> J.CiEnumMember
+              CEV.NewtypeConstructor _ _ _ -> J.CiEnumMember
+              CEV.Value _ _ arity _        -> if arity > 0 then J.CiFunction
+                                                           else J.CiConstant
+              CEV.Label _ _ _              -> J.CiFunction -- Arity is always 1 for record labels
           vtype = valueInfoType vinfo
           detail = Just $ ppToText vtype
           doc = case vinfo of

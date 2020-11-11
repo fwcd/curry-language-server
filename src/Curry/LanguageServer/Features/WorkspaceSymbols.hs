@@ -1,10 +1,7 @@
 module Curry.LanguageServer.Features.WorkspaceSymbols (fetchWorkspaceSymbols) where
 
-import Control.Monad (join)
 import Curry.LanguageServer.IndexStore
 import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Utils.Conversions
-import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Types as J
 
