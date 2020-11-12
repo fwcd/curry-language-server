@@ -16,16 +16,15 @@ import System.FilePath (FilePath)
 import System.Process
 import System.Timeout (timeout)
 
--- | Invokes the Curry Package Manager executable (assuming it is on PATH) with the specified args.
-invokeCPM :: FilePath -> [String] -> CM String
-invokeCPM dir args = cm $ fmap (join . mapLeft errMessage) $ (try :: IO a -> IO (Either IOException a)) $ runCM $ do
+-- | Invokes the Curry Package Manager executable with the specified args.
+invokeCPM :: FilePath -> [String] -> FilePath -> CM String
+invokeCPM dir args cpmPath = cm $ fmap (join . mapLeft errMessage) $ (try :: IO a -> IO (Either IOException a)) $ runCM $ do
     let action = readCreateProcessWithExitCode procOpts ""
 
     (exitCode, out, err) <- cm $ maybeToEither "CPM timed out!" <$> timeout microsecs action
     when (exitCode /= ExitSuccess) $ fail err
 
     return out
-    where executableName = "cypm"
-          errMessage e = "Please make sure that '" <> executableName <> "' is on your PATH! Error: " ++ replaceString "\n" " " (show e)
-          procOpts = (proc executableName args) { cwd = Just dir }
+    where errMessage e = "Please make sure that '" <> cpmPath <> "' exists or is on your PATH! Error: " ++ replaceString "\n" " " (show e)
+          procOpts = (proc cpmPath args) { cwd = Just dir }
           microsecs = 5_000_000

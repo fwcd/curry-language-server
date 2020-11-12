@@ -109,7 +109,7 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
-    files <- liftIO $ findCurrySourcesInWorkspace dirPath
+    files <- liftIO $ findCurrySourcesInWorkspace cfg dirPath
     sequence_ $ (\(i, f) -> recompileFile i (length files) cfg fl (Just dirPath) f) <$> zip [1..] files
     liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
 
@@ -121,15 +121,15 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
     liftIO $ logs DEBUG $ "indexStore: Recompiled entry " ++ show uri
 
 -- | Finds the Curry source files in a workspace. Recognizes CPM projects.
-findCurrySourcesInWorkspace :: FilePath -> IO [FilePath]
-findCurrySourcesInWorkspace dirPath = do
+findCurrySourcesInWorkspace :: Config -> FilePath -> IO [FilePath]
+findCurrySourcesInWorkspace cfg dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
     let projPaths = cpmProjPaths <|> [dirPath]
-    nub <$> join <$> mapM findCurrySourcesInProject projPaths
+    nub <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
-findCurrySourcesInProject :: FilePath -> IO [FilePath]
-findCurrySourcesInProject dirPath = do
+findCurrySourcesInProject :: Config -> FilePath -> IO [FilePath]
+findCurrySourcesInProject cfg dirPath = do
     e <- doesFileExist $ dirPath </> "package.json"
     if e
         then do
@@ -138,8 +138,8 @@ findCurrySourcesInProject dirPath = do
 
             logs INFO "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
-                config <- invokeCPMConfig dirPath
-                deps   <- invokeCPMDeps   dirPath
+                config <- invokeCPMConfig dirPath $ cpmPath cfg
+                deps   <- invokeCPMDeps   dirPath $ cpmPath cfg
                 return (config, deps)
             
             case result of
