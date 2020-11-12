@@ -45,7 +45,7 @@ import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.List (nub, unionBy)
 import qualified Data.Map as M
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
@@ -164,11 +164,15 @@ findCurrySourcesInProject dirPath = do
 
 -- | Recursively finds all CPM manifests in a directory.
 walkPackageJsons :: FilePath -> IO [FilePath]
-walkPackageJsons = (filter ((== "package.json") . takeFileName) <$>) . walkFiles
+walkPackageJsons = (filter ((== "package.json") . takeFileName) <$>) . walkFilesIgnoringHidden
 
 -- | Recursively finds all Curry source files in a directory.
 walkCurrySourceFiles :: FilePath -> IO [FilePath]
-walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFiles
+walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFilesIgnoringHidden
+
+-- | Recursively finds Curry source files, ignoring directories starting with dots.
+walkFilesIgnoringHidden :: FilePath -> IO [FilePath]
+walkFilesIgnoringHidden = walkFilesIgnoring ((== Just '.') . listToMaybe . takeFileName)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> Config -> C.FileLoader -> Maybe FilePath -> FilePath -> m ()

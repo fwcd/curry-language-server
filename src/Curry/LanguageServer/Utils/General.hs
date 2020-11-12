@@ -11,6 +11,7 @@ module Curry.LanguageServer.Utils.General (
     pointRange, emptyRange,
     maybeCons,
     walkFiles,
+    walkFilesIgnoring,
     liftMaybe,
     slipr3, slipr4,
     (<.$>), (<$.>),
@@ -108,16 +109,20 @@ maybeCons (Just x) = (x:)
 
 -- | Lists files in the directory recursively.
 walkFiles :: FilePath -> IO [FilePath]
-walkFiles fp = do
+walkFiles = walkFilesIgnoring $ const False
+
+-- | Lists files in the directory recursively, ignoring directories that match the given predicate.
+walkFilesIgnoring :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
+walkFilesIgnoring ignored fp = do
     isFile <- doesFileExist fp
     if isFile
         then return [fp]
         else do
             isDirectory <- doesDirectoryExist fp
-            if isDirectory
+            if isDirectory && not (ignored fp)
                 then do
                     contents <- ((fp </>) <$>) <$> listDirectory fp
-                    join <$> (sequence $ walkFiles <$> contents)
+                    join <$> mapM (walkFilesIgnoring ignored) contents
                 else return []
 
 -- | Lifts a Maybe into a Maybe transformer.
