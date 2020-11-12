@@ -43,7 +43,7 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
-import Data.List (unionBy)
+import Data.List (nub, unionBy)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -125,7 +125,7 @@ findCurrySourcesInWorkspace :: FilePath -> IO [FilePath]
 findCurrySourcesInWorkspace dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
     let projPaths = cpmProjPaths <|> [dirPath]
-    join <$> mapM findCurrySourcesInProject projPaths
+    nub <$> join <$> mapM findCurrySourcesInProject projPaths
 
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: FilePath -> IO [FilePath]
