@@ -126,7 +126,7 @@ loadCurryModule opts m src fp = do
     -- Parse the module
     (lex, ast) <- parseCurryModule opts m src fp
     -- Load the imported interfaces into an InterfaceEnv
-    let paths = (CFN.addCurrySubdir $ CO.optUseSubdir opts) <$> ("." : CO.optImportPaths opts)
+    let paths = CFN.addOutDir (CO.optUseOutDir opts) (CO.optOutDir opts) <$> ("." : CO.optImportPaths opts)
     let withPrelude = importCurryPrelude opts ast
     iEnv <- CIF.loadInterfaces paths withPrelude
     checkInterfaces opts iEnv

@@ -179,7 +179,7 @@ recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> Config ->
 recompileFile i total cfg fl dirPath filePath = void $ do
     liftIO $ logs INFO $ "indexStore: [" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
 
-    let outDirPath = CFN.currySubdir </> "language-server"
+    let outDirPath = CFN.defaultOutDir </> "language-server"
         importPaths = [outDirPath]
     result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl importPaths outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
