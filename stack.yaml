@@ -7,7 +7,7 @@
 # Resolver to choose a 'specific' stackage snapshot or a compiler version.
 # A snapshot resolver dictates the compiler version and the set of packages
 # to be used for project dependencies.
-resolver: lts-14.22
+resolver: lts-16.9
 
 # User packages to be built.
 packages:
@@ -21,7 +21,7 @@ extra-deps:
   - haskell-lsp-0.20.0.0
   - haskell-lsp-types-0.20.0.0
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: a4d5f1307c4afd72d0eab8cb48306fc38ae880b0
+    commit: 5b4861461556b3d8474d59417f8ac39bacf8237f
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
