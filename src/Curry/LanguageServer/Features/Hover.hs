@@ -18,7 +18,7 @@ fetchHover entry pos = runMaybeT $ do
     ast <- liftMaybe $ moduleAST entry
     env <- liftMaybe $ compilerEnv entry
     hover <- MaybeT $ runLM (hoverAt pos) env ast
-    liftIO $ logs INFO $ "fetchHover: Found " ++ show hover
+    liftIO $ infoM "cls.fetchHover" $ "Found " ++ show hover
     return hover
 
 hoverAt :: J.Position -> LM J.Hover

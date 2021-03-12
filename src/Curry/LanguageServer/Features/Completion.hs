@@ -28,7 +28,7 @@ fetchCompletions entry query _ = do
         typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords
         completions = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
-    logs INFO $ "fetchCompletions: Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
+    infoM "cls.fetchCompletions" $ "Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
     return completions
     where keywords = ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 

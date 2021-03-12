@@ -7,9 +7,9 @@ import System.Log.Logger
 
 fetchWorkspaceSymbols :: IndexStore -> T.Text -> IO [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
-    logs DEBUG $ "fetchWorkspaceSymbols: Searching " ++ show (storedSymbolCount store) ++ " symbol(s)..."
+    debugM "cls.fetchWorkspaceSymbols" $ "Searching " ++ show (storedSymbolCount store) ++ " symbol(s)..."
     let symbols = symbol <$> storedSymbolsWithPrefix query store
-    logs INFO $ "fetchWorkspaceSymbols: Found " ++ show (length symbols) ++ " symbol(s)"
+    infoM "cls.fetchWorkspaceSymbols" $ "Found " ++ show (length symbols) ++ " symbol(s)"
     return symbols
 
 matchesQuery :: T.Text -> J.SymbolInformation -> Bool

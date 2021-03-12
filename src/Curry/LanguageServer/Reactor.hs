@@ -43,12 +43,12 @@ type MaybeRM a = MaybeT (RWST (Core.LspFuncs CFG.Config) () I.IndexStore IO) a
 -- Language server and compiler frontend
 reactor :: Core.LspFuncs CFG.Config -> TChan ReactorInput -> IO ()
 reactor lf rin = do
-    logs DEBUG "reactor: Entered"
+    debugM "cls.reactor" "Entered"
     
     void $ slipr3 runRWST lf I.emptyStore $ forever $ do
-        liftIO $ logs DEBUG "reactor: Reading request"
+        liftIO $ debugM "cls.reactor" "Reading request"
         hreq <- liftIO $ atomically $ readTChan rin
-        liftIO $ logs DEBUG $ "reactor: Got request: " ++ show hreq
+        liftIO $ debugM "cls.reactor" $ "Got request: " ++ show hreq
 
         let fileLoader :: C.FileLoader
             fileLoader fp = do
@@ -62,44 +62,44 @@ reactor lf rin = do
         case hreq of
             NotInitialized _ -> do
                 liftIO $ setupLogging $ Core.sendFunc lf
-                liftIO $ logs INFO "reactor: Initialized, building index store..."
+                liftIO $ infoM "cls.reactor" "Initialized, building index store..."
                 folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (fromMaybe [] <$> Core.getWorkspaceFolders lf)
                 runMaybeT $ sequence $ addDirToIndexStore fileLoader <$> folders
                 count <- I.getModuleCount
-                liftIO $ logs INFO $ "reactor: Indexed " ++ show count ++ " files"
+                liftIO $ infoM "cls.reactor" $ "Indexed " ++ show count ++ " files"
                 where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
             RspFromClient rsp -> do
-                liftIO $ logs DEBUG $ "reactor: Response from client: " ++ show rsp
+                liftIO $ debugM "cls.reactor" $ "Response from client: " ++ show rsp
             
             NotDidChangeConfiguration _ -> void $ runMaybeT $ do
                 cfg <- getConfig
                 let rawLevel = CFG.logLevel cfg
                     level = parseLogLevel rawLevel
-                liftIO $ logs INFO $ "reactor: Changed configuration: " ++ show cfg
+                liftIO $ infoM "cls.reactor" $ "Changed configuration: " ++ show cfg
                 liftIO $ case level of
                     Just l -> do
                         updateLogLevel l
-                        logs INFO $ "reactor: Updated log level to " ++ rawLevel
-                    Nothing -> logs INFO $ "reactor: Could not parse log level " ++ rawLevel
+                        infoM "cls.reactor" $ "Updated log level to " ++ rawLevel
+                    Nothing -> infoM "cls.reactor" $ "Could not parse log level " ++ rawLevel
 
             NotDidOpenTextDocument notification -> do
-                liftIO $ logs DEBUG "reactor: Processing open notification"
+                liftIO $ debugM "cls.reactor" "Processing open notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri
             
             NotDidChangeTextDocument notification -> do
-                liftIO $ logs DEBUG "reactor: Processing change notification"
+                liftIO $ debugM "cls.reactor" "Processing change notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri
 
             NotDidSaveTextDocument notification -> (do
-                liftIO $ logs DEBUG "reactor: Processing save notification"
+                liftIO $ debugM "cls.reactor" "Processing save notification"
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
             ReqCompletion req -> do
-                liftIO $ logs DEBUG "reactor: Processing completion request"
+                liftIO $ debugM "cls.reactor" "Processing completion request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
@@ -115,13 +115,13 @@ reactor lf rin = do
                 send $ RspCompletion $ Core.makeResponseMessage req result
             
             ReqCompletionItemResolve req -> do
-                liftIO $ logs DEBUG "reactor: Processing completion item resolve request"
+                liftIO $ debugM "cls.reactor" "Processing completion item resolve request"
                 let item = req ^. J.params
                 -- TODO
                 send $ RspCompletionItemResolve $ Core.makeResponseMessage req item
 
             ReqHover req -> do
-                liftIO $ logs DEBUG "reactor: Processing hover request"
+                liftIO $ debugM "cls.reactor" "Processing hover request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
@@ -131,13 +131,13 @@ reactor lf rin = do
                 send $ RspHover $ Core.makeResponseMessage req hover
             
             ReqDefinition req -> do
-                liftIO $ logs DEBUG "reactor: Processing definition request"
+                liftIO $ debugM "cls.reactor" "Processing definition request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                     pos = req ^. J.params . J.position
                 normUri <- liftIO $ normalizeUriWithPath uri
                 store <- get
                 defs <- runMaybeT $ do
-                    liftIO $ logs DEBUG $ "reactor: Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
+                    liftIO $ debugM "cls.reactor" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
                     entry <- I.getModule normUri
                     liftIO $ fetchDefinitions store entry pos
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
@@ -145,7 +145,7 @@ reactor lf rin = do
                                                                                    Nothing  -> J.MultiLoc []
 
             ReqDocumentSymbols req -> do
-                liftIO $ logs DEBUG "reactor: Processing document symbols request"
+                liftIO $ debugM "cls.reactor" "Processing document symbols request"
                 let uri = req ^. J.params . J.textDocument . J.uri
                 normUri <- liftIO $ normalizeUriWithPath uri
                 symbols <- runMaybeT $ do
@@ -154,16 +154,16 @@ reactor lf rin = do
                 send $ RspDocumentSymbols $ Core.makeResponseMessage req $ fromMaybe (J.DSDocumentSymbols $ J.List []) symbols
             
             ReqWorkspaceSymbols req -> do
-                liftIO $ logs DEBUG "reactor: Processing workspace symbols request"
+                liftIO $ debugM "cls.reactor" "Processing workspace symbols request"
                 let query = req ^. J.params . J.query
                 store <- get
                 symbols <- liftIO $ fetchWorkspaceSymbols store query
                 send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
 
             req -> do
-                liftIO $ logs NOTICE $ "reactor: Got unrecognized request: " ++ show req
+                liftIO $ noticeM "cls.reactor" $ "Got unrecognized request: " ++ show req
         
-        liftIO $ logs DEBUG "reactor: Handled request"
+        liftIO $ debugM "cls.reactor" "Handled request"
 
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: C.FileLoader -> FilePath -> MaybeRM ()

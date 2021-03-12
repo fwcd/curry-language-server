@@ -16,6 +16,6 @@ fetchDiagnostics uri entry = do
         name = maybe "?" takeBaseName $ normalizedUriToFilePath uri
     
     unless (null diags) $
-        logs INFO $ "fetchDiagnostics: Found " ++ show (length diags) ++ " message(s) in " ++ name
+        infoM "cls.fetchDiagnostics" $ "Found " ++ show (length diags) ++ " message(s) in " ++ name
 
     return diags

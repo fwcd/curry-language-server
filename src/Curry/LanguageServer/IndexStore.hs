@@ -111,14 +111,14 @@ addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoade
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- liftIO $ findCurrySourcesInWorkspace cfg dirPath
     sequence_ $ (\(i, f) -> recompileFile i (length files) cfg fl (Just dirPath) f) <$> zip [1..] files
-    liftIO $ logs INFO $ "indexStore: Added workspace directory " ++ dirPath
+    liftIO $ infoM "cls.indexStore" $ "Added workspace directory " ++ dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
 recompileModule :: (MonadState IndexStore m, MonadIO m) => Config -> C.FileLoader -> J.NormalizedUri -> m ()
 recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     recompileFile 1 1 cfg fl Nothing filePath
-    liftIO $ logs DEBUG $ "indexStore: Recompiled entry " ++ show uri
+    liftIO $ debugM "cls.indexStore" $ "Recompiled entry " ++ show uri
 
 -- | Finds the Curry source files in a workspace. Recognizes CPM projects.
 findCurrySourcesInWorkspace :: Config -> FilePath -> IO [FilePath]
@@ -133,10 +133,10 @@ findCurrySourcesInProject cfg dirPath = do
     e <- doesFileExist $ dirPath </> "package.json"
     if e
         then do
-            logs INFO $ "Found Curry Package Manager project '" <> takeFileName dirPath <> "', searching for sources..."
+            liftIO $ infoM "cls.indexStore" $ "Found Curry Package Manager project '" <> takeFileName dirPath <> "', searching for sources..."
             projSources <- walkCurrySourceFiles $ dirPath </> "src"
 
-            logs INFO "Invoking CPM to fetch project configuration and dependencies..."
+            liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
                 config <- invokeCPMConfig dirPath $ cpmPath cfg
                 deps   <- invokeCPMDeps   dirPath $ cpmPath cfg
@@ -148,16 +148,16 @@ findCurrySourcesInProject cfg dirPath = do
                         curryBinPath = fromJust $ lookup "CURRY_BIN" config
                         curryLibPath = takeDirectory (takeDirectory curryBinPath) </> "lib"
                     
-                    logs INFO $ "Package path: " ++ packagePath
-                    logs INFO $ "Curry bin path: " ++ curryBinPath
-                    logs INFO $ "Curry lib path: " ++ curryLibPath
+                    liftIO $ infoM "cls.indexStore" $ "Package path: " ++ packagePath
+                    liftIO $ infoM "cls.indexStore" $ "Curry bin path: " ++ curryBinPath
+                    liftIO $ infoM "cls.indexStore" $ "Curry lib path: " ++ curryLibPath
 
                     depSources <- join <$> mapM walkCurrySourceFiles ((packagePath </>) <$> deps)
                     libSources <- walkCurrySourceFiles curryLibPath
 
                     return $ projSources ++ depSources ++ libSources
                 Left err -> do
-                    logs ERROR $ "Could not fetch CPM configuration/dependencies: " ++ err
+                    liftIO $ errorM "cls.indexStore" $ "Could not fetch CPM configuration/dependencies: " ++ err
 
                     return projSources
         else walkCurrySourceFiles dirPath
@@ -177,7 +177,7 @@ walkFilesIgnoringHidden = walkFilesIgnoring ((== Just '.') . listToMaybe . takeF
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> Config -> C.FileLoader -> Maybe FilePath -> FilePath -> m ()
 recompileFile i total cfg fl dirPath filePath = void $ do
-    liftIO $ logs INFO $ "indexStore: [" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
+    liftIO $ infoM "cls.indexStore" $ "[" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
 
     let outDirPath = CFN.defaultOutDir </> "language-server"
         importPaths = [outDirPath]
@@ -190,7 +190,7 @@ recompileFile i total cfg fl dirPath filePath = void $ do
         previous = flip (M.findWithDefault $ def { workspaceDir = dirPath }) ms
     case result of
         Left errs -> modify $ \s -> s { modules = M.insert uri ((previous uri) { errorMessages = errs, warningMessages = [] }) ms }
-        Right (o, warns) -> do liftIO $ logs DEBUG $ "indexStore: Recompiled module paths: " ++ show (fst <$> asts)
+        Right (o, warns) -> do liftIO $ debugM "cls.indexStore" $ "Recompiled module paths: " ++ show (fst <$> asts)
                                ws <- liftIO $ groupIntoMapByM msgNormUri warns
                                moduleDelta <- liftIO
                                             $ sequence
@@ -205,7 +205,7 @@ recompileFile i total cfg fl dirPath filePath = void $ do
                                typeSymbols  <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.tyConsEnv env)
 
                                let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
-                               liftIO $ logs DEBUG $ "indexStore: Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
+                               liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
                                modify $ \s -> s { modules = insertAll moduleDelta ms,
                                                   symbols = insertAllIntoTrieWith (unionBy $ \x y -> qualIdent x == qualIdent y) symbolDelta ss }
