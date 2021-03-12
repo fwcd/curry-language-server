@@ -3,7 +3,7 @@ module Curry.LanguageServer.Monad (
     defaultLSState, newLSStateVar,
     LSM,
     getLSState, putLSState, modifyLSState,
-    getLoaded, putLoaded, modifyLoaded,
+    getStore, putStore, modifyStore,
     runLSM
 ) where
 
@@ -45,17 +45,17 @@ modifyLSState m = do
   stVar <- lift ask
   liftIO $ modifyMVar stVar $ \s -> return (m s, ())
 
--- Fetches the loaded state holding compiled modules
-getLoaded :: LSM (M.Map J.NormalizedUri Loaded)
-getLoaded = lsLoaded <$> getLSState
+-- Fetches the index store holding compiled modules
+getStore :: LSM I.IndexStore
+getStore = indexStore <$> getLSState
 
--- Replaces the loaded state holding compiled modules
-putLoaded :: M.Map J.NormalizedUri Loaded -> LSM ()
-putLoaded l = modifyLSState $ \s -> s { lsLoaded = l }
+-- Replaces the index store holding compiled modules
+putStore :: I.IndexStore -> LSM ()
+putStore i = modifyLSState $ \s -> s { indexStore = i }
 
--- Updates the loaded state holding compiled modules
-modifyLoaded :: (M.Map J.NormalizedUri Loaded -> M.Map J.NormalizedUri Loaded) -> LSM ()
-modifyLoaded m = modifyLSState $ \s -> s { lsLoaded = m $ lsLoaded s }
+-- Updates the index store holding compiled modules
+modifyStore :: (I.IndexStore -> I.IndexStore) -> LSM ()
+modifyStore m = modifyLSState $ \s -> s { indexStore = m $ indexStore s }
 
 -- Runs the language server's state monad.
 runLSM :: LSM a -> MVar LSState -> LanguageContextEnv () -> IO a
