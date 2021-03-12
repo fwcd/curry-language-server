@@ -37,7 +37,6 @@ import Curry.LanguageServer.CPM.Config
 import Curry.LanguageServer.CPM.Deps
 import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.Config
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
@@ -53,6 +52,7 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
 import System.FilePath
+import System.Log.Logger
 
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.

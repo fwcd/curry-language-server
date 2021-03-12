@@ -1,38 +1,8 @@
-module Curry.LanguageServer.Handlers (lspHandlers) where
+module Curry.LanguageServer.Handlers (handlers) where
 
-import Control.Concurrent.STM.TChan
-import Control.Monad.STM
-import Curry.LanguageServer.Logging
-import Curry.LanguageServer.Reactor
-import Data.Default
-import Language.LSP.Messages
-import qualified Language.LSP.Core as Core
+import Curry.LanguageServer.Monad (LSM)
+import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 
--- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
-
-lspHandlers :: TChan ReactorInput -> Core.Handlers
-lspHandlers rin = def { -- Notifications from the client
-                        Core.initializedHandler = Just $ passHandler rin NotInitialized,
-                        Core.didChangeConfigurationParamsHandler = Just $ passHandler rin NotDidChangeConfiguration,
-                        Core.didOpenTextDocumentNotificationHandler = Just $ passHandler rin NotDidOpenTextDocument,
-                        Core.didChangeTextDocumentNotificationHandler = Just $ passHandler rin NotDidChangeTextDocument,
-                        Core.didSaveTextDocumentNotificationHandler = Just $ passHandler rin NotDidSaveTextDocument,
-                        Core.didCloseTextDocumentNotificationHandler = Just $ passHandler rin NotDidCloseTextDocument,
-                        Core.cancelNotificationHandler = Just $ passHandler rin NotCancelRequestFromClient,
-                        -- Requests from the client
-                        Core.renameHandler = Just $ passHandler rin ReqRename,
-                        Core.hoverHandler = Just $ passHandler rin ReqHover,
-                        Core.completionHandler = Just $ passHandler rin ReqCompletion,
-                        Core.completionResolveHandler = Just $ passHandler rin ReqCompletionItemResolve,
-                        Core.definitionHandler = Just $ passHandler rin ReqDefinition,
-                        Core.documentSymbolHandler = Just $ passHandler rin ReqDocumentSymbols,
-                        Core.workspaceSymbolHandler = Just $ passHandler rin ReqWorkspaceSymbols,
-                        -- Responses
-                        Core.responseHandler = Just $ responseHandlerCb rin }
-
-passHandler :: TChan ReactorInput -> (a -> FromClientMessage) -> Core.Handler a
-passHandler rin c notification = atomically $ writeTChan rin $ c notification
-
-responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
-responseHandlerCb _rin response = logs NOTICE $ "*** Got ResponseMessage, ignoring: " ++ show response
+handlers :: S.Flags -> S.Handlers LSM
+handlers flags = mconcat []

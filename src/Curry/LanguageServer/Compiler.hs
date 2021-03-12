@@ -33,13 +33,13 @@ import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
 import qualified Curry.LanguageServer.Config as CFG
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.Maybe (maybeToList)
 import System.FilePath
+import System.Log.Logger
 
 data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])

@@ -7,11 +7,11 @@ import qualified Base.TopEnv as CT
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General
 import qualified Language.LSP.Types as J
+import System.Log.Logger
 
 fetchHover :: ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do

@@ -1,9 +1,9 @@
 module Curry.LanguageServer.Features.WorkspaceSymbols (fetchWorkspaceSymbols) where
 
 import Curry.LanguageServer.IndexStore
-import Curry.LanguageServer.Logging
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
+import System.Log.Logger
 
 fetchWorkspaceSymbols :: IndexStore -> T.Text -> IO [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do

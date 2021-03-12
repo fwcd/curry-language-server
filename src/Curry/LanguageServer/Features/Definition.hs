@@ -8,12 +8,12 @@ import qualified Base.TopEnv as CT
 import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.IndexStore
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General
 import Data.Maybe (fromMaybe, maybeToList)
 import qualified Language.LSP.Types as J
+import System.Log.Logger
 
 fetchDefinitions :: IndexStore -> ModuleStoreEntry -> J.Position -> IO [J.Location]
 fetchDefinitions store entry pos = do

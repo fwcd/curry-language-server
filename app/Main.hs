@@ -3,10 +3,11 @@ module Main where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
-import Language.LSP.Server
+import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
+import System.Log.Logger
 
 main :: IO ()
 main = runLanguageServer >>= \case
@@ -16,6 +17,7 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = do
     state <- newLSStateVar
+    S.setupLogger Nothing ["cls"] INFO
     S.runServer $ S.ServerDefinition
         { onConfigurationChange = const $ pure $ Right ()
         , onInitialize = const . pure . Right

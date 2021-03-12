@@ -2,11 +2,11 @@ module Curry.LanguageServer.Features.Diagnostics (fetchDiagnostics) where
 
 import Control.Monad
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Uri (normalizedUriToFilePath)
 import qualified Language.LSP.Types as J
 import System.FilePath (takeBaseName)
+import System.Log.Logger
 
 fetchDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> IO [J.Diagnostic]
 fetchDiagnostics uri entry = do

@@ -11,7 +11,6 @@ import qualified Env.Value as CEV
 
 import Control.Lens ((^.))
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
@@ -19,6 +18,7 @@ import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
+import System.Log.Logger
 
 fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query _ = do
