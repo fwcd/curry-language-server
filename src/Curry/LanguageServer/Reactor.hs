@@ -23,12 +23,12 @@ import qualified Data.Map as M
 import Data.Maybe (fromMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Data.SortedList as SL
-import qualified Language.Haskell.LSP.Core as Core
-import Language.Haskell.LSP.Diagnostics
-import Language.Haskell.LSP.Messages
-import qualified Language.Haskell.LSP.VFS as VFS
-import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Types.Lens as J
+import qualified Language.LSP.Core as Core
+import Language.LSP.Diagnostics
+import Language.LSP.Messages
+import qualified Language.LSP.VFS as VFS
+import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types.Lens as J
 
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 

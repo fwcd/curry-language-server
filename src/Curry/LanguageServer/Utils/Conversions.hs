@@ -36,7 +36,7 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 -- Curry Compiler -> Language Server Protocol
 

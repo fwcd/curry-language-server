@@ -16,9 +16,9 @@ import Data.Default
 import Data.Maybe
 import qualified Data.Text as T
 import GHC.Conc
-import qualified Language.Haskell.LSP.Control as Ctrl
-import qualified Language.Haskell.LSP.Core as Core
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Control as Ctrl
+import qualified Language.LSP.Core as Core
+import qualified Language.LSP.Types as J
 import System.Exit
 import qualified System.Log.Logger as L
 

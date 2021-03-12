@@ -11,7 +11,7 @@ import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 fetchHover :: ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do

@@ -39,7 +39,7 @@ import Data.List (sortOn, group)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 import System.FilePath
 import System.Directory
 

@@ -3,7 +3,7 @@ module Curry.LanguageServer.Features.DocumentSymbols (fetchDocumentSymbols) wher
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 fetchDocumentSymbols :: ModuleStoreEntry -> IO J.DSResult
 fetchDocumentSymbols entry = do

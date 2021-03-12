@@ -17,8 +17,8 @@ import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Types.Lens as J
+import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types.Lens as J
 
 fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query _ = do

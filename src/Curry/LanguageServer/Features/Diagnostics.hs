@@ -5,7 +5,7 @@ import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Uri (normalizedUriToFilePath)
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 import System.FilePath (takeBaseName)
 
 fetchDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> IO [J.Diagnostic]

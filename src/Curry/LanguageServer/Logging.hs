@@ -10,10 +10,10 @@ module Curry.LanguageServer.Logging (
 
 import Data.Char (toLower)
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Core as Core
-import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Constant as LSPConst
-import Language.Haskell.LSP.Messages
+import qualified Language.LSP.Core as Core
+import qualified Language.LSP.Types as J
+import qualified Language.LSP.Constant as LSPConst
+import Language.LSP.Messages
 import System.Log
 import qualified System.Log.Formatter as LF
 import qualified System.Log.Handler as LH

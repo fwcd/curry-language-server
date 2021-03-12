@@ -17,7 +17,7 @@ import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 type ModuleAST = CS.Module CT.PredType
 

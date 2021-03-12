@@ -7,7 +7,7 @@ module Curry.LanguageServer.Utils.Uri (
     normalizeUriWithPath
 ) where
 
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 import System.Directory
 
 filePathToUri :: FilePath -> IO J.Uri

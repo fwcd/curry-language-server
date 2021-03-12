@@ -1,8 +1,8 @@
 module Curry.LanguageServer.Options (lspOptions) where
 
 import Data.Default
-import qualified Language.Haskell.LSP.Core as Core
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Core as Core
+import qualified Language.LSP.Types as J
 
 lspOptions :: Core.Options
 lspOptions = def { Core.textDocumentSync = Just syncOptions }

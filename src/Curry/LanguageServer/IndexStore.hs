@@ -49,8 +49,8 @@ import Data.Maybe (fromJust, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
-import qualified Language.Haskell.LSP.Types as J
-import qualified Language.Haskell.LSP.Types.Lens as J
+import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
 import System.FilePath
 

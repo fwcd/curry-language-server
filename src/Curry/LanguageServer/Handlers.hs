@@ -5,9 +5,9 @@ import Control.Monad.STM
 import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Reactor
 import Data.Default
-import Language.Haskell.LSP.Messages
-import qualified Language.Haskell.LSP.Core as Core
-import qualified Language.Haskell.LSP.Types as J
+import Language.LSP.Messages
+import qualified Language.LSP.Core as Core
+import qualified Language.LSP.Types as J
 
 -- Based on https://github.com/alanz/haskell-lsp/blob/master/example/Main.hs (MIT-licensed, Copyright (c) 2016 Alan Zimmerman)
 

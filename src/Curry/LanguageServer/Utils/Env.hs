@@ -24,7 +24,7 @@ import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax
 import Data.Maybe (listToMaybe)
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 type LookupEnv = (CE.CompilerEnv, ModuleAST)
 type LM a = MaybeT (ReaderT LookupEnv IO) a
