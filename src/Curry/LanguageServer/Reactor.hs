@@ -98,22 +98,6 @@ reactor lf rin = do
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
-            ReqCompletionItemResolve req -> do
-                liftIO $ debugM "cls.reactor" "Processing completion item resolve request"
-                let item = req ^. J.params
-                -- TODO
-                send $ RspCompletionItemResolve $ Core.makeResponseMessage req item
-
-            ReqHover req -> do
-                liftIO $ debugM "cls.reactor" "Processing hover request"
-                let uri = req ^. J.params . J.textDocument . J.uri
-                    pos = req ^. J.params . J.position
-                normUri <- liftIO $ normalizeUriWithPath uri
-                hover <- runMaybeT $ do
-                    entry <- I.getModule normUri
-                    liftMaybe =<< liftIO (fetchHover entry pos)
-                send $ RspHover $ Core.makeResponseMessage req hover
-            
             ReqDefinition req -> do
                 liftIO $ debugM "cls.reactor" "Processing definition request"
                 let uri = req ^. J.params . J.textDocument . J.uri

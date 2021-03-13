@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Completion (fetchCompletions) where
+module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
