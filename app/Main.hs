@@ -7,6 +7,7 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
+import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
 import System.Log.Logger
 
 main :: IO ()
@@ -19,11 +20,11 @@ runLanguageServer = do
     state <- newLSStateVar
     S.setupLogger Nothing ["cls"] INFO
     S.runServer $ S.ServerDefinition
-        { onConfigurationChange = const $ pure $ Right ()
-        , onInitialize = const . pure . Right
-        , staticHandlers = handlers flags
-        , interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
-        , options = defaultOptions { textDocumentSync = Just syncOptions }
+        { S.onConfigurationChange = const $ pure $ Right ()
+        , S.doInitialize = const . pure . Right
+        , S.staticHandlers = handlers
+        , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
+        , S.options = S.defaultOptions { S.textDocumentSync = Just syncOptions }
         }
     where
         syncOptions = J.TextDocumentSyncOptions

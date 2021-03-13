@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Features.Hover (fetchHover) where
+module Curry.LanguageServer.Handlers.Hover (fetchHover) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Base.TopEnv as CT

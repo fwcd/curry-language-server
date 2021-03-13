@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Features.Diagnostics (fetchDiagnostics) where
+module Curry.LanguageServer.Handlers.Diagnostics (fetchDiagnostics) where
 
 import Control.Monad
 import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))

@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Features.WorkspaceSymbols (fetchWorkspaceSymbols) where
+module Curry.LanguageServer.Handlers.WorkspaceSymbols (fetchWorkspaceSymbols) where
 
 import Curry.LanguageServer.IndexStore
 import qualified Data.Text as T

@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Features.Definition (fetchDefinitions) where
+module Curry.LanguageServer.Handlers.Definition (fetchDefinitions) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

@@ -10,12 +10,12 @@ import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.IndexStore as I
-import Curry.LanguageServer.Features.Completion
-import Curry.LanguageServer.Features.Definition
-import Curry.LanguageServer.Features.Diagnostics
-import Curry.LanguageServer.Features.DocumentSymbols
-import Curry.LanguageServer.Features.Hover
-import Curry.LanguageServer.Features.WorkspaceSymbols
+import Curry.LanguageServer.Handlers.Completion
+import Curry.LanguageServer.Handlers.Definition
+import Curry.LanguageServer.Handlers.Diagnostics
+import Curry.LanguageServer.Handlers.DocumentSymbols
+import Curry.LanguageServer.Handlers.Hover
+import Curry.LanguageServer.Handlers.WorkspaceSymbols
 import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
 import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri, normalizeUriWithPath)
 import qualified Data.Map as M
