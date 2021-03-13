@@ -33,6 +33,6 @@ fetchDiagnostics normUri entry = do
         name = maybe "?" takeBaseName $ normalizedUriToFilePath normUri
     
     unless (null diags) $
-        infoM "cls.fetchDiagnostics" $ "Found " ++ show (length diags) ++ " message(s) in " ++ name
+        infoM "cls.diagnostics" $ "Found " ++ show (length diags) ++ " message(s) in " ++ name
 
     return diags
