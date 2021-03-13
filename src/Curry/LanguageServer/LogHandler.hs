@@ -47,7 +47,7 @@ logName :: String
 logName = "cls"
 
 logFormat :: String
-logFormat = "$tid - $msg"
+logFormat = "$loggername: $msg"
 
 setupLogging :: LSM ()
 setupLogging = do
