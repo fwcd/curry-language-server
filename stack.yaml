@@ -18,8 +18,13 @@ packages:
 extra-deps:
   - set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
   - bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
-  - haskell-lsp-0.20.0.0
-  - haskell-lsp-types-0.20.0.0
+  - lsp-1.0.0.1@sha256:e220e68e91640fc406dff21d411ba54a8dde7972fe7a275448cacc95840dec59
+  - lsp-types-1.0.0.1@sha256:429697f3d03f5f134e9e9b191844bbc060ad3f2cc2951db40d74f61740c99876
+  - constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26
+  - dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221
+  - dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531
+  - dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde
+  - unliftio-core-0.2.0.1
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     commit: 5b4861461556b3d8474d59417f8ac39bacf8237f
 

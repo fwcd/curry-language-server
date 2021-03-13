@@ -36,17 +36,18 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 
 -- Curry Compiler -> Language Server Protocol
 
 curryMsg2Diagnostic :: J.DiagnosticSeverity -> CM.Message -> J.Diagnostic
-curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text related
+curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text tags related
     where range = fromMaybe emptyRange $ currySpanInfo2Range $ CM.msgSpanInfo msg
           severity = Just s
           code = Nothing
           src = Nothing
           text = T.pack $ PP.render $ CM.msgTxt msg
+          tags = Nothing
           related = Nothing
 
 curryPos2Pos :: CP.Position -> Maybe J.Position

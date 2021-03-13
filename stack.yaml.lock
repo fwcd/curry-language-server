@@ -19,19 +19,54 @@ packages:
   original:
     hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
 - completed:
-    hackage: haskell-lsp-0.20.0.0@sha256:819b31397450b8cd3bdb944d3844236158e518572aa846d6f80679867773c424,5315
+    hackage: lsp-1.0.0.1@sha256:e220e68e91640fc406dff21d411ba54a8dde7972fe7a275448cacc95840dec59,5557
     pantry-tree:
-      size: 1726
-      sha256: b9a2dc73a29f587cc3a98cc41966160a6431aa963dc019c147553aa0d8038617
+      size: 1397
+      sha256: 97ad91757f81865181063fa704b7bd1ead7d763ff22816fde8f80c6658904cbd
   original:
-    hackage: haskell-lsp-0.20.0.0
+    hackage: lsp-1.0.0.1@sha256:e220e68e91640fc406dff21d411ba54a8dde7972fe7a275448cacc95840dec59
 - completed:
-    hackage: haskell-lsp-types-0.20.0.0@sha256:24dcd72f3d39260b9ebb447e89175e09f2244a17d24eca8bf6dbea3f9cf20977,2941
+    hackage: lsp-types-1.0.0.1@sha256:429697f3d03f5f134e9e9b191844bbc060ad3f2cc2951db40d74f61740c99876,4200
     pantry-tree:
-      size: 2451
-      sha256: 8d4a6011264f75f301e14549d40327f90bd7524b0c647983cd571bf3419f7945
+      size: 3953
+      sha256: 1fcabaff1b2c9c955e6da950f4cd6bd85c3bca0bf1927f60dc425288981bc3e2
   original:
-    hackage: haskell-lsp-types-0.20.0.0
+    hackage: lsp-types-1.0.0.1@sha256:429697f3d03f5f134e9e9b191844bbc060ad3f2cc2951db40d74f61740c99876
+- completed:
+    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
+    pantry-tree:
+      size: 594
+      sha256: 3ce1012bfb02e4d7def9df19ce80b8cd2b472c691b25b181d9960638673fecd1
+  original:
+    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26
+- completed:
+    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
+    pantry-tree:
+      size: 551
+      sha256: 5defa30010904d2ad05a036f3eaf83793506717c93cbeb599f40db1a3632cfc5
+  original:
+    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221
+- completed:
+    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
+    pantry-tree:
+      size: 290
+      sha256: 9cbfb32b5a8a782b7a1c941803fd517633cb699159b851c1d82267a9e9391b50
+  original:
+    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531
+- completed:
+    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
+    pantry-tree:
+      size: 436
+      sha256: 32eeadeb991a290a1da41ce7e995dee7d38ebba3bd3e53ea8074c32c086701fd
+  original:
+    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde
+- completed:
+    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
+    pantry-tree:
+      size: 328
+      sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
+  original:
+    hackage: unliftio-core-0.2.0.1
 - completed:
     name: curry-frontend
     version: 2.0.0

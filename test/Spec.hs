@@ -1,5 +1,5 @@
 import Curry.LanguageServer.Diagnostics
-import qualified Language.Haskell.LSP.Types as J
+import qualified Language.LSP.Types as J
 import Files.CymakePath
 
 main :: IO ()

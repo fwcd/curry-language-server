@@ -33,13 +33,13 @@ import qualified Text.PrettyPrint as PP
 
 import Control.Monad.Reader
 import qualified Curry.LanguageServer.Config as CFG
-import Curry.LanguageServer.Logging
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.Maybe (maybeToList)
 import System.FilePath
+import System.Log.Logger
 
 data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
@@ -61,7 +61,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ logs DEBUG $ "compiler: Compiling Curry, found deps: " ++ show (takeFileName . snd3 <$> deps)
+    liftIO $ debugM "cls.compiler" $ "Compiling Curry, found deps: " ++ show (takeFileName . snd3 <$> deps)
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
@@ -86,7 +86,7 @@ compileCurryModules opts fl outDirPath deps = case deps of
 -- | Compiles a single module.
 compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
 compileCurryModule opts fl outDirPath m fp = do
-    liftIO $ logs DEBUG $ "compiler: Compiling module " ++ takeFileName fp
+    liftIO $ debugM "cls.compiler" $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
     mdl <- loadAndCheckCurryModule opts fl m fp
     -- Generate and store an on-disk interface file
@@ -94,7 +94,7 @@ compileCurryModule opts fl outDirPath m fp = do
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
         interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
-    liftIO $ logs DEBUG $ "compiler: Writing interface file to " ++ interfFilePath
+    liftIO $ debugM "cls.compiler" $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return mdl
 
