@@ -20,7 +20,7 @@ import System.Log.Logger
 
 hoverHandler :: S.Handlers LSM
 hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
-    liftIO $ debugM "cls.reactor" "Processing hover request"
+    liftIO $ debugM "cls.hover" "Processing hover request"
     -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
     let J.HoverParams doc pos _ = req ^. J.params
         uri = doc ^. J.uri

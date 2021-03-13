@@ -23,14 +23,14 @@ import System.Log.Logger
 
 definitionHandler :: S.Handlers LSM
 definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder -> do
-    liftIO $ debugM "cls.reactor" "Processing definition request"
+    liftIO $ debugM "cls.definition" "Processing definition request"
     -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
     let J.DefinitionParams doc pos _ _ = req ^. J.params
         uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do
-        liftIO $ debugM "cls.reactor" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
+        liftIO $ debugM "cls.definition" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
         entry <- I.getModule normUri
         liftIO $ fetchDefinitions store entry pos
     responder $ Right $ J.InR $ J.InL $ J.List $ fromMaybe [] defs
