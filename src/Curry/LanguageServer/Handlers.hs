@@ -6,6 +6,7 @@ import Curry.LanguageServer.Handlers.DocumentSymbols (documentSymbolHandler)
 import Curry.LanguageServer.Handlers.Hover (hoverHandler)
 import Curry.LanguageServer.Handlers.Initialized (initializedHandler)
 import Curry.LanguageServer.Handlers.TextDocument (didOpenHandler, didChangeHandler, didSaveHandler, didCloseHandler)
+import Curry.LanguageServer.Handlers.WorkspaceSymbols (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
@@ -17,6 +18,7 @@ handlers = mconcat
     , definitionHandler
     , documentSymbolHandler
     , hoverHandler
+    , workspaceSymbolHandler
       -- Notification handlers
     , initializedHandler
     , didOpenHandler

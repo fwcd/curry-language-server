@@ -62,13 +62,6 @@ reactor lf rin = do
                         infoM "cls.reactor" $ "Updated log level to " ++ rawLevel
                     Nothing -> infoM "cls.reactor" $ "Could not parse log level " ++ rawLevel
 
-            ReqWorkspaceSymbols req -> do
-                liftIO $ debugM "cls.reactor" "Processing workspace symbols request"
-                let query = req ^. J.params . J.query
-                store <- get
-                symbols <- liftIO $ fetchWorkspaceSymbols store query
-                send $ RspWorkspaceSymbols $ Core.makeResponseMessage req $ J.List symbols
-
             req -> do
                 liftIO $ noticeM "cls.reactor" $ "Got unrecognized request: " ++ show req
         
