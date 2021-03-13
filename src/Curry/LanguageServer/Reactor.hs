@@ -144,15 +144,6 @@ reactor lf rin = do
                                                                                    Just ds  -> J.MultiLoc ds
                                                                                    Nothing  -> J.MultiLoc []
 
-            ReqDocumentSymbols req -> do
-                liftIO $ debugM "cls.reactor" "Processing document symbols request"
-                let uri = req ^. J.params . J.textDocument . J.uri
-                normUri <- liftIO $ normalizeUriWithPath uri
-                symbols <- runMaybeT $ do
-                    entry <- I.getModule normUri
-                    liftIO $ fetchDocumentSymbols entry
-                send $ RspDocumentSymbols $ Core.makeResponseMessage req $ fromMaybe (J.DSDocumentSymbols $ J.List []) symbols
-            
             ReqWorkspaceSymbols req -> do
                 liftIO $ debugM "cls.reactor" "Processing workspace symbols request"
                 let query = req ^. J.params . J.query
