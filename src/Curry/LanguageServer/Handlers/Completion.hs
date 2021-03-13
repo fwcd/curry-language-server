@@ -10,25 +10,49 @@ import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Lens ((^.))
-import Curry.LanguageServer.IndexStore (ModuleStoreEntry (..))
+import Control.Monad (join)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
+import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Utils.Conversions (ppToText)
-import Curry.LanguageServer.Utils.General (rmDupsOn)
+import Curry.LanguageServer.Utils.General (rmDupsOn, liftMaybe)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
+import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Curry.LanguageServer.Monad
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
+import qualified Language.LSP.Server as S
+import qualified Language.LSP.VFS as VFS
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
-fetchCompletions :: ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
+completionHandler :: S.Handlers LSM
+completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder -> do
+    liftIO $ debugM "cls.completions" "Processing completion request"
+    let uri = req ^. J.params . J.textDocument . J.uri
+        pos = req ^. J.params . J.position
+    normUri <- liftIO $ normalizeUriWithPath uri
+    completions <- fmap (join . maybeToList) $ runMaybeT $ do
+        entry <- I.getModule normUri
+        vfile <- MaybeT $ S.getVirtualFile normUri
+        query <- MaybeT $ VFS.getCompletionPrefix pos vfile
+        liftIO $ fetchCompletions entry (VFS.prefixText query) pos
+    let maxCompletions = 25
+        items = take maxCompletions completions
+        incomplete = length completions > maxCompletions
+        result = J.CompletionList incomplete $ J.List items
+    responder $ Right $ J.InR result
+
+fetchCompletions :: I.ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query _ = do
     -- TODO: Context-awareness (through nested envs?)
-    let env = maybeToList $ compilerEnv entry
+    let env = maybeToList $ I.compilerEnv entry
         valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
         typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords
         completions = rmDupsOn (^. J.label) $ filter (matchesQuery query) $ valueCompletions ++ typeCompletions ++ keywordCompletions
-    infoM "cls.fetchCompletions" $ "Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
+    infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with query '" ++ show query ++ "'"
     return completions
     where keywords = ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 

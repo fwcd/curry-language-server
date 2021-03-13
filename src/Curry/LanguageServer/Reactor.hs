@@ -98,22 +98,6 @@ reactor lf rin = do
                 let uri = notification ^. J.params . J.textDocument . J.uri
                 void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
-            ReqCompletion req -> do
-                liftIO $ debugM "cls.reactor" "Processing completion request"
-                let uri = req ^. J.params . J.textDocument . J.uri
-                    pos = req ^. J.params . J.position
-                normUri <- liftIO $ normalizeUriWithPath uri
-                completions <- fmap (join . maybeToList) $ runMaybeT $ do
-                    entry <- I.getModule normUri
-                    vfile <- liftMaybe =<< liftIO (Core.getVirtualFileFunc lf normUri)
-                    query <- liftMaybe $ wordAtPos pos $ VFS.virtualFileText vfile
-                    liftIO $ fetchCompletions entry query pos
-                let maxCompletions = 25
-                    items = take maxCompletions completions
-                    incomplete = length completions > maxCompletions
-                    result = J.CompletionList $ J.CompletionListType incomplete $ J.List items
-                send $ RspCompletion $ Core.makeResponseMessage req result
-            
             ReqCompletionItemResolve req -> do
                 liftIO $ debugM "cls.reactor" "Processing completion item resolve request"
                 let item = req ^. J.params
