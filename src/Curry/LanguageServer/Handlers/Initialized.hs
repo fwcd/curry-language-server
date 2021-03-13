@@ -16,20 +16,20 @@ import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
 initializedHandler :: S.Handlers LSM
-initializedHandler = S.notificationHandler J.SInitialized $ \_not -> do
+initializedHandler = S.notificationHandler J.SInitialized $ \_nt -> do
     -- TODO: Set up logging with custom level
     liftIO $ infoM "cls.initialized" "Building index store..."
     workspaceFolders <- fromMaybe [] <$> S.getWorkspaceFolders
     let folders = maybeToList . folderToPath =<< workspaceFolders
-    fl <- fileLoader
-    mapM_ (addDirToIndexStore fl) folders
+    mapM_ addDirToIndexStore folders
     count <- I.getModuleCount
     liftIO $ infoM "cls.initialized" $ "Indexed " ++ show count ++ " files"
     where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
 
 -- | Indexes a workspace folder recursively.
-addDirToIndexStore :: C.FileLoader -> FilePath -> LSM ()
-addDirToIndexStore fl dirPath = do
+addDirToIndexStore :: FilePath -> LSM ()
+addDirToIndexStore dirPath = do
+    fl <- fileLoader
     cfg <- S.getConfig
     I.addWorkspaceDir (fromMaybe def cfg) fl dirPath
     entries <- I.getModuleList

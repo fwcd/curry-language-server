@@ -17,10 +17,8 @@ import Curry.LanguageServer.Handlers.Hover
 import Curry.LanguageServer.Handlers.WorkspaceSymbols
 import Curry.LanguageServer.Utils.General (liftMaybe, slipr3, wordAtPos)
 import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri, normalizeUriWithPath)
-import qualified Data.Map as M
 import Data.Maybe (fromMaybe, maybeToList)
 import qualified Data.Text as T
-import qualified Data.SortedList as SL
 import Language.LSP.Diagnostics
 import qualified Language.LSP.VFS as VFS
 import qualified Language.LSP.Types as J
@@ -64,27 +62,6 @@ reactor lf rin = do
                         infoM "cls.reactor" $ "Updated log level to " ++ rawLevel
                     Nothing -> infoM "cls.reactor" $ "Could not parse log level " ++ rawLevel
 
-            NotDidOpenTextDocument notification -> do
-                liftIO $ debugM "cls.reactor" "Processing open notification"
-                let uri = notification ^. J.params . J.textDocument . J.uri
-                void $ runMaybeT $ updateIndexStore fileLoader uri
-            
-            NotDidChangeTextDocument notification -> do
-                liftIO $ debugM "cls.reactor" "Processing change notification"
-                let uri = notification ^. J.params . J.textDocument . J.uri
-                void $ runMaybeT $ updateIndexStore fileLoader uri
-
-            NotDidSaveTextDocument notification -> (do
-                liftIO $ debugM "cls.reactor" "Processing save notification"
-                let uri = notification ^. J.params . J.textDocument . J.uri
-                void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
-            
-            ReqDefinition req -> do
-                
-                send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
-                                                                                   Just ds  -> J.MultiLoc ds
-                                                                                   Nothing  -> J.MultiLoc []
-
             ReqWorkspaceSymbols req -> do
                 liftIO $ debugM "cls.reactor" "Processing workspace symbols request"
                 let query = req ^. J.params . J.query
@@ -96,16 +73,6 @@ reactor lf rin = do
                 liftIO $ noticeM "cls.reactor" $ "Got unrecognized request: " ++ show req
         
         liftIO $ debugM "cls.reactor" "Handled request"
-
--- | Recompiles and stores the updated compilation for a given URI.
-updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()
-updateIndexStore fl uri = do
-    cfg <- getConfig
-    normUri <- liftIO $ normalizeUriWithPath uri
-    lift $ I.recompileModule cfg fl normUri
-    entry <- I.getModule normUri
-    diags <- liftIO $ fetchDiagnostics normUri entry
-    lift $ sendDiagnostics normUri diags
 
 -- | Sends an LSP message to the client.
 send :: FromServerMessage -> RM ()
@@ -120,9 +87,7 @@ sendDiagnostics uri diags = do
     liftIO $ Core.publishDiagnosticsFunc lf maxToPublish uri version diagsBySource
     where version = Just 0
           maxToPublish = 100
-          -- Workaround for empty diagnostics: https://github.com/alanz/haskell-lsp/issues/139
-          diagsBySource | null diags = M.singleton Nothing (SL.toSortedList [])
-                        | otherwise  = partitionBySource diags
+          
 
 -- | Fetches the configuration 
 getConfig :: MaybeRM CFG.Config
