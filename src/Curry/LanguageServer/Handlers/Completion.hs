@@ -38,7 +38,26 @@ matchesQuery query item = query `T.isPrefixOf` (item ^. J.label)
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
-completionFrom label ciKind detail doc = J.CompletionItem label (Just ciKind) detail (J.CompletionDocString <$> doc) Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+completionFrom l k d c = J.CompletionItem label kind tags detail doc deprecated
+                                          preselect sortText filterText insertText
+                                          insertTextFormat textEdit additionalTextEdits
+                                          commitChars command xdata
+  where label = l
+        kind = Just k
+        tags = Nothing
+        detail = d
+        doc = J.CompletionDocString <$> c
+        deprecated = Just False
+        preselect = Nothing
+        sortText = Nothing
+        filterText = Nothing
+        insertText = Nothing
+        insertTextFormat = Nothing
+        textEdit = Nothing
+        additionalTextEdits = Nothing
+        commitChars = Nothing
+        command = Nothing
+        xdata = Nothing
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem
 
