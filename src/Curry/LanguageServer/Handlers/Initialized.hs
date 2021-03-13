@@ -5,6 +5,7 @@ import Control.Monad ((<=<), join)
 import Control.Monad.IO.Class (liftIO)
 import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.FileLoader (fileLoader)
+import Curry.LanguageServer.LogHandler (setupLogging)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Monad
@@ -17,7 +18,7 @@ import System.Log.Logger
 
 initializedHandler :: S.Handlers LSM
 initializedHandler = S.notificationHandler J.SInitialized $ \_nt -> do
-    -- TODO: Set up logging with custom level
+    setupLogging
     liftIO $ infoM "cls.initialized" "Building index store..."
     workspaceFolders <- fromMaybe [] <$> S.getWorkspaceFolders
     let folders = maybeToList . folderToPath =<< workspaceFolders

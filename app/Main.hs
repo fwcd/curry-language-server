@@ -19,7 +19,6 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = do
     state <- newLSStateVar
-    S.setupLogger Nothing ["cls"] INFO
     S.runServer $ S.ServerDefinition
         -- TODO: The most recent (unreleased 1.1.x) version of the LSP library
         --       updates this config handling and so should we.
