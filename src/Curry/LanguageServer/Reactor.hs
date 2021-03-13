@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 module Curry.LanguageServer.Reactor (reactor, ReactorInput (..)) where
 
 import Control.Concurrent.STM.TChan
@@ -50,25 +49,7 @@ reactor lf rin = do
         hreq <- liftIO $ atomically $ readTChan rin
         liftIO $ debugM "cls.reactor" $ "Got request: " ++ show hreq
 
-        let fileLoader :: C.FileLoader
-            fileLoader fp = do
-                normUri <- filePathToNormalizedUri fp
-                vfile <- Core.getVirtualFileFunc lf normUri
-                
-                case T.unpack . VFS.virtualFileText <$> vfile of
-                    Just vfsContent -> return vfsContent
-                    Nothing -> readFile fp
-
         case hreq of
-            NotInitialized _ -> do
-                liftIO $ setupLogging $ Core.sendFunc lf
-                liftIO $ infoM "cls.reactor" "Initialized, building index store..."
-                folders <- liftIO $ ((maybeToList . folderToPath) =<<) <$> (fromMaybe [] <$> Core.getWorkspaceFolders lf)
-                runMaybeT $ sequence $ addDirToIndexStore fileLoader <$> folders
-                count <- I.getModuleCount
-                liftIO $ infoM "cls.reactor" $ "Indexed " ++ show count ++ " files"
-                where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
-
             RspFromClient rsp -> do
                 liftIO $ debugM "cls.reactor" $ "Response from client: " ++ show rsp
             
@@ -99,15 +80,7 @@ reactor lf rin = do
                 void $ runMaybeT $ updateIndexStore fileLoader uri) :: RM ()
             
             ReqDefinition req -> do
-                liftIO $ debugM "cls.reactor" "Processing definition request"
-                let uri = req ^. J.params . J.textDocument . J.uri
-                    pos = req ^. J.params . J.position
-                normUri <- liftIO $ normalizeUriWithPath uri
-                store <- get
-                defs <- runMaybeT $ do
-                    liftIO $ debugM "cls.reactor" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
-                    entry <- I.getModule normUri
-                    liftIO $ fetchDefinitions store entry pos
+                
                 send $ RspDefinition $ Core.makeResponseMessage req $ case defs of Just [d] -> J.SingleLoc d
                                                                                    Just ds  -> J.MultiLoc ds
                                                                                    Nothing  -> J.MultiLoc []
@@ -123,16 +96,6 @@ reactor lf rin = do
                 liftIO $ noticeM "cls.reactor" $ "Got unrecognized request: " ++ show req
         
         liftIO $ debugM "cls.reactor" "Handled request"
-
--- | Indexes a workspace folder recursively.
-addDirToIndexStore :: C.FileLoader -> FilePath -> MaybeRM ()
-addDirToIndexStore fl dirPath = do
-    cfg <- getConfig
-    I.addWorkspaceDir cfg fl dirPath
-    entries <- I.getModuleList
-    void $ lift $ sequence $ (uncurry sendDiagnostics <=< withUriEntry2Diags) <$> entries
-    where withUriEntry2Diags :: (J.NormalizedUri, I.ModuleStoreEntry) -> RM (J.NormalizedUri, [J.Diagnostic])
-          withUriEntry2Diags (uri, entry) = (uri,) <$> liftIO (fetchDiagnostics uri entry)
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: C.FileLoader -> J.Uri -> MaybeRM ()

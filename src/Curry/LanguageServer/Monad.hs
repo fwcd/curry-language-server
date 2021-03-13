@@ -8,6 +8,7 @@ module Curry.LanguageServer.Monad (
     runLSM
 ) where
 
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.IndexStore as I
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar, modifyMVar)
 import Control.Monad.Reader (ReaderT, runReaderT, ask)
@@ -27,7 +28,7 @@ newLSStateVar :: IO (MVar LSState)
 newLSStateVar = newMVar defaultLSState
 
 -- The monad holding (thread-safe) state used by the language server.
-type LSM = LspT () (ReaderT (MVar LSState) IO)
+type LSM = LspT CFG.Config (ReaderT (MVar LSState) IO)
 
 instance MonadState I.IndexStore LSM where
     get = getStore
@@ -64,5 +65,5 @@ modifyStore :: (I.IndexStore -> I.IndexStore) -> LSM ()
 modifyStore m = modifyLSState $ \s -> s { indexStore = m $ indexStore s }
 
 -- Runs the language server's state monad.
-runLSM :: LSM a -> MVar LSState -> LanguageContextEnv () -> IO a
+runLSM :: LSM a -> MVar LSState -> LanguageContextEnv CFG.Config -> IO a
 runLSM lsm stVar cfg = runReaderT (runLspT cfg lsm) stVar
