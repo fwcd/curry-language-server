@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics) where
+module Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics, fetchDiagnostics) where
 
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
