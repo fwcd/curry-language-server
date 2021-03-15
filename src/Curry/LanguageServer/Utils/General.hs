@@ -17,6 +17,7 @@ module Curry.LanguageServer.Utils.General (
     (<.$>), (<$.>),
     joinFst, joinSnd,
     removeSingle,
+    nothingIfNull,
     replaceString,
     Insertable (..),
     insertAll,
@@ -161,6 +162,11 @@ joinSnd m = do
 removeSingle :: [a] -> [([a], a)]
 removeSingle [] = []
 removeSingle (x:xs) = (xs, x) : (x:) <.$> removeSingle xs
+
+-- | Wraps a list into a Maybe that is Nothing if the list is empty.
+nothingIfNull :: [a] -> Maybe [a]
+nothingIfNull [] = Nothing
+nothingIfNull xs = Just xs
 
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack

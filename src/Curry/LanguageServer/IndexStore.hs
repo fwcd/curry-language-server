@@ -44,7 +44,7 @@ import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.List (nub, unionBy)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, listToMaybe)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
@@ -124,7 +124,7 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
 findCurrySourcesInWorkspace :: Config -> FilePath -> IO [FilePath]
 findCurrySourcesInWorkspace cfg dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
-    let projPaths = cpmProjPaths <|> [dirPath]
+    let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
     nub <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
