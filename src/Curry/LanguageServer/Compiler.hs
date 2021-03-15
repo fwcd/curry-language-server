@@ -37,6 +37,7 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
+import Data.List (intercalate)
 import Data.Maybe (maybeToList)
 import System.FilePath
 import System.Log.Logger
@@ -52,37 +53,43 @@ type FileLoader = FilePath -> IO String
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
 compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps cfg fl mseImportPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
         opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
-                                 , CO.optImportPaths = mseImportPaths ++ CFG.cfgImportPaths cfg
+                                 , CO.optImportPaths = importPaths ++ CFG.cfgImportPaths cfg
                                  , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  }
     -- Resolve dependencies
-    deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ infoM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ show (takeFileName . snd3 <$> deps)
-    -- Process pragmas
-    let opts' = foldl processPragmas opts $ thd3 <$> deps
+    deps <- CD.flatDeps opts filePath
+    liftIO $ infoM "cls.compiler" $ "Import paths: " ++ show importPaths
+    liftIO $ infoM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> compileCurryModules opts' fl outDirPath (tripleToPair <$> deps)
-    where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
-          processPragmas o ps = foldl processExtensionPragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
-          processExtensionPragma :: CO.Options -> CS.KnownExtension -> CO.Options
-          processExtensionPragma o e = case e of
-              CS.CPP -> o { CO.optCppOpts = (CO.optCppOpts o) { CO.cppRun = True } }
-              _      -> o
+    toCompilationOutput <$> compileCurryModules opts fl outDirPath deps
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, FilePath)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
 compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
-    [(m, fp)] -> (\ast -> [(fp, ast)]) <$.> compileCurryModule opts fl outDirPath m fp
-    ((m, fp):ds) -> do
-        (_, ast) <- compileCurryModule opts fl outDirPath m fp
+    [(m, CD.Source fp ps is)] -> do
+        liftIO $ infoM "cls.compiler" $ "Actually compiling " ++ fp
+        let opts' = processPragmas opts ps
+        (env, ast) <- compileCurryModule opts' fl outDirPath m fp
+        return (env, [(fp, ast)])
+    ((m, CD.Source fp ps is):ds) -> do
+        liftIO $ infoM "cls.compiler" $ "Actually compiling " ++ fp
+        let opts' = processPragmas opts ps
+        (_, ast) <- compileCurryModule opts' fl outDirPath m fp
         (env, asts) <- compileCurryModules opts fl outDirPath ds
         return (env, (fp, ast) : asts)
+    (_:ds) -> compileCurryModules opts fl outDirPath ds
+    where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
+          processPragmas o ps = foldl processLanguagePragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
+          processLanguagePragma :: CO.Options -> CS.KnownExtension -> CO.Options
+          processLanguagePragma o e = case e of
+              CS.CPP -> o { CO.optCppOpts = (CO.optCppOpts o) { CO.cppRun = True } }
+              _      -> o
 
 -- | Compiles a single module.
 compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)

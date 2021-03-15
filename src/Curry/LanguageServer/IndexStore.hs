@@ -164,8 +164,8 @@ findCurrySourcesInProject cfg dirPath = do
                     liftIO $ infoM "cls.indexStore" $ "Curry bin path: " ++ curryBinPath
                     liftIO $ infoM "cls.indexStore" $ "Curry lib path: " ++ curryLibPath
 
-                    depSources <- join <$> mapM walkCurrySourceFiles ((packagePath </>) <$> deps)
-                    libSources <- walkCurrySourceFiles curryLibPath
+                    let depSources = (packagePath </>) . (</> "src") <$> deps
+                        libSources = [curryLibPath]
 
                     return $ map (, libSources ++ depSources) projSources
                 Left err -> do
