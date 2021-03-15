@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 module Curry.LanguageServer.Handlers.Initialized (initializedHandler) where
 
 import Control.Monad ((<=<), join)
