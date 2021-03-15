@@ -146,7 +146,8 @@ findCurrySourcesInProject cfg dirPath = do
     if e
         then do
             liftIO $ infoM "cls.indexStore" $ "Found Curry Package Manager project '" <> takeFileName dirPath <> "', searching for sources..."
-            projSources <- walkCurrySourceFiles $ dirPath </> "src"
+            let projSrcFolder = dirPath </> "src"
+            projSources <- walkCurrySourceFiles projSrcFolder
 
             liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
@@ -167,7 +168,7 @@ findCurrySourcesInProject cfg dirPath = do
                     let depSources = (packagePath </>) . (</> "src") <$> deps
                         libSources = [curryLibPath]
 
-                    return $ map (, libSources ++ depSources) projSources
+                    return $ map (, projSrcFolder : libSources ++ depSources) projSources
                 Left err -> do
                     liftIO $ errorM "cls.indexStore" $ "Could not fetch CPM configuration/dependencies: " ++ err
 
