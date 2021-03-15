@@ -72,17 +72,13 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
 compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
 compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
-    [(m, CD.Source fp ps is)] -> do
-        liftIO $ infoM "cls.compiler" $ "Actually compiling " ++ fp
-        let opts' = processPragmas opts ps
-        (env, ast) <- compileCurryModule opts' fl outDirPath m fp
-        return (env, [(fp, ast)])
     ((m, CD.Source fp ps is):ds) -> do
         liftIO $ infoM "cls.compiler" $ "Actually compiling " ++ fp
         let opts' = processPragmas opts ps
-        (_, ast) <- compileCurryModule opts' fl outDirPath m fp
-        (env, asts) <- compileCurryModules opts fl outDirPath ds
-        return (env, (fp, ast) : asts)
+        (env, ast) <- compileCurryModule opts' fl outDirPath m fp
+        if null ds
+            then return (env, [(fp, ast)])
+            else ((fp, ast) :) <$.> compileCurryModules opts fl outDirPath ds
     (_:ds) -> compileCurryModules opts fl outDirPath ds
     where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
           processPragmas o ps = foldl processLanguagePragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
