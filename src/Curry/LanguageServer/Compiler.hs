@@ -63,8 +63,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                  }
     -- Resolve dependencies
     deps <- CD.flatDeps opts filePath
-    liftIO $ infoM "cls.compiler" $ "Import paths: " ++ show importPaths
-    liftIO $ infoM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
+    liftIO $ debugM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
     -- Compile the module and its dependencies in topological order
     toCompilationOutput <$> compileCurryModules opts fl outDirPath deps
 
@@ -73,7 +72,7 @@ compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent,
 compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
     ((m, CD.Source fp ps is):ds) -> do
-        liftIO $ infoM "cls.compiler" $ "Actually compiling " ++ fp
+        liftIO $ debugM "cls.compiler" $ "Actually compiling " ++ fp
         let opts' = processPragmas opts ps
         (env, ast) <- compileCurryModule opts' fl outDirPath m fp
         if null ds
