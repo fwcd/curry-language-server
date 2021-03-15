@@ -64,8 +64,8 @@ matchesQuery query item = query `T.isPrefixOf` (item ^. J.label)
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
 completionFrom l k d c = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
-                                          insertTextFormat textEdit additionalTextEdits
-                                          commitChars command xdata
+                                          insertTextFormat insertTextMode textEdit
+                                          additionalTextEdits commitChars command xdata
   where label = l
         kind = Just k
         tags = Nothing
@@ -77,6 +77,7 @@ completionFrom l k d c = J.CompletionItem label kind tags detail doc deprecated
         filterText = Nothing
         insertText = Nothing
         insertTextFormat = Nothing
+        insertTextMode = Nothing
         textEdit = Nothing
         additionalTextEdits = Nothing
         commitChars = Nothing

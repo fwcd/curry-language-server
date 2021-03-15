@@ -15,7 +15,7 @@ workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder ->
     liftIO $ debugM "cls.workspaceSymbols" "Processing workspace symbols request"
     let query = req ^. J.params . J.query
     store <- getStore
-    symbols <- liftIO $ fetchWorkspaceSymbols store $ T.pack query
+    symbols <- liftIO $ fetchWorkspaceSymbols store query
     responder $ Right $ J.List symbols
 
 fetchWorkspaceSymbols :: I.IndexStore -> T.Text -> IO [J.SymbolInformation]

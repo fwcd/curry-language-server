@@ -3,9 +3,12 @@ module Main where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.Aeson as A
 import Data.Default (Default (..))
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
+import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
@@ -20,9 +23,10 @@ runLanguageServer :: IO Int
 runLanguageServer = do
     state <- newLSStateVar
     S.runServer $ S.ServerDefinition
-        -- TODO: The most recent (unreleased 1.1.x) version of the LSP library
-        --       updates this config handling and so should we.
-        { S.onConfigurationChange = const $ pure $ Right def
+        { S.defaultConfig = def
+        , S.onConfigurationChange = \_old v -> case A.fromJSON v of
+                                            A.Error e -> Left $ T.pack e
+                                            A.Success cfg -> Right (cfg :: CFG.Config)
         , S.doInitialize = const . pure . Right
         , S.staticHandlers = handlers
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO

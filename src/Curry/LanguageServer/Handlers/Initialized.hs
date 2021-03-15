@@ -31,7 +31,7 @@ addDirToIndexStore :: FilePath -> LSM ()
 addDirToIndexStore dirPath = do
     fl <- fileLoader
     cfg <- S.getConfig
-    I.addWorkspaceDir (fromMaybe def cfg) fl dirPath
+    I.addWorkspaceDir cfg fl dirPath
     entries <- I.getModuleList
     mapM_ (uncurry emitDiagnostics) entries
     

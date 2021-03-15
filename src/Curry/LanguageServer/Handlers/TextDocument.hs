@@ -50,7 +50,7 @@ didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \_nt -> do
 updateIndexStore :: J.Uri -> MaybeT LSM ()
 updateIndexStore uri = do
     fl <- lift fileLoader
-    cfg <- lift $ fromMaybe def <$> S.getConfig
+    cfg <- lift S.getConfig
     normUri <- liftIO $ normalizeUriWithPath uri
     I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
