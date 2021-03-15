@@ -61,7 +61,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
-    liftIO $ debugM "cls.compiler" $ "Compiling Curry, found deps: " ++ show (takeFileName . snd3 <$> deps)
+    liftIO $ infoM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ show (takeFileName . snd3 <$> deps)
     -- Process pragmas
     let opts' = foldl processPragmas opts $ thd3 <$> deps
     -- Compile the module and its dependencies in topological order
