@@ -47,7 +47,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
 fetchCompletions :: I.ModuleStoreEntry -> T.Text -> J.Position -> IO [J.CompletionItem]
 fetchCompletions entry query _ = do
     -- TODO: Context-awareness (through nested envs?)
-    let env = maybeToList $ I.compilerEnv entry
+    let env = maybeToList $ I.mseCompilerEnv entry
         valueCompletions = valueBindingToCompletion <$> ((CT.allBindings . CE.valueEnv) =<< env)
         typeCompletions = typeBindingToCompletion <$> ((CT.allBindings . CE.tyConsEnv) =<< env)
         keywordCompletions = keywordToCompletion <$> keywords

@@ -27,8 +27,8 @@ emitDiagnostics normUri entry = do
 
 fetchDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> IO [J.Diagnostic]
 fetchDiagnostics normUri entry = do
-    let warnings = map (curryMsg2Diagnostic J.DsWarning) $ warningMessages entry
-        errors = map (curryMsg2Diagnostic J.DsError) $ errorMessages entry
+    let warnings = map (curryMsg2Diagnostic J.DsWarning) $ mseWarningMessages entry
+        errors = map (curryMsg2Diagnostic J.DsError) $ mseErrorMessages entry
         diags = warnings ++ errors
         name = maybe "?" takeBaseName $ normalizedUriToFilePath normUri
     

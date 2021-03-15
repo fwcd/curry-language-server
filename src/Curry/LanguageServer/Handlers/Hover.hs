@@ -32,8 +32,8 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
 
 fetchHover :: I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do
-    ast <- liftMaybe $ I.moduleAST entry
-    env <- liftMaybe $ I.compilerEnv entry
+    ast <- liftMaybe $ I.mseModuleAST entry
+    env <- liftMaybe $ I.mseCompilerEnv entry
     hover <- MaybeT $ runLM (hoverAt pos) env ast
     liftIO $ infoM "cls.hover" $ "Found " ++ show hover
     return hover

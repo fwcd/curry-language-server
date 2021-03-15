@@ -21,7 +21,7 @@ workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder ->
 fetchWorkspaceSymbols :: I.IndexStore -> T.Text -> IO [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
     debugM "cls.workspaceSymbols" $ "Searching " ++ show (I.storedSymbolCount store) ++ " symbol(s)..."
-    let symbols = I.symbol <$> I.storedSymbolsWithPrefix query store
+    let symbols = I.sseSymbol <$> I.storedSymbolsWithPrefix query store
     infoM "cls.workspaceSymbols" $ "Found " ++ show (length symbols) ++ " symbol(s)"
     return symbols
 

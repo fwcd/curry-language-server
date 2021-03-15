@@ -41,7 +41,7 @@ import Data.Maybe (maybeToList)
 import System.FilePath
 import System.Log.Logger
 
-data CompilationOutput = CompilationOutput { compilerEnv :: CE.CompilerEnv, moduleASTs :: [(FilePath, ModuleAST)] }
+data CompilationOutput = CompilationOutput { mseCompilerEnv :: CE.CompilerEnv, mseModuleASTs :: [(FilePath, ModuleAST)] }
 type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
 type FileLoader = FilePath -> IO String
 
@@ -52,12 +52,12 @@ type FileLoader = FilePath -> IO String
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
 compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps cfg fl mseImportPaths outDirPath filePath = runCYIO $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = CFG.forceRecompilation cfg,
-                                   CO.optImportPaths = importPaths ++ CFG.importPaths cfg,
-                                   CO.optLibraryPaths = CFG.libraryPaths cfg,
+        opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg,
+                                   CO.optImportPaths = mseImportPaths ++ CFG.cfgImportPaths cfg,
+                                   CO.optLibraryPaths = CFG.cfgLibraryPaths cfg,
                                    CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
@@ -178,7 +178,7 @@ expandDep (m, CD.Source fp prags _) = Just (m, fp, prags)
 expandDep _ = Nothing
 
 toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
-toCompilationOutput (env, asts) = CompilationOutput { compilerEnv = env, moduleASTs = asts }
+toCompilationOutput (env, asts) = CompilationOutput { mseCompilerEnv = env, mseModuleASTs = asts }
 
 failedCompilation :: String -> CompilationResult
 failedCompilation msg = Left [failMessageFrom msg]

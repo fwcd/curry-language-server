@@ -25,6 +25,6 @@ documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req re
 
 fetchDocumentSymbols :: I.ModuleStoreEntry -> IO [J.DocumentSymbol]
 fetchDocumentSymbols entry = do
-    let symbols = maybe [] documentSymbols $ I.moduleAST entry
+    let symbols = maybe [] documentSymbols $ I.mseModuleAST entry
     debugM "cls.documentSymbols" $ "Found document symbols " ++ show symbols
     return symbols

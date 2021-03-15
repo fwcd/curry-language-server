@@ -4,33 +4,39 @@ module Curry.LanguageServer.Config (Config (..)) where
 import Data.Aeson
 import Data.Default
 
-data Config = Config { forceRecompilation :: Bool,
-                       importPaths :: [FilePath],
-                       libraryPaths :: [FilePath],
-                       logLevel :: String,
-                       cpmPath :: String }
+data Config = Config { cfgForceRecompilation :: Bool
+                     , cfgImportPaths :: [FilePath]
+                     , cfgLibraryPaths :: [FilePath]
+                     , cfgLogLevel :: String
+                     , cfgCpmPath :: String
+                     }
     deriving (Show, Eq)
 
 instance Default Config where
-    def = Config { forceRecompilation = False, importPaths = [], libraryPaths = [], logLevel = "info", cpmPath = "cypm" }
+    def = Config { cfgForceRecompilation = False
+                 , cfgImportPaths = []
+                 , cfgLibraryPaths = []
+                 , cfgLogLevel = "info"
+                 , cfgCpmPath = "cypm"
+                 }
 
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \o -> do
         c <- o .: "curry"
         l <- c .: "languageServer"
-        forceRecompilation <- l .:? "forceRecompilation" .!= forceRecompilation def
-        importPaths <- l .:? "importPaths" .!= importPaths def
-        libraryPaths <- l .:? "libraryPaths" .!= libraryPaths def
-        logLevel <- l .:? "logLevel" .!= logLevel def
-        cpmPath <- l .:? "cpmPath" .!= cpmPath def
+        cfgForceRecompilation <- l .:? "forceRecompilation" .!= cfgForceRecompilation def
+        cfgImportPaths <- l .:? "importPaths" .!= cfgImportPaths def
+        cfgLibraryPaths <- l .:? "libraryPaths" .!= cfgLibraryPaths def
+        cfgLogLevel <- l .:? "logLevel" .!= cfgLogLevel def
+        cfgCpmPath <- l .:? "cpmPath" .!= cfgCpmPath def
         return Config {..}
 
 instance ToJSON Config where
     toJSON Config {..} = object ["curry" .= object [ "languageServer" .= object [
-            "forceRecompilation" .= forceRecompilation,
-            "importPaths" .= importPaths,
-            "libraryPaths" .= libraryPaths,
-            "logLevel" .= logLevel,
-            "cpmPath" .= cpmPath
+            "forceRecompilation" .= cfgForceRecompilation,
+            "importPaths" .= cfgImportPaths,
+            "libraryPaths" .= cfgLibraryPaths,
+            "logLevel" .= cfgLogLevel,
+            "cpmPath" .= cfgCpmPath
         ]]]
         

@@ -30,15 +30,15 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
     normUri <- liftIO $ normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do
-        liftIO $ debugM "cls.definition" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.modules store)
+        liftIO $ debugM "cls.definition" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.idxModules store)
         entry <- I.getModule normUri
         liftIO $ fetchDefinitions store entry pos
     responder $ Right $ J.InR $ J.InL $ J.List $ fromMaybe [] defs
 
 fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.Location]
 fetchDefinitions store entry pos = do
-    defs <- runMaybeT $ do ast <- liftMaybe $ I.moduleAST entry
-                           env <- liftMaybe $ I.compilerEnv entry
+    defs <- runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
+                           env <- liftMaybe $ I.mseCompilerEnv entry
                            MaybeT $ runLM (definition store pos) env ast
     infoM "cls.definition" $ "Found " ++ show defs
     return $ maybeToList defs

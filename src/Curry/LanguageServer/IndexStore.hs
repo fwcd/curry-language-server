@@ -58,51 +58,51 @@ import System.Log.Logger
 
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
-data ModuleStoreEntry = ModuleStoreEntry { moduleAST :: Maybe ModuleAST
-                                         , compilerEnv :: Maybe CE.CompilerEnv
-                                         , errorMessages :: [CM.Message]
-                                         , warningMessages :: [CM.Message]
-                                         , workspaceDir :: Maybe FilePath
-                                         , importPaths :: [FilePath]
+data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
+                                         , mseCompilerEnv :: Maybe CE.CompilerEnv
+                                         , mseErrorMessages :: [CM.Message]
+                                         , mseWarningMessages :: [CM.Message]
+                                         , mseWorkspaceDir :: Maybe FilePath
+                                         , mseImportPaths :: [FilePath]
                                          }
 
 -- | An index store entry containing a symbol.
-data SymbolStoreEntry = SymbolStoreEntry { symbol :: J.SymbolInformation
-                                         , qualIdent :: CI.QualIdent
+data SymbolStoreEntry = SymbolStoreEntry { sseSymbol :: J.SymbolInformation
+                                         , sseQualIdent :: CI.QualIdent
                                          }
 
 -- | An in-memory map of URIs to parsed modules and
 -- unqualified symbol names to actual symbols/symbol information.
 -- Since (unqualified) symbol names can be ambiguous, a trie leaf
 -- holds a list of symbol entries rather than just a single one.
-data IndexStore = IndexStore { modules :: M.Map J.NormalizedUri ModuleStoreEntry
-                             , symbols :: TR.Trie [SymbolStoreEntry]
+data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEntry
+                             , idxSymbols :: TR.Trie [SymbolStoreEntry]
                              }
 
 instance Default ModuleStoreEntry where
-    def = ModuleStoreEntry { moduleAST = Nothing
-                           , compilerEnv = Nothing
-                           , warningMessages = []
-                           , errorMessages = []
-                           , workspaceDir = Nothing
-                           , importPaths = []
+    def = ModuleStoreEntry { mseModuleAST = Nothing
+                           , mseCompilerEnv = Nothing
+                           , mseWarningMessages = []
+                           , mseErrorMessages = []
+                           , mseWorkspaceDir = Nothing
+                           , mseImportPaths = []
                            }
 
 -- | Fetches an empty index store.
 emptyStore :: IndexStore
-emptyStore = IndexStore { modules = M.empty, symbols = TR.empty }
+emptyStore = IndexStore { idxModules = M.empty, idxSymbols = TR.empty }
 
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int
-storedModuleCount = M.size . modules
+storedModuleCount = M.size . idxModules
 
 -- | Fetches the number of stored symbols.
 storedSymbolCount :: IndexStore -> Int
-storedSymbolCount = TR.size . symbols
+storedSymbolCount = TR.size . idxSymbols
 
 -- | Fetches the given entry in the store.
 storedModule :: J.NormalizedUri -> IndexStore -> Maybe ModuleStoreEntry
-storedModule uri = M.lookup uri . modules
+storedModule uri = M.lookup uri . idxModules
 
 -- | Fetches an entry in the store by module identifier.
 storedModuleByIdent :: CI.ModuleIdent -> IndexStore -> IO (Maybe ModuleStoreEntry)
@@ -112,11 +112,11 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 
 -- | Fetches the entries in the store as a list.
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
-storedModules = M.toList . modules
+storedModules = M.toList . idxModules
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
-storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . symbols
+storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxSymbols
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
@@ -150,8 +150,8 @@ findCurrySourcesInProject cfg dirPath = do
 
             liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
-                config <- invokeCPMConfig dirPath $ CFG.cpmPath cfg
-                deps   <- invokeCPMDeps   dirPath $ CFG.cpmPath cfg
+                config <- invokeCPMConfig dirPath $ CFG.cfgCpmPath cfg
+                deps   <- invokeCPMDeps   dirPath $ CFG.cfgCpmPath cfg
                 return (config, deps)
             
             case result of
@@ -188,31 +188,31 @@ walkFilesIgnoringHidden = walkFilesIgnoring ((== Just '.') . listToMaybe . takeF
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
-recompileFile i total cfg fl importPaths dirPath filePath = void $ do
+recompileFile i total cfg fl mseImportPaths dirPath filePath = void $ do
     liftIO $ infoM "cls.indexStore" $ "[" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
 
-    ms <- gets modules
-    ss <- gets symbols
+    ms <- gets idxModules
+    ss <- gets idxSymbols
     uri <- liftIO $ filePathToNormalizedUri filePath
 
     let previous :: J.NormalizedUri -> ModuleStoreEntry
-        previous = flip (M.findWithDefault $ def { workspaceDir = dirPath, importPaths = importPaths  }) ms
+        previous = flip (M.findWithDefault $ def { mseWorkspaceDir = dirPath, mseImportPaths = mseImportPaths  }) ms
         outDirPath = CFN.defaultOutDir </> "language-server"
         -- TODO: Apply previous import paths
-        importPaths' = outDirPath : importPaths
-    result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
+        mseImportPaths' = outDirPath : mseImportPaths
+    result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl mseImportPaths' outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
     case result of
-        Left errs -> modify $ \s -> s { modules = M.insert uri ((previous uri) { errorMessages = errs, warningMessages = [] }) ms }
+        Left errs -> modify $ \s -> s { idxModules = M.insert uri ((previous uri) { mseErrorMessages = errs, mseWarningMessages = [] }) ms }
         Right (o, warns) -> do liftIO $ debugM "cls.indexStore" $ "Recompiled module paths: " ++ show (fst <$> asts)
                                ws <- liftIO $ groupIntoMapByM msgNormUri warns
                                moduleDelta <- liftIO
                                             $ sequence
                                             $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
-                                                                return (u, (previous u) { moduleAST = Just ast,
-                                                                                          compilerEnv = Just env,
-                                                                                          errorMessages = [],
-                                                                                          warningMessages = M.findWithDefault [] (Just u) ws }))
+                                                                return (u, (previous u) { mseModuleAST = Just ast,
+                                                                                          mseCompilerEnv = Just env,
+                                                                                          mseErrorMessages = [],
+                                                                                          mseWarningMessages = M.findWithDefault [] (Just u) ws }))
                                             <$> asts
 
                                valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
@@ -221,10 +221,10 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
                                let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
                                liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-                               modify $ \s -> s { modules = insertAll moduleDelta ms,
-                                                  symbols = insertAllIntoTrieWith (unionBy $ \x y -> qualIdent x == qualIdent y) symbolDelta ss }
-            where env = C.compilerEnv o
-                  asts = C.moduleASTs o
+                               modify $ \s -> s { idxModules = insertAll moduleDelta ms,
+                                                  idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta ss }
+            where env = C.mseCompilerEnv o
+                  asts = C.mseModuleASTs o
                   msgNormUri msg = runMaybeT $ do
                       uri <- currySpanInfo2Uri $ CM.msgSpanInfo msg
                       liftIO $ normalizeUriWithPath uri
@@ -243,4 +243,4 @@ getModuleList = gets storedModules
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
 getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
-getModuleAST uri = (liftMaybe . moduleAST) =<< getModule uri
+getModuleAST uri = (liftMaybe . mseModuleAST) =<< getModule uri
