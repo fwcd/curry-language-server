@@ -188,7 +188,7 @@ walkFilesIgnoringHidden = walkFilesIgnoring ((== Just '.') . listToMaybe . takeF
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
-recompileFile i total cfg fl mseImportPaths dirPath filePath = void $ do
+recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     liftIO $ infoM "cls.indexStore" $ "[" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
 
     ms <- gets idxModules
@@ -196,11 +196,13 @@ recompileFile i total cfg fl mseImportPaths dirPath filePath = void $ do
     uri <- liftIO $ filePathToNormalizedUri filePath
 
     let previous :: J.NormalizedUri -> ModuleStoreEntry
-        previous = flip (M.findWithDefault $ def { mseWorkspaceDir = dirPath, mseImportPaths = mseImportPaths  }) ms
+        previous = flip (M.findWithDefault $ def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }) ms
         outDirPath = CFN.defaultOutDir </> "language-server"
-        -- TODO: Apply previous import paths
-        mseImportPaths' = outDirPath : mseImportPaths
-    result <- liftIO $ catch (C.compileCurryFileWithDeps cfg fl mseImportPaths' outDirPath filePath) (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
+        importPaths' = outDirPath : mseImportPaths (previous uri)
+
+    result <- liftIO $ catch
+        (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath)
+        (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
     case result of
         Left errs -> modify $ \s -> s { idxModules = M.insert uri ((previous uri) { mseErrorMessages = errs, mseWarningMessages = [] }) ms }
