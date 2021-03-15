@@ -1,6 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.Initialized (initializedHandler) where
 
-import Control.Monad ((<=<), join)
+import Control.Monad ((<=<), join, void, forM_)
 import Control.Monad.IO.Class (liftIO)
 import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.FileLoader (fileLoader)
@@ -10,9 +11,11 @@ import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Monad
 import Data.Default (Default (..))
 import Data.Maybe (maybeToList, fromMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
+import System.FilePath (takeFileName)
 import System.Log.Logger
 
 initializedHandler :: S.Handlers LSM
@@ -21,7 +24,15 @@ initializedHandler = S.notificationHandler J.SInitialized $ \_nt -> do
     liftIO $ infoM "cls.initialized" "Building index store..."
     workspaceFolders <- fromMaybe [] <$> S.getWorkspaceFolders
     let folders = maybeToList . folderToPath =<< workspaceFolders
-    mapM_ addDirToIndexStore folders
+        folderCount = length folders
+
+    void $ S.withProgress "Curry: Adding folders" S.Cancellable $ \update ->
+        forM_ (zip [0..] folders) $ \(i, fp) -> do
+            let percent = (i * 100) `div` folderCount
+                msg = T.pack $ "[" ++ show (i + 1) ++ " of " ++ show folderCount ++ "] " ++ takeFileName fp
+            update (S.ProgressAmount (Just $ fromIntegral percent) $ Just msg)
+            addDirToIndexStore fp
+
     count <- I.getModuleCount
     liftIO $ infoM "cls.initialized" $ "Indexed " ++ show count ++ " files"
     where folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath $ J.Uri uri
