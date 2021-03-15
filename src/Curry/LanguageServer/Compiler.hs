@@ -55,10 +55,11 @@ compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -
 compileCurryFileWithDeps cfg fl mseImportPaths outDirPath filePath = runCYIO $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg,
-                                   CO.optImportPaths = mseImportPaths ++ CFG.cfgImportPaths cfg,
-                                   CO.optLibraryPaths = CFG.cfgLibraryPaths cfg,
-                                   CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs } }
+        opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
+                                 , CO.optImportPaths = mseImportPaths ++ CFG.cfgImportPaths cfg
+                                 , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
+                                 , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
+                                 }
     -- Resolve dependencies
     deps <- ((maybeToList . expandDep) =<<) <$> CD.flatDeps opts filePath
     liftIO $ infoM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ show (takeFileName . snd3 <$> deps)

@@ -211,10 +211,11 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
                                moduleDelta <- liftIO
                                             $ sequence
                                             $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
-                                                                return (u, (previous u) { mseModuleAST = Just ast,
-                                                                                          mseCompilerEnv = Just env,
-                                                                                          mseErrorMessages = [],
-                                                                                          mseWarningMessages = M.findWithDefault [] (Just u) ws }))
+                                                                return (u, (previous u) { mseModuleAST = Just ast
+                                                                                        , mseCompilerEnv = Just env
+                                                                                        , mseErrorMessages = []
+                                                                                        , mseWarningMessages = M.findWithDefault [] (Just u) ws
+                                                                                        }))
                                             <$> asts
 
                                valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
@@ -223,8 +224,9 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
                                let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
                                liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-                               modify $ \s -> s { idxModules = insertAll moduleDelta ms,
-                                                  idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta ss }
+                               modify $ \s -> s { idxModules = insertAll moduleDelta ms
+                                                , idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta ss
+                                                }
             where env = C.mseCompilerEnv o
                   asts = C.mseModuleASTs o
                   msgNormUri msg = runMaybeT $ do
