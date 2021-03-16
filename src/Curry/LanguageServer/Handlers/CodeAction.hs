@@ -6,11 +6,13 @@ import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
 import Control.Lens ((^.))
+import Control.Monad (guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Monad
 import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
+import Curry.LanguageServer.Utils.General (rangeOverlaps)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Aeson as A
@@ -23,37 +25,40 @@ import System.Log.Logger
 codeActionHandler :: S.Handlers LSM
 codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder -> do
     liftIO $ debugM "cls.codeAction" "Processing code action request"
-    let uri = req ^. J.params . J.textDocument . J.uri
+    let J.CodeActionParams _ _ doc range _ = req ^. J.params
+        uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
     actions <- runMaybeT $ do
         entry <- I.getModule normUri
-        liftIO $ fetchCodeActions entry
+        liftIO $ fetchCodeActions range entry
     responder $ Right $ J.List $ J.InR <$> fromMaybe [] actions
 
-fetchCodeActions :: I.ModuleStoreEntry -> IO [J.CodeAction]
-fetchCodeActions entry = do
-    actions <- maybe (pure []) codeActions $ I.mseModuleAST entry
+fetchCodeActions :: J.Range -> I.ModuleStoreEntry -> IO [J.CodeAction]
+fetchCodeActions range entry = do
+    actions <- maybe (pure []) (codeActions range) $ I.mseModuleAST entry
     debugM "cls.codeAction" $ "Found " ++ show (length actions) ++ " code actions"
     return actions
 
 class HasCodeActions s where
-    codeActions :: s -> IO [J.CodeAction]
+    codeActions :: J.Range -> s -> IO [J.CodeAction]
 
 instance HasCodeActions (CS.Module CT.PredType) where
-    codeActions mdl@(CS.Module spi _ _ _ _ _ _) = do
+    codeActions range mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
         let typeHintActions = do
                 (spi', i, t) <- untypedTopLevelDecls mdl
-                range <- maybeToList $ currySpanInfo2Range spi'
+                range' <- maybeToList $ currySpanInfo2Range spi'
+                guard $ rangeOverlaps range range'
                 uri <- maybeToList maybeUri
                 -- TODO: Move the command identifier ('decl.applyTypeHint') to some
                 --       central place to avoid repetition.
                 let text = ppToText i <> " :: " <> ppToText t
-                    args = [A.toJSON uri, A.toJSON $ range ^. J.start, A.toJSON text]
+                    args = [A.toJSON uri, A.toJSON $ range' ^. J.start, A.toJSON text]
                     command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
                     caKind = J.CodeActionQuickFix
-                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing Nothing Nothing $ Just command
+                    isPreferred = True
+                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing (Just isPreferred) Nothing $ Just command
                 return lens
 
         return typeHintActions

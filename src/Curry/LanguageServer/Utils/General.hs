@@ -2,7 +2,7 @@
 -- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
-    rangeElem,
+    rangeElem, rangeOverlaps,
     nth,
     pair,
     dup,
@@ -56,6 +56,13 @@ rangeElem (J.Position l c) range | l1 == l2 && l == l1 = c1 <= c && c <= c2
                                  | l == l2             = c <= c2
                                  | otherwise           = l1 <= l && l <= l2
     where (J.Range (J.Position l1 c1) (J.Position l2 c2)) = range
+
+-- | Tests whether two given ranges overlap.
+rangeOverlaps :: J.Range -> J.Range -> Bool
+rangeOverlaps r1@(J.Range p1 p2) r2@(J.Range p3 p4) = rangeElem p1 r2
+                                                   || rangeElem p2 r2
+                                                   || rangeElem p3 r1
+                                                   || rangeElem p4 r1
 
 -- | Safely fetches the nth entry.
 nth :: Int -> [a] -> Maybe a
