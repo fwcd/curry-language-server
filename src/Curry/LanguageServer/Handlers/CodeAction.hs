@@ -46,6 +46,9 @@ instance HasCodeActions (CS.Module CT.PredType) where
     codeActions range mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
+        -- TODO: Attach diagnostics, ideally the frontend could emit these
+        --       quick fixes along with the warning messages?
+
         let typeHintActions = do
                 (spi', i, t) <- untypedTopLevelDecls mdl
                 range' <- maybeToList $ currySpanInfo2Range spi'
