@@ -407,6 +407,7 @@ instance HasIdentifier (CS.Decl a) where
         _                             -> Nothing
 
 data TypedSpanInfo a = TypedSpanInfo T.Text a CSPI.SpanInfo
+    deriving (Show, Eq)
 
 class HasTypedSpanInfos e a where
     typedSpanInfos :: e -> [TypedSpanInfo a]
