@@ -15,7 +15,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Utils.Conversions (ppToText)
-import Curry.LanguageServer.Utils.General (rmDupsOn, liftMaybe)
+import Curry.LanguageServer.Utils.General (rmDupsOn)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
