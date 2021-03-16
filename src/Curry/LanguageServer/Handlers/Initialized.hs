@@ -1,8 +1,6 @@
 module Curry.LanguageServer.Handlers.Initialized (initializedHandler) where
 
-import Control.Monad ((<=<), join)
 import Control.Monad.IO.Class (liftIO)
-import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.LogHandler (setupLogging)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)

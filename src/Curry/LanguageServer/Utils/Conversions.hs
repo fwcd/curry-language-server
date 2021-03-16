@@ -14,7 +14,6 @@ module Curry.LanguageServer.Utils.Conversions (
     ppToText,
     HasDocumentSymbols (..),
     HasSymbolKind (..),
-    HasCodeLenses (..),
     HasWorkspaceSymbols (..),
     bindingToQualSymbols
 ) where
@@ -27,22 +26,17 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
 
-import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe (MaybeT(runMaybeT))
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Uri
-import qualified Data.Aeson as A
+import Curry.LanguageServer.Utils.Uri (filePathToUri)
 import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
-import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
 
 -- Curry Compiler -> Language Server Protocol
 
@@ -263,29 +257,6 @@ instance HasSymbolKind CETC.TypeInfo where
         CETC.AliasType _ _ _ _  -> J.SkInterface
         CETC.TypeClass _ _ _    -> J.SkInterface
         CETC.TypeVar _          -> J.SkTypeParameter
-
-class HasCodeLenses s where
-    codeLenses :: s -> IO [J.CodeLens]
-
-instance HasCodeLenses (CS.Module CT.PredType) where
-    codeLenses (CS.Module spi _ _ _ _ _ decls) = do
-        maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
-
-        let typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
-            untypedDecls = [(spi', i, t) | CS.FunctionDecl spi' t i _ <- decls, i `S.notMember` typeSigIdents]
-            typeHintLenses = do
-                (spi', i, t) <- untypedDecls
-                range <- maybeToList $ currySpanInfo2Range spi'
-                uri <- maybeToList maybeUri
-                -- TODO: Move the command identifier ('decl.applyTypeHint') to some
-                --       central place to avoid repetition.
-                let text = ppToText i <> " :: " <> ppToText t
-                    args = [A.toJSON uri, A.toJSON $ range ^. J.start, A.toJSON text]
-                    command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
-                    lens = J.CodeLens range (Just command) Nothing
-                return lens
-
-        return typeHintLenses
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]

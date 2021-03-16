@@ -24,6 +24,3 @@ fetchWorkspaceSymbols store query = do
     let symbols = I.sseSymbol <$> I.storedSymbolsWithPrefix query store
     infoM "cls.workspaceSymbols" $ "Found " ++ show (length symbols) ++ " symbol(s)"
     return symbols
-
-matchesQuery :: T.Text -> J.SymbolInformation -> Bool
-matchesQuery query (J.SymbolInformation n _ _ _ _) = query `T.isPrefixOf` n
