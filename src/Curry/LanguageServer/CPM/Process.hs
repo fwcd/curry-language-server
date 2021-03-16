@@ -26,5 +26,5 @@ invokeCPM dir args cpmPath = cm $ fmap (join . mapLeft errMessage) $ (try :: IO 
 
     return out
     where errMessage e = "Please make sure that '" <> cpmPath <> "' exists or is on your PATH! Error: " ++ replaceString "\n" " " (show e)
-          procOpts = (proc cpmPath args) { cwd = Just dir }
+          procOpts = (shell $ unwords $ cpmPath : args) { cwd = Just dir }
           microsecs = 20_000_000
