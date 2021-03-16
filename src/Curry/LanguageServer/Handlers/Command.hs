@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.Command (commandHandler, commands) where
 
 import Control.Lens ((^.))
@@ -34,12 +34,8 @@ commands =
         return $ Right A.Null)
     , ("decl.applyTypeHint", \args -> do
         case args of
-            [rawUri, rawPos, rawText] -> do
-                -- TODO: Better error handling
-                let A.Success uri = A.fromJSON rawUri
-                    A.Success pos = A.fromJSON rawPos
-                    A.Success text = A.fromJSON rawText
-                    doc = J.VersionedTextDocumentIdentifier uri $ Just 0
+            [A.fromJSON -> A.Success uri, A.fromJSON -> A.Success pos, A.fromJSON -> A.Success text] -> do
+                let doc = J.VersionedTextDocumentIdentifier uri $ Just 0
                     range = J.Range pos pos
                     textEdit = J.TextEdit range $ text <> "\n"
                     docEdit = J.TextDocumentEdit doc $ J.List [textEdit]
@@ -48,5 +44,5 @@ commands =
                     params = J.ApplyWorkspaceEditParams (Just "Apply Type Hint") workspaceEdit
                 void $ S.sendRequest J.SWorkspaceApplyEdit params (const $ pure ())
                 return $ Right A.Null
-            _ -> return $ Left $ J.ResponseError J.InvalidParams "Too few arguments!" Nothing)
+            _ -> return $ Left $ J.ResponseError J.InvalidParams "Invalid arguments!" Nothing)
     ]
