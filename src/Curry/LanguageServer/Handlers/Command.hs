@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Command (commandHandler) where
+module Curry.LanguageServer.Handlers.Command (commandHandler, commands) where
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)

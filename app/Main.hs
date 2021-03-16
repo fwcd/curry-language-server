@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase, ScopedTypeVariables, OverloadedStrings #-}
 module Main where
 
 import Control.Monad.IO.Class (liftIO)
@@ -6,6 +6,7 @@ import Data.Default (Default (..))
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import Curry.LanguageServer.Handlers
+import Curry.LanguageServer.Handlers.Command (commands)
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
 
@@ -24,7 +25,11 @@ runLanguageServer = do
         , S.doInitialize = const . pure . Right
         , S.staticHandlers = handlers
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
-        , S.options = S.defaultOptions { S.textDocumentSync = Just syncOptions }
+        , S.options = S.defaultOptions
+            { S.textDocumentSync = Just syncOptions
+            , S.executeCommandCommands = Just $ fst <$> commands
+            , S.serverInfo = Just $ J.ServerInfo "Curry Language Server" Nothing
+            }
         }
     where
         syncOptions = J.TextDocumentSyncOptions
