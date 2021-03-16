@@ -1,5 +1,6 @@
 module Curry.LanguageServer.Handlers (handlers) where
 
+import Curry.LanguageServer.Handlers.CodeAction (codeActionHandler)
 import Curry.LanguageServer.Handlers.CodeLens (codeLensHandler)
 import Curry.LanguageServer.Handlers.Command (commandHandler)
 import Curry.LanguageServer.Handlers.Completion (completionHandler)
@@ -22,6 +23,7 @@ handlers = mconcat
     , documentSymbolHandler
     , hoverHandler
     , workspaceSymbolHandler
+    , codeActionHandler
     , codeLensHandler
       -- Notification handlers
     , initializedHandler
