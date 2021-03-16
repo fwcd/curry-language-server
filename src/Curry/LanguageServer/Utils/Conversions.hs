@@ -133,6 +133,10 @@ instance HasDocumentSymbols (CS.Decl a) where
                   symKind = if length cs > 1 then J.SkEnum
                                              else J.SkStruct
                   childs = cs >>= documentSymbols
+        CS.NewtypeDecl _ ident _ c _ -> [documentSymbolFrom name symKind range $ Just childs]
+            where name = ppToText ident
+                  symKind = J.SkStruct
+                  childs = documentSymbols c
         CS.ExternalDataDecl _ ident _ -> [documentSymbolFrom name symKind range Nothing]
             where name = ppToText ident
                   symKind = J.SkStruct
@@ -159,7 +163,7 @@ instance HasDocumentSymbols (CS.Decl a) where
             where name = ppToText qident <> " (" <> (T.pack $ PP.render $ CPP.pPrintPrec 2 t) <> ")"
                   symKind = J.SkNamespace
                   childs = decls >>= documentSymbols
-        _ -> [] -- TODO
+        _ -> []
         where lhsArity :: CS.Lhs a -> Int
               lhsArity lhs = case lhs of
                   CS.FunLhs _ _ pats -> length pats
