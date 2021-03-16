@@ -38,7 +38,6 @@ import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Either.Extra (eitherToMaybe)
 import Data.List (intercalate)
-import Data.Maybe (maybeToList)
 import System.FilePath
 import System.Log.Logger
 
@@ -71,7 +70,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
 compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
 compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
-    ((m, CD.Source fp ps is):ds) -> do
+    ((m, CD.Source fp ps _is):ds) -> do
         liftIO $ debugM "cls.compiler" $ "Actually compiling " ++ fp
         let opts' = processPragmas opts ps
         (env, ast) <- compileCurryModule opts' fl outDirPath m fp
@@ -127,7 +126,7 @@ loadAndCheckCurryModule opts fl m fp = do
 loadCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO (CE.CompEnv (CS.Module()))
 loadCurryModule opts m src fp = do
     -- Parse the module
-    (lex, ast) <- parseCurryModule opts m src fp
+    (lexed, ast) <- parseCurryModule opts m src fp
     -- Load the imported interfaces into an InterfaceEnv
     let paths = CFN.addOutDir (CO.optUseOutDir opts) (CO.optOutDir opts) <$> ("." : CO.optImportPaths opts)
     let withPrelude = importCurryPrelude opts ast
@@ -136,7 +135,7 @@ loadCurryModule opts m src fp = do
     is <- importSyntaxCheck iEnv withPrelude
     -- Add Information of imported modules
     cEnv <- CIM.importModules withPrelude iEnv is
-    return (cEnv { CE.filePath = fp, CE.tokens = lex }, ast)
+    return (cEnv { CE.filePath = fp, CE.tokens = lexed }, ast)
 
 -- | Checks all interfaces.
 checkInterfaces :: Monad m => CO.Options -> CEI.InterfaceEnv -> CYT m ()
@@ -148,8 +147,8 @@ checkInterfaces opts iEnv = mapM_ checkInterface $ M.elems iEnv
 -- | Checks all imports in the module.
 importSyntaxCheck :: Monad m => CEI.InterfaceEnv -> CS.Module a -> CYT m [CS.ImportDecl]
 importSyntaxCheck iEnv (CS.Module _ _ _ _ _ is _) = mapM checkImportDecl is
-    where checkImportDecl (CS.ImportDecl p m q asM is) = case M.lookup m iEnv of
-            Just intf -> CS.ImportDecl p m q asM `fmap` CC.importCheck intf is
+    where checkImportDecl (CS.ImportDecl p m q asM is') = case M.lookup m iEnv of
+            Just intf -> CS.ImportDecl p m q asM `fmap` CC.importCheck intf is'
             Nothing   -> CBM.internalError $ "compiler: No interface for " ++ show m
 
 -- | Ensures that a Prelude is present in the module.
@@ -168,17 +167,13 @@ parseCurryModule opts _ src fp = do
     ul <- liftCYM $ CUL.unlit fp src
     -- TODO: Preprocess
     cc <- CNC.condCompile (CO.optCppOpts opts) fp ul
-    lex <- liftCYM $ silent $ CS.lexSource fp cc
+    lexed <- liftCYM $ silent $ CS.lexSource fp cc
     ast <- liftCYM $ CS.parseModule fp cc
     -- TODO: Check module/file mismatch?
-    return (lex, ast)
+    return (lexed, ast)
 
 compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
 compilationToMaybe = (fst <$>) . eitherToMaybe
-
-expandDep :: (CI.ModuleIdent, CD.Source) -> Maybe (CI.ModuleIdent, FilePath, [CS.ModulePragma])
-expandDep (m, CD.Source fp prags _) = Just (m, fp, prags)
-expandDep _ = Nothing
 
 toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
 toCompilationOutput (env, asts) = CompilationOutput { mseCompilerEnv = env, mseModuleASTs = asts }

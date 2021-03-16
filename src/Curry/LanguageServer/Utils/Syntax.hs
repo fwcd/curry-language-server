@@ -80,9 +80,9 @@ instance HasExpressions CS.Expression where
         CS.Let _ _ decls e'          -> (decls >>= expressions) ++ expressions e'
         CS.Do _ _ stmts e'           -> (stmts >>= expressions) ++ expressions e'
         CS.IfThenElse _ e1 e2 e3     -> expressions e1 ++ expressions e2 ++ expressions e3
-        CS.Case _ _ _ e alts         -> expressions e ++ (alts >>= expressions)
+        CS.Case _ _ _ e' alts        -> expressions e' ++ (alts >>= expressions)
         _                            -> []
-        where fieldExpressions (CS.Field _ _ e) = expressions e
+        where fieldExpressions (CS.Field _ _ e') = expressions e'
 
 instance HasExpressions CS.Statement where
     expressions stmt = case stmt of
@@ -124,6 +124,7 @@ instance HasQualIdentifiers (CS.Decl a) where
         CS.DefaultDecl _ es          -> es >>= qualIdentifiers
         CS.ClassDecl _ _ _ _ _ ds    -> ds >>= qualIdentifiers
         CS.InstanceDecl _ _ _ q _ ds -> q : (ds >>= qualIdentifiers)
+        _                            -> []
 
 instance HasQualIdentifiers (CS.Equation a) where
     qualIdentifiers (CS.Equation _ lhs rhs) = qualIdentifiers lhs ++ qualIdentifiers rhs
@@ -132,10 +133,10 @@ instance HasQualIdentifiers (CS.Lhs a) where
     qualIdentifiers lhs = case lhs of
         CS.FunLhs _ _ ps   -> ps >>= qualIdentifiers
         CS.OpLhs _ p1 _ p2 -> qualIdentifiers p1 ++ qualIdentifiers p2
-        CS.ApLhs _ lhs ps  -> qualIdentifiers lhs ++ (ps >>= qualIdentifiers)
+        CS.ApLhs _ l ps    -> qualIdentifiers l ++ (ps >>= qualIdentifiers)
 
 instance HasQualIdentifiers (CS.Pattern a) where
-    qualIdentifiers p = case p of
+    qualIdentifiers pat = case pat of
         CS.ConstructorPattern _ _ q ps  -> q : (ps >>= qualIdentifiers)
         CS.InfixPattern _ _ p1 q p2     -> q : qualIdentifiers p1 ++ qualIdentifiers p2
         CS.ParenPattern _ p             -> qualIdentifiers p
@@ -146,6 +147,7 @@ instance HasQualIdentifiers (CS.Pattern a) where
         CS.LazyPattern _ p              -> qualIdentifiers p
         CS.FunctionPattern _ _ q ps     -> q : (ps >>= qualIdentifiers)
         CS.InfixFuncPattern _ _ p1 q p2 -> q : qualIdentifiers p1 ++ qualIdentifiers p2
+        _                               -> []
 
 instance HasQualIdentifiers (CS.Rhs a) where
     qualIdentifiers rhs = case rhs of
@@ -176,7 +178,7 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.Let _ _ decls e'          -> (decls >>= qualIdentifiers) ++ qualIdentifiers e'
         CS.Do _ _ stmts e'           -> (stmts >>= qualIdentifiers) ++ qualIdentifiers e'
         CS.IfThenElse _ e1 e2 e3     -> qualIdentifiers e1 ++ qualIdentifiers e2 ++ qualIdentifiers e3
-        CS.Case _ _ _ e alts         -> qualIdentifiers e ++ (alts >>= qualIdentifiers)
+        CS.Case _ _ _ e' alts        -> qualIdentifiers e' ++ (alts >>= qualIdentifiers)
         CS.Variable _ _ q            -> [q]
         CS.Constructor _ _ q         -> [q]
         _                            -> []
@@ -194,7 +196,7 @@ instance HasQualIdentifiers (CS.Alt a) where
     qualIdentifiers (CS.Alt _ p rhs) = qualIdentifiers p ++ qualIdentifiers rhs
 
 instance HasQualIdentifiers CS.TypeExpr where
-    qualIdentifiers t = case t of
+    qualIdentifiers texpr = case texpr of
         CS.ConstructorType _ q -> [q]
         CS.ApplyType _ t1 t2   -> qualIdentifiers t1 ++ qualIdentifiers t2
         CS.TupleType _ ts      -> ts >>= qualIdentifiers
@@ -202,6 +204,7 @@ instance HasQualIdentifiers CS.TypeExpr where
         CS.ArrowType _ t1 t2   -> qualIdentifiers t1 ++ qualIdentifiers t2
         CS.ParenType _ t       -> qualIdentifiers t
         CS.ForallType _ _ t    -> qualIdentifiers t
+        _                      -> []
 
 instance HasQualIdentifiers CS.QualTypeExpr where
     qualIdentifiers (CS.QualTypeExpr _ _ t) = qualIdentifiers t

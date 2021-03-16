@@ -12,7 +12,6 @@ import Curry.LanguageServer.Utils.General (replaceString)
 import Data.Either.Combinators (mapLeft)
 import Data.Either.Extra (maybeToEither)
 import System.Exit (ExitCode (..))
-import System.FilePath (FilePath)
 import System.Process
 import System.Timeout (timeout)
 

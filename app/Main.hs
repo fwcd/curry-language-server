@@ -1,7 +1,6 @@
 {-# LANGUAGE LambdaCase, ScopedTypeVariables #-}
 module Main where
 
-import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (Default (..))
 import qualified Language.LSP.Server as S
@@ -9,7 +8,6 @@ import qualified Language.LSP.Types as J
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
-import System.Log.Logger
 
 main :: IO ()
 main = runLanguageServer >>= \case

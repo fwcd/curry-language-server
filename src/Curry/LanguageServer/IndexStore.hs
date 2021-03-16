@@ -26,12 +26,9 @@ import qualified Curry.Files.Filenames as CFN
 import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
-import Control.Applicative (Alternative (..))
 import Control.Exception (catch, SomeException)
 import Control.Lens ((^.))
-import Control.Monad (void)
 import Control.Monad.State
-import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
@@ -248,8 +245,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
             where env = C.mseCompilerEnv o
                   asts = C.mseModuleASTs o
                   msgNormUri msg = runMaybeT $ do
-                      uri <- currySpanInfo2Uri $ CM.msgSpanInfo msg
-                      liftIO $ normalizeUriWithPath uri
+                      uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
+                      liftIO $ normalizeUriWithPath uri'
 
 -- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int
