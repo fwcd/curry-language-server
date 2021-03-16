@@ -144,18 +144,20 @@ instance HasDocumentSymbols (CS.Decl a) where
         CS.TypeDecl _ ident _ _ -> [documentSymbolFrom name symKind range Nothing]
             where name = ppToText ident
                   symKind = J.SkInterface
-        -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
-        -- CS.ExternalDecl _ vars -> map varSymbol vars
+        CS.ExternalDecl _ vars -> vars >>= documentSymbols
+        CS.FreeDecl _ vars -> vars >>= documentSymbols
         CS.PatternDecl _ pat rhs -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppPatternToName pat
                   symKind = if patArity pat > 0 then J.SkFunction
                                                 else J.SkConstant
                   childs = documentSymbols rhs
-        -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
-        -- CS.FreeDecl _ vars -> map varSymbol vars
         CS.ClassDecl _ _ _ ident _ decls -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkInterface
+                  childs = decls >>= documentSymbols
+        CS.InstanceDecl _ _ _ qident t decls -> [documentSymbolFrom name symKind range $ Just childs]
+            where name = ppToText qident <> " (" <> (T.pack $ PP.render $ CPP.pPrintPrec 2 t) <> ")"
+                  symKind = J.SkNamespace
                   childs = decls >>= documentSymbols
         _ -> [] -- TODO
         where lhsArity :: CS.Lhs a -> Int
@@ -170,8 +172,10 @@ instance HasDocumentSymbols (CS.Decl a) where
               eqsArity :: [CS.Equation a] -> Int
               eqsArity eqs = maybe 1 (\(CS.Equation _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
               range = currySpanInfo2Range $ CSPI.getSpanInfo decl
-              -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
-              -- varSymbol (J.Var _ ident) = documentSymbolFrom (ppToText ident) J.SkVariable range Nothing
+
+instance HasDocumentSymbols (CS.Var a) where
+    documentSymbols (CS.Var _ ident) = [documentSymbolFrom (ppToText ident) J.SkVariable range Nothing]
+        where range = currySpanInfo2Range $ CSPI.getSpanInfo ident
 
 instance HasDocumentSymbols CS.ConstrDecl where
     documentSymbols decl = case decl of
