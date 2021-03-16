@@ -14,6 +14,7 @@ module Curry.LanguageServer.Utils.Conversions (
     ppToText,
     HasDocumentSymbols (..),
     HasSymbolKind (..),
+    HasCodeLenses (..),
     HasWorkspaceSymbols (..),
     bindingToQualSymbols
 ) where
@@ -257,6 +258,12 @@ instance HasSymbolKind CETC.TypeInfo where
         CETC.AliasType _ _ _ _  -> J.SkInterface
         CETC.TypeClass _ _ _    -> J.SkInterface
         CETC.TypeVar _          -> J.SkTypeParameter
+
+class HasCodeLenses s where
+    codeLenses :: s -> [J.CodeLens]
+
+instance HasCodeLenses (CS.Module a) where
+    codeLenses = const [] -- TODO
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]
