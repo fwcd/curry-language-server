@@ -113,7 +113,17 @@ class HasQualIdentifiers e where
     qualIdentifiers :: e -> [CI.QualIdent]
 
 instance HasQualIdentifiers (CS.Module a) where
-    qualIdentifiers (CS.Module _ _ _ _ _ _ decls) = decls >>= qualIdentifiers
+    qualIdentifiers (CS.Module _ _ _ _ exports _ decls) = (maybeToList exports >>= qualIdentifiers) ++ (decls >>= qualIdentifiers)
+
+instance HasQualIdentifiers CS.ExportSpec where
+    qualIdentifiers (CS.Exporting _ es) = es >>= qualIdentifiers
+
+instance HasQualIdentifiers CS.Export where
+    qualIdentifiers export = case export of
+        CS.Export _ q           -> [q]
+        CS.ExportTypeWith _ q _ -> [q]
+        CS.ExportTypeAll _ q    -> [q]
+        _                       -> []
 
 instance HasQualIdentifiers (CS.Decl a) where
     qualIdentifiers decl = case decl of
