@@ -416,14 +416,13 @@ instance HasTypedSpanInfos (CS.Module a) a where
 
 instance HasTypedSpanInfos (CS.Decl a) a where
     typedSpanInfos decl = case decl of
-        CS.FunctionDecl _ t i es     -> TypedSpanInfo txt t (CSPI.getSpanInfo i) : (es >>= typedSpanInfos)
+        CS.FunctionDecl _ t i es     -> TypedSpanInfo (ppToText i) t (CSPI.getSpanInfo i) : (es >>= typedSpanInfos)
         CS.ExternalDecl _ vs         -> vs >>= typedSpanInfos
         CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
         CS.FreeDecl _ vs             -> vs >>= typedSpanInfos
         CS.ClassDecl _ _ _ _ _ ds    -> ds >>= typedSpanInfos
         CS.InstanceDecl _ _ _ _ _ ds -> ds >>= typedSpanInfos
         _                            -> []
-        where txt = ppToText decl
 
 instance HasTypedSpanInfos (CS.Equation a) a where
     typedSpanInfos (CS.Equation _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
