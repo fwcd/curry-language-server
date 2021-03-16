@@ -175,7 +175,7 @@ instance HasQualIdentifiers (CS.CondExpr a) where
 instance HasQualIdentifiers (CS.Expression a) where
     qualIdentifiers e = case e of
         CS.Paren _ e'                -> qualIdentifiers e'
-        CS.Typed _ e' _              -> qualIdentifiers e'
+        CS.Typed _ e' t              -> qualIdentifiers e' ++ qualIdentifiers t
         CS.Record _ _ q fields       -> q : (fields >>= qualIdentifiers)
         CS.RecordUpdate _ e' fields  -> qualIdentifiers e' ++ (fields >>= qualIdentifiers)
         CS.Tuple _ entries           -> entries >>= qualIdentifiers
@@ -239,12 +239,70 @@ instance HasIdentifiers (CS.Decl a) where
         CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
         CS.TypeSig _ is t             -> is ++ identifiers t
         CS.FunctionDecl _ _ i es      -> i : (es >>= identifiers)
-        -- CS.ExternalDecl _ vs          -> vs >>= identifiers
-        -- CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
+        CS.ExternalDecl _ vs          -> vs >>= identifiers
+        CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
         CS.FreeDecl _ vs              -> vs >>= identifiers
         CS.DefaultDecl _ ts           -> ts >>= identifiers
         CS.ClassDecl _ _ _ i1 i2 ds   -> i1 : i2 : (ds >>= identifiers)
         CS.InstanceDecl _ _ _ _ _ ds  -> ds >>= identifiers
+
+instance HasIdentifiers (CS.Equation a) where
+    identifiers (CS.Equation _ lhs rhs) = identifiers lhs ++ identifiers rhs
+
+instance HasIdentifiers (CS.Pattern a) where
+    identifiers = undefined
+    -- TODO
+    -- identifiers pat = case pat of
+    --     CS.VariablePattern _ _ i -> [i]
+    --     CS.ConstructorPattern _ _ q [Pattern a]
+
+instance HasIdentifiers (CS.Statement a) where
+    identifiers = undefined
+    -- TODO
+
+instance HasIdentifiers (CS.Lhs a) where
+    identifiers lhs = case lhs of
+        CS.FunLhs _ _ ps   -> ps >>= identifiers
+        CS.OpLhs _ p1 _ p2 -> identifiers p1 ++ identifiers p2
+        CS.ApLhs _ l ps    -> identifiers l ++ (ps >>= identifiers)
+
+instance HasIdentifiers (CS.Rhs a) where
+    identifiers rhs = case rhs of
+        CS.SimpleRhs _ _ e ds   -> identifiers e ++ (ds >>= identifiers)
+        CS.GuardedRhs _ _ es ds -> (es >>= identifiers) ++ (ds >>= identifiers)
+
+instance HasIdentifiers (CS.CondExpr a) where
+    identifiers (CS.CondExpr _ e1 e2) = identifiers e1 ++ identifiers e2
+
+instance HasIdentifiers (CS.Expression a) where
+    identifiers e = case e of
+        CS.Paren _ e'                -> identifiers e'
+        CS.Typed _ e' _              -> identifiers e'
+        CS.Record _ _ _ fields       -> fields >>= identifiers
+        CS.RecordUpdate _ e' fields  -> identifiers e' ++ (fields >>= identifiers)
+        CS.Tuple _ entries           -> entries >>= identifiers
+        CS.List _ _ entries          -> entries >>= identifiers
+        CS.ListCompr _ e' stmts      -> identifiers e' ++ (stmts >>= identifiers)
+        CS.EnumFrom _ e'             -> identifiers e'
+        CS.EnumFromThen _ e1 e2      -> identifiers e1 ++ identifiers e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> identifiers e1 ++ identifiers e2 ++ identifiers e3
+        CS.UnaryMinus _ e'           -> identifiers e'
+        CS.Apply _ e1 e2             -> identifiers e1 ++ identifiers e2
+        CS.InfixApply _ e1 _ e2      -> identifiers e1 ++ identifiers e2
+        CS.LeftSection _ e' _        -> identifiers e'
+        CS.RightSection _ _ e'       -> identifiers e'
+        CS.Lambda _ _ e'             -> identifiers e'
+        CS.Let _ _ decls e'          -> (decls >>= identifiers) ++ identifiers e'
+        CS.Do _ _ stmts e'           -> (stmts >>= identifiers) ++ identifiers e'
+        CS.IfThenElse _ e1 e2 e3     -> identifiers e1 ++ identifiers e2 ++ identifiers e3
+        CS.Case _ _ _ e' alts        -> identifiers e' ++ (alts >>= identifiers)
+        _                            -> []
+
+instance HasIdentifiers (CS.Alt a) where
+    identifiers (CS.Alt _ p rhs) = identifiers p ++ identifiers rhs
+
+instance HasIdentifiers a => HasIdentifiers (CS.Field a) where
+    identifiers (CS.Field _ _ e) = identifiers e
 
 instance HasIdentifiers (CS.Var a) where
     identifiers (CS.Var _ i) = [i]
