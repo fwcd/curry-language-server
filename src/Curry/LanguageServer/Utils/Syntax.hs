@@ -1,3 +1,4 @@
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -400,3 +401,31 @@ instance HasIdentifier (CS.Decl a) where
         CS.FunctionDecl _ _ ident _   -> Just ident
         CS.ClassDecl _ _ _ ident _ _  -> Just ident
         _                             -> Nothing
+
+class HasTypedSpanInfos e a | e -> a where
+    typedSpanInfos :: e -> [(a, CSPI.SpanInfo)]
+
+instance HasTypedSpanInfos (CS.Module a) a where
+    typedSpanInfos (CS.Module _ _ _ _ _ _ decls) = decls >>= typedSpanInfos
+
+instance HasTypedSpanInfos (CS.Decl a) a where
+    typedSpanInfos decl = case decl of
+        CS.FunctionDecl spi t _ es   -> (t, spi) : (es >>= typedSpanInfos)
+        CS.ExternalDecl _ vs         -> vs >>= typedSpanInfos
+        CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
+        CS.FreeDecl _ vs             -> vs >>= typedSpanInfos
+        CS.ClassDecl _ _ _ _ _ ds    -> ds >>= typedSpanInfos
+        CS.InstanceDecl _ _ _ _ _ ds -> ds >>= typedSpanInfos
+        _                            -> []
+
+instance HasTypedSpanInfos (CS.Equation a) a where
+    typedSpanInfos = undefined -- TODO
+
+instance HasTypedSpanInfos (CS.Var a) a where
+    typedSpanInfos = undefined -- TODO
+
+instance HasTypedSpanInfos (CS.Pattern a) a where
+    typedSpanInfos = undefined -- TODO
+
+instance HasTypedSpanInfos (CS.Rhs a) a where
+    typedSpanInfos = undefined -- TODO
