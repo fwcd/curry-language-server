@@ -90,10 +90,11 @@ valueBindingToCompletion :: (CI.QualIdent, CEV.ValueInfo) -> J.CompletionItem
 valueBindingToCompletion (qident, vinfo) = item
     where name = T.pack $ CI.idName $ CI.qidIdent qident
           ciKind = case vinfo of
-              CEV.DataConstructor _ _ _ _  -> J.CiEnumMember
-              CEV.NewtypeConstructor _ _ _ -> J.CiEnumMember
-              CEV.Value _ _ arity _        -> if arity > 0 then J.CiFunction
-                                                           else J.CiConstant
+              CEV.DataConstructor _ _ _ _   -> J.CiEnumMember
+              CEV.NewtypeConstructor _ _ _  -> J.CiEnumMember
+              CEV.Value _ _ _ t | arity > 0 -> J.CiFunction
+                                | otherwise -> J.CiConstant
+                  where arity = CTY.arrowArity $ CTY.rawType t
               CEV.Label _ _ _              -> J.CiFunction -- Arity is always 1 for record labels
           vtype = valueInfoType vinfo
           detail = Just $ ppToText vtype

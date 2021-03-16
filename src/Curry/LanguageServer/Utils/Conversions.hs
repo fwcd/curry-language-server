@@ -26,6 +26,7 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Base.Types as CT
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
@@ -245,10 +246,11 @@ class HasSymbolKind s where
     
 instance HasSymbolKind CEV.ValueInfo where
     symbolKind vinfo = case vinfo of
-        CEV.DataConstructor _ _ _ _  -> J.SkEnumMember
-        CEV.NewtypeConstructor _ _ _ -> J.SkEnumMember
-        CEV.Value _ _ arity _        -> if arity > 0 then J.SkFunction
-                                                     else J.SkConstant
+        CEV.DataConstructor _ _ _ _   -> J.SkEnumMember
+        CEV.NewtypeConstructor _ _ _  -> J.SkEnumMember
+        CEV.Value _ _ _ t | arity > 0 -> J.SkFunction
+                          | otherwise -> J.SkConstant
+            where arity = CT.arrowArity $ CT.rawType t
         CEV.Label _ _ _              -> J.SkFunction -- Arity is always 1 for record labels
 
 instance HasSymbolKind CETC.TypeInfo where
