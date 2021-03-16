@@ -4,8 +4,9 @@ module Curry.LanguageServer.Handlers.Hover (hoverHandler) where
 -- Curry Compiler Libraries + Dependencies
 import qualified Base.TopEnv as CT
 
+import Control.Applicative ((<|>))
 import Control.Lens ((^.))
-import Control.Monad.Trans (liftIO)
+import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Utils.Conversions
@@ -39,9 +40,19 @@ fetchHover entry pos = runMaybeT $ do
     return hover
 
 hoverAt :: J.Position -> LM J.Hover
-hoverAt pos = do
-    (ident, spi) <- findAtPos pos
-    valueInfo <- lookupValueInfo ident
+hoverAt pos = ((<|>) <$> qualIdentHover pos <*> typedSpanInfoHover pos) >>= liftMaybe
+
+qualIdentHover :: J.Position -> LM (Maybe J.Hover)
+qualIdentHover pos = runMaybeT $ do
+    (ident, spi) <- MaybeT $ findQualIdentAtPos pos
+    valueInfo <- lift $ lookupValueInfo ident
     let msg = J.HoverContents $ J.markedUpContent "curry" $ ppToText (CT.origName valueInfo) <> " :: " <> ppToText (valueInfoType valueInfo)
+        range = currySpanInfo2Range spi
+    return $ J.Hover msg range
+
+typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
+typedSpanInfoHover pos = runMaybeT $ do
+    (t, spi) <- MaybeT $ findTypeAtPos pos
+    let msg = J.HoverContents $ J.markedUpContent "curry" $ "_ :: " <> ppToText t
         range = currySpanInfo2Range spi
     return $ J.Hover msg range

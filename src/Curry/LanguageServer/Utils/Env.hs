@@ -4,7 +4,8 @@ module Curry.LanguageServer.Utils.Env (
     LookupEnv,
     LM,
     runLM,
-    findAtPos,
+    findQualIdentAtPos,
+    findTypeAtPos,
     valueInfoType,
     typeInfoKind
 ) where
@@ -12,6 +13,7 @@ module Curry.LanguageServer.Utils.Env (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Syntax as CS
 import qualified Base.Kinds as CK
 import qualified Base.Types as CT
 import qualified CompilerEnv as CE
@@ -35,14 +37,21 @@ runLM :: LM a -> CE.CompilerEnv -> ModuleAST -> IO (Maybe a)
 runLM lm = curry $ runReaderT $ runMaybeT lm
 
 -- | Finds identifier and (occurrence) span info at a given position.
-findAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
-findAtPos pos = do
+findQualIdentAtPos :: J.Position -> LM (Maybe (CI.QualIdent, CSPI.SpanInfo))
+findQualIdentAtPos pos = do
     (_, ast) <- lift ask
     let mident = moduleIdentifier ast
         qualIdent = withSpanInfo <$> (elementAt pos $ qualIdentifiers ast)
         exprIdent = joinFst $ qualIdentifier <.$> (withSpanInfo <$> (elementAt pos $ expressions ast))
         declIdent = CI.qualifyWith mident <.$> (joinFst $ identifier <.$> (withSpanInfo <$> (elementAt pos $ declarations ast)))
-    liftMaybe $ qualIdent <|> exprIdent <|> declIdent
+    return $ qualIdent <|> exprIdent <|> declIdent
+
+-- | Finds the type at the given position.
+findTypeAtPos :: J.Position -> LM (Maybe (CT.PredType, CSPI.SpanInfo))
+findTypeAtPos pos = do
+    (_, ast) <- lift ask
+    let typedSpanInfo = elementAt pos $ typedSpanInfos ast
+    return typedSpanInfo
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)

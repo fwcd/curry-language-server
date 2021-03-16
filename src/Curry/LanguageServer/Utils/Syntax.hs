@@ -16,6 +16,7 @@ module Curry.LanguageServer.Utils.Syntax (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Base.Position as CP
 import qualified Base.Types as CT
 import qualified Curry.Syntax as CS
 
@@ -498,3 +499,10 @@ instance HasTypedSpanInfos (CS.Statement a) a where
         CS.StmtExpr _ e    -> typedSpanInfos e
         CS.StmtDecl _ _ ds -> ds >>= typedSpanInfos
         CS.StmtBind _ p e  -> typedSpanInfos p ++ typedSpanInfos e
+
+instance CP.HasPosition (a, CSPI.SpanInfo) where
+    getPosition (_, spi) = CP.getPosition spi
+
+instance CSPI.HasSpanInfo (a, CSPI.SpanInfo) where
+    getSpanInfo (_, spi) = spi
+    setSpanInfo spi (x, _) = (x, spi)

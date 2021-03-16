@@ -45,7 +45,7 @@ fetchDefinitions store entry pos = do
 
 definition :: I.IndexStore -> J.Position -> LM J.Location
 definition _ pos = do
-    (qident, _) <- findAtPos pos
+    (qident, _) <- findQualIdentAtPos pos >>= liftMaybe
     qident' <- lift $ runMaybeT $ CT.origName <$> lookupValueInfo qident
     let ident  = CI.qidIdent     qident
         ident' = CI.qidIdent <$> qident'
