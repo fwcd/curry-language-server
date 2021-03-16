@@ -53,8 +53,10 @@ import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
+import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath
 import System.Log.Logger
+import System.Process (readProcessWithExitCode)
 
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
@@ -142,16 +144,19 @@ findCurrySourcesInWorkspace cfg dirPath = do
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: CFG.Config -> FilePath -> IO [(FilePath, [FilePath])]
 findCurrySourcesInProject cfg dirPath = do
+    let curryPath = CFG.cfgCurryPath cfg
+        cpmPath = curryPath ++ " cypm"
+        libPath binPath = takeDirectory (takeDirectory binPath) </> "lib"
+
     e <- doesFileExist $ dirPath </> "package.json"
     if e
         then do
-            liftIO $ infoM "cls.indexStore" $ "Found Curry Package Manager project '" <> takeFileName dirPath <> "', searching for sources..."
+            liftIO $ infoM "cls.indexStore" $ "Found CPM project '" <> takeFileName dirPath <> "', searching for sources..."
             let projSrcFolder = dirPath </> "src"
             projSources <- walkCurrySourceFiles projSrcFolder
 
             liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
-                let cpmPath = CFG.cfgCurryPath cfg ++ " cypm"
                 config <- invokeCPMConfig dirPath cpmPath
                 deps   <- invokeCPMDeps   dirPath cpmPath
                 return (config, deps)
@@ -160,21 +165,32 @@ findCurrySourcesInProject cfg dirPath = do
                 Right (config, deps) -> do
                     let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
                         curryBinPath = fromJust $ lookup "CURRY_BIN" config
-                        curryLibPath = takeDirectory (takeDirectory curryBinPath) </> "lib"
+                        curryLibPath = libPath curryBinPath
                     
                     liftIO $ infoM "cls.indexStore" $ "Package path: " ++ packagePath
                     liftIO $ infoM "cls.indexStore" $ "Curry bin path: " ++ curryBinPath
                     liftIO $ infoM "cls.indexStore" $ "Curry lib path: " ++ curryLibPath
 
-                    let depSources = (packagePath </>) . (</> "src") <$> deps
-                        libSources = [curryLibPath]
+                    let depPaths = (packagePath </>) . (</> "src") <$> deps
+                        libPaths = [curryLibPath]
 
-                    return $ map (, projSrcFolder : libSources ++ depSources) projSources
+                    return $ map (, projSrcFolder : libPaths ++ depPaths) projSources
                 Left err -> do
-                    liftIO $ errorM "cls.indexStore" $ "Could not fetch CPM configuration/dependencies: " ++ err
+                    liftIO $ errorM "cls.indexStore" $ "Could not fetch CPM configuration/dependencies: " ++ err ++ " (This might result in 'missing Prelude' errors!)"
 
                     return $ map (, []) projSources
-        else map (, []) <$> walkCurrySourceFiles dirPath
+        else do
+            liftIO $ infoM "cls.indexStore" $ "Found generic project '" <> takeFileName dirPath <> "', searching for sources..."
+
+            (exitCode, fullCurryPath, _) <- readProcessWithExitCode "which" [curryPath] []
+            let curryLibPath = libPath fullCurryPath
+                libPaths | exitCode == ExitSuccess = [curryLibPath]
+                         | otherwise               = []
+            
+            unless (exitCode == ExitSuccess) $
+                warningM "cls.indexStore" "Could not find default Curry libraries, this might result in 'missing Prelude' errors..."
+
+            map (, libPaths) <$> walkCurrySourceFiles dirPath
 
 -- | Recursively finds all CPM manifests in a directory.
 walkPackageJsons :: FilePath -> IO [FilePath]
