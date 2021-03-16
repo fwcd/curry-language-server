@@ -250,15 +250,25 @@ instance HasIdentifiers (CS.Equation a) where
     identifiers (CS.Equation _ lhs rhs) = identifiers lhs ++ identifiers rhs
 
 instance HasIdentifiers (CS.Pattern a) where
-    identifiers = undefined
-    -- TODO
-    -- identifiers pat = case pat of
-    --     CS.VariablePattern _ _ i -> [i]
-    --     CS.ConstructorPattern _ _ q [Pattern a]
+    identifiers pat = case pat of
+        CS.VariablePattern _ _ i        -> [i]
+        CS.ConstructorPattern _ _ _ ps  -> ps >>= identifiers
+        CS.InfixPattern _ _ p1 _ p2     -> identifiers p1 ++ identifiers p2
+        CS.ParenPattern _ p             -> identifiers p
+        CS.RecordPattern _ _ _ fs       -> fs >>= identifiers
+        CS.TuplePattern _ ps            -> ps >>= identifiers
+        CS.ListPattern _ _ ps           -> ps >>= identifiers
+        CS.AsPattern _ i p              -> i : identifiers p
+        CS.LazyPattern _ p              -> identifiers p
+        CS.FunctionPattern _ _ _ ps     -> ps >>= identifiers
+        CS.InfixFuncPattern _ _ p1 _ p2 -> identifiers p1 ++ identifiers p2
+        _                               -> []
 
 instance HasIdentifiers (CS.Statement a) where
-    identifiers = undefined
-    -- TODO
+    identifiers stmt = case stmt of
+        CS.StmtExpr _ e    -> identifiers e
+        CS.StmtDecl _ _ ds -> ds >>= identifiers
+        CS.StmtBind _ p e  -> identifiers p ++ identifiers e
 
 instance HasIdentifiers (CS.Lhs a) where
     identifiers lhs = case lhs of
