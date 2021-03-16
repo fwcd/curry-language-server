@@ -445,7 +445,51 @@ instance HasTypedSpanInfos e a => HasTypedSpanInfos (CS.Field e) a where
     typedSpanInfos (CS.Field _ _ e) = typedSpanInfos e
 
 instance HasTypedSpanInfos (CS.Lhs a) a where
-    typedSpanInfos = undefined -- TODO
+    typedSpanInfos lhs = case lhs of
+        CS.FunLhs _ _ ps   -> ps >>= typedSpanInfos
+        CS.OpLhs _ p1 _ p2 -> typedSpanInfos p1 ++ typedSpanInfos p2
+        CS.ApLhs _ l ps    -> typedSpanInfos l ++ (ps >>= typedSpanInfos)
 
 instance HasTypedSpanInfos (CS.Rhs a) a where
-    typedSpanInfos = undefined -- TODO
+    typedSpanInfos rhs = case rhs of
+        CS.SimpleRhs _ _ e ds   -> typedSpanInfos e ++ (ds >>= typedSpanInfos)
+        CS.GuardedRhs _ _ es ds -> (es >>= typedSpanInfos) ++ (ds >>= typedSpanInfos)
+
+instance HasTypedSpanInfos (CS.CondExpr a) a where
+    typedSpanInfos (CS.CondExpr _ e1 e2) = typedSpanInfos e1 ++ typedSpanInfos e2
+
+instance HasTypedSpanInfos (CS.Expression a) a where
+    typedSpanInfos expr = case expr of
+        CS.Literal spi t _           -> [(t, spi)]
+        CS.Variable spi t _          -> [(t, spi)]
+        CS.Constructor spi t _       -> [(t, spi)]
+        CS.Paren _ e                 -> typedSpanInfos e
+        CS.Typed _ e _               -> typedSpanInfos e
+        CS.Record spi t _ fs         -> (fs >>= typedSpanInfos) ++ [(t, spi)]
+        CS.RecordUpdate _ e fs       -> typedSpanInfos e ++ (fs >>= typedSpanInfos)
+        CS.Tuple _ es                -> es >>= typedSpanInfos
+        CS.List spi t es             -> (es >>= typedSpanInfos) ++ [(t, spi)]
+        CS.ListCompr _ e stmts       -> typedSpanInfos e ++ (stmts >>= typedSpanInfos)
+        CS.EnumFrom _ e              -> typedSpanInfos e
+        CS.EnumFromThen _ e1 e2      -> typedSpanInfos e1 ++ typedSpanInfos e2
+        CS.EnumFromTo _ e1 e2        -> typedSpanInfos e1 ++ typedSpanInfos e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> typedSpanInfos e1 ++ typedSpanInfos e2 ++ typedSpanInfos e3
+        CS.UnaryMinus _ e            -> typedSpanInfos e
+        CS.Apply _ e1 e2             -> typedSpanInfos e1 ++ typedSpanInfos e2
+        CS.InfixApply _ e1 op e2     -> typedSpanInfos e1 ++ typedSpanInfos op ++ typedSpanInfos e2
+        CS.LeftSection _ e1 op       -> typedSpanInfos e1 ++ typedSpanInfos op
+        CS.RightSection _ op e2      -> typedSpanInfos op ++ typedSpanInfos e2
+        CS.Lambda _ ps e             -> (ps >>= typedSpanInfos) ++ typedSpanInfos e
+        CS.Let _ _ ds e              -> (ds >>= typedSpanInfos) ++ typedSpanInfos e
+        CS.Do _ _ stmts e            -> (stmts >>= typedSpanInfos) ++ typedSpanInfos e
+        CS.IfThenElse _ e1 e2 e3     -> typedSpanInfos e1 ++ typedSpanInfos e2 ++ typedSpanInfos e3
+        CS.Case _ _ _ e as           -> typedSpanInfos e ++ (as >>= typedSpanInfos)
+
+-- TODO
+instance HasTypedSpanInfos (CS.Alt a) a where
+
+-- TODO
+instance HasTypedSpanInfos (CS.InfixOp a) a where
+
+-- TODO
+instance HasTypedSpanInfos (CS.Statement a) a where
