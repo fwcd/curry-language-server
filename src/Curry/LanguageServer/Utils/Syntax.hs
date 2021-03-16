@@ -116,8 +116,8 @@ instance HasQualIdentifiers (CS.Module a) where
 
 instance HasQualIdentifiers (CS.Decl a) where
     qualIdentifiers decl = case decl of
-        CS.DataDecl _ _ _ _ qs       -> qs
-        CS.NewtypeDecl _ _ _ _ qs    -> qs
+        CS.DataDecl _ _ _ cs qs      -> (cs >>= qualIdentifiers) ++ qs
+        CS.NewtypeDecl _ _ _ c qs    -> qualIdentifiers c ++ qs
         CS.TypeDecl _ _ _ e          -> qualIdentifiers e
         CS.TypeSig _ _ e             -> qualIdentifiers e
         CS.FunctionDecl _ _ _ es     -> es >>= qualIdentifiers
@@ -126,6 +126,20 @@ instance HasQualIdentifiers (CS.Decl a) where
         CS.ClassDecl _ _ _ _ _ ds    -> ds >>= qualIdentifiers
         CS.InstanceDecl _ _ _ q _ ds -> q : (ds >>= qualIdentifiers)
         _                            -> []
+
+instance HasQualIdentifiers CS.ConstrDecl where
+    qualIdentifiers cdecl = case cdecl of
+        CS.ConstrDecl _ _ ts   -> ts >>= qualIdentifiers
+        CS.ConOpDecl _ t1 _ t2 -> qualIdentifiers t1 ++ qualIdentifiers t2
+        CS.RecordDecl _ _ fs -> fs >>= qualIdentifiers
+
+instance HasQualIdentifiers CS.FieldDecl where
+    qualIdentifiers (CS.FieldDecl _ _ t) = qualIdentifiers t
+
+instance HasQualIdentifiers CS.NewConstrDecl where
+    qualIdentifiers cdecl = case cdecl of
+        CS.NewConstrDecl _ _ t      -> qualIdentifiers t
+        CS.NewRecordDecl _ _ (_, t) -> qualIdentifiers t
 
 instance HasQualIdentifiers (CS.Equation a) where
     qualIdentifiers (CS.Equation _ lhs rhs) = qualIdentifiers lhs ++ qualIdentifiers rhs
