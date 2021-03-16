@@ -18,7 +18,7 @@ import qualified System.Log.Formatter as LF
 import qualified System.Log.Handler as LH
 import qualified System.Log.Logger as LL
 
-type SendNotification = forall (m :: J.Method J.FromServer J.Notification). J.SServerMethod m -> J.MessageParams m -> IO ()
+type SendNotification = forall (m :: J.Method 'J.FromServer 'J.Notification). J.SServerMethod m -> J.MessageParams m -> IO ()
 
 data CLSLogHandler = CLSLogHandler { sendNotification :: SendNotification
                                    , level :: Priority
@@ -54,11 +54,11 @@ setupLogging = do
     -- TODO: Ask for config with log level?
     runInIO <- askRunInIO
     let sn = \m -> runInIO . S.sendNotification m
-        handler = CLSLogHandler { sendNotification = sn, level = level, formatter = LF.simpleLogFormatter logFormat }
-        level = INFO
+        lvl = INFO
+        handler = CLSLogHandler { sendNotification = sn, level = lvl, formatter = LF.simpleLogFormatter logFormat }
     liftIO $ do
         LL.updateGlobalLogger LL.rootLoggerName $ LL.setHandlers ([] :: [CLSLogHandler])
-        updateLoggers $ LL.setHandlers [handler] <$> LL.setLevel level
+        updateLoggers $ LL.setHandlers [handler] <$> LL.setLevel lvl
 
 updateLogLevel :: Priority -> IO ()
 updateLogLevel = updateLoggers . LL.setLevel

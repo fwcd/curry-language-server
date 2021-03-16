@@ -1,5 +1,6 @@
 module Curry.LanguageServer.Handlers (handlers) where
 
+import Curry.LanguageServer.Handlers.CodeAction (codeActionHandler)
 import Curry.LanguageServer.Handlers.CodeLens (codeLensHandler)
 import Curry.LanguageServer.Handlers.Command (commandHandler)
 import Curry.LanguageServer.Handlers.Completion (completionHandler)
@@ -11,7 +12,6 @@ import Curry.LanguageServer.Handlers.TextDocument (didOpenHandler, didChangeHand
 import Curry.LanguageServer.Handlers.WorkspaceSymbols (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
 
 handlers :: S.Handlers LSM
 handlers = mconcat
@@ -22,10 +22,12 @@ handlers = mconcat
     , documentSymbolHandler
     , hoverHandler
     , workspaceSymbolHandler
+    , codeActionHandler
     , codeLensHandler
       -- Notification handlers
     , initializedHandler
     , didOpenHandler
     , didChangeHandler
     , didSaveHandler
+    , didCloseHandler
     ]
