@@ -32,14 +32,17 @@ import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
 
+import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri
-import Data.Maybe
+import qualified Data.Aeson as A
+import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types.Lens as J
 
 -- Curry Compiler -> Language Server Protocol
 
@@ -262,21 +265,27 @@ instance HasSymbolKind CETC.TypeInfo where
         CETC.TypeVar _          -> J.SkTypeParameter
 
 class HasCodeLenses s where
-    codeLenses :: s -> [J.CodeLens]
+    codeLenses :: s -> IO [J.CodeLens]
 
 instance HasCodeLenses (CS.Module CT.PredType) where
-    codeLenses (CS.Module _ _ _ _ _ _ decls) = typeHintLenses
-        where typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
-              untypedDecls = [(spi, i, t) | CS.FunctionDecl spi t i _ <- decls, i `S.notMember` typeSigIdents]
-              typeHintLenses = do
-                  (spi, i, t) <- untypedDecls
-                  range <- maybeToList $ currySpanInfo2Range spi
-                  -- TODO: Move the command identifier ('decl.applyTypeHint') to some
-                  --       central place to avoid repetition.
-                  let text = ppToText i <> " :: " <> ppToText t
-                      command = J.Command text "decl.applyTypeHint" Nothing
-                      lens = J.CodeLens range (Just command) Nothing
-                  return lens
+    codeLenses (CS.Module spi _ _ _ _ _ decls) = do
+        maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
+
+        let typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
+            untypedDecls = [(spi', i, t) | CS.FunctionDecl spi' t i _ <- decls, i `S.notMember` typeSigIdents]
+            typeHintLenses = do
+                (spi', i, t) <- untypedDecls
+                range <- maybeToList $ currySpanInfo2Range spi'
+                uri <- maybeToList maybeUri
+                -- TODO: Move the command identifier ('decl.applyTypeHint') to some
+                --       central place to avoid repetition.
+                let text = ppToText i <> " :: " <> ppToText t
+                    args = [A.toJSON uri, A.toJSON $ range ^. J.start, A.toJSON text]
+                    command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
+                    lens = J.CodeLens range (Just command) Nothing
+                return lens
+
+        return typeHintLenses
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]

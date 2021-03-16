@@ -26,6 +26,6 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
 
 fetchCodeLenses :: I.ModuleStoreEntry -> IO [J.CodeLens]
 fetchCodeLenses entry = do
-    let lenses = maybe [] codeLenses $ I.mseModuleAST entry
+    lenses <- maybe (pure []) codeLenses $ I.mseModuleAST entry
     debugM "cls.codeLens" $ "Found " ++ show (length lenses) ++ " code lenses"
     return lenses
