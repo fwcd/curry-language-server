@@ -13,7 +13,6 @@ module Curry.LanguageServer.Utils.Env (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
-import qualified Curry.Syntax as CS
 import qualified Base.Kinds as CK
 import qualified Base.Types as CT
 import qualified CompilerEnv as CE
@@ -47,7 +46,7 @@ findQualIdentAtPos pos = do
     return $ qualIdent <|> exprIdent <|> declIdent
 
 -- | Finds the type at the given position.
-findTypeAtPos :: J.Position -> LM (Maybe (CT.PredType, CSPI.SpanInfo))
+findTypeAtPos :: J.Position -> LM (Maybe (TypedSpanInfo CT.PredType))
 findTypeAtPos pos = do
     (_, ast) <- lift ask
     let typedSpanInfo = elementAt pos $ typedSpanInfos ast

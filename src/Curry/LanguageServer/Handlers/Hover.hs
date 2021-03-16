@@ -12,6 +12,7 @@ import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
+import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import qualified Language.LSP.Server as S
@@ -52,7 +53,7 @@ qualIdentHover pos = runMaybeT $ do
 
 typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
 typedSpanInfoHover pos = runMaybeT $ do
-    (t, spi) <- MaybeT $ findTypeAtPos pos
+    TypedSpanInfo t spi <- MaybeT $ findTypeAtPos pos
     let msg = J.HoverContents $ J.markedUpContent "curry" $ "_ :: " <> ppToText t
         range = currySpanInfo2Range spi
     return $ J.Hover msg range

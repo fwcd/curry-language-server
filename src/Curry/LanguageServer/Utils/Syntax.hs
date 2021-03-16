@@ -8,6 +8,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasQualIdentifier (..),
     HasIdentifier (..),
     HasTypedSpanInfos (..),
+    TypedSpanInfo (..),
     ModuleAST,
     elementAt,
     moduleIdentifier
@@ -404,15 +405,17 @@ instance HasIdentifier (CS.Decl a) where
         CS.ClassDecl _ _ _ ident _ _  -> Just ident
         _                             -> Nothing
 
+data TypedSpanInfo a = TypedSpanInfo a CSPI.SpanInfo
+
 class HasTypedSpanInfos e a where
-    typedSpanInfos :: e -> [(a, CSPI.SpanInfo)]
+    typedSpanInfos :: e -> [TypedSpanInfo a]
 
 instance HasTypedSpanInfos (CS.Module a) a where
     typedSpanInfos (CS.Module _ _ _ _ _ _ decls) = decls >>= typedSpanInfos
 
 instance HasTypedSpanInfos (CS.Decl a) a where
     typedSpanInfos decl = case decl of
-        CS.FunctionDecl _ t i es     -> (t, CSPI.getSpanInfo i) : (es >>= typedSpanInfos)
+        CS.FunctionDecl _ t i es     -> TypedSpanInfo t (CSPI.getSpanInfo i) : (es >>= typedSpanInfos)
         CS.ExternalDecl _ vs         -> vs >>= typedSpanInfos
         CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
         CS.FreeDecl _ vs             -> vs >>= typedSpanInfos
@@ -424,23 +427,23 @@ instance HasTypedSpanInfos (CS.Equation a) a where
     typedSpanInfos (CS.Equation _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
 
 instance HasTypedSpanInfos (CS.Var a) a where
-    typedSpanInfos (CS.Var t i) = [(t, CSPI.getSpanInfo i)]
+    typedSpanInfos (CS.Var t i) = [TypedSpanInfo t $ CSPI.getSpanInfo i]
 
 instance HasTypedSpanInfos (CS.Pattern a) a where
     typedSpanInfos pat = case pat of
-        CS.LiteralPattern spi t _         -> [(t, spi)]
-        CS.NegativePattern spi t _        -> [(t, spi)]
-        CS.VariablePattern spi t _        -> [(t, spi)]
-        CS.ConstructorPattern spi t _ ps  -> (ps >>= typedSpanInfos) ++ [(t, spi)]
-        CS.InfixPattern spi t p1 _ p2     -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [(t, spi)]
+        CS.LiteralPattern spi t _         -> [TypedSpanInfo t spi]
+        CS.NegativePattern spi t _        -> [TypedSpanInfo t spi]
+        CS.VariablePattern spi t _        -> [TypedSpanInfo t spi]
+        CS.ConstructorPattern spi t _ ps  -> (ps >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
+        CS.InfixPattern spi t p1 _ p2     -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [TypedSpanInfo t spi]
         CS.ParenPattern _ p               -> typedSpanInfos p
-        CS.RecordPattern spi t _ fs       -> (fs >>= typedSpanInfos) ++ [(t, spi)]
+        CS.RecordPattern spi t _ fs       -> (fs >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
         CS.TuplePattern _ ps              -> ps >>= typedSpanInfos
-        CS.ListPattern spi t ps           -> (ps >>= typedSpanInfos) ++ [(t, spi)]
+        CS.ListPattern spi t ps           -> (ps >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
         CS.AsPattern _ _ p                -> typedSpanInfos p
         CS.LazyPattern _ p                -> typedSpanInfos p
-        CS.FunctionPattern spi t _ ps     -> (ps >>= typedSpanInfos) ++ [(t, spi)]
-        CS.InfixFuncPattern spi t p1 _ p2 -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [(t, spi)]
+        CS.FunctionPattern spi t _ ps     -> (ps >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
+        CS.InfixFuncPattern spi t p1 _ p2 -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [TypedSpanInfo t spi]
 
 instance HasTypedSpanInfos e a => HasTypedSpanInfos (CS.Field e) a where
     typedSpanInfos (CS.Field _ _ e) = typedSpanInfos e
@@ -461,15 +464,15 @@ instance HasTypedSpanInfos (CS.CondExpr a) a where
 
 instance HasTypedSpanInfos (CS.Expression a) a where
     typedSpanInfos expr = case expr of
-        CS.Literal spi t _           -> [(t, spi)]
-        CS.Variable spi t _          -> [(t, spi)]
-        CS.Constructor spi t _       -> [(t, spi)]
+        CS.Literal spi t _           -> [TypedSpanInfo t spi]
+        CS.Variable spi t _          -> [TypedSpanInfo t spi]
+        CS.Constructor spi t _       -> [TypedSpanInfo t spi]
         CS.Paren _ e                 -> typedSpanInfos e
         CS.Typed _ e _               -> typedSpanInfos e
-        CS.Record spi t _ fs         -> (fs >>= typedSpanInfos) ++ [(t, spi)]
+        CS.Record spi t _ fs         -> (fs >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
         CS.RecordUpdate _ e fs       -> typedSpanInfos e ++ (fs >>= typedSpanInfos)
         CS.Tuple _ es                -> es >>= typedSpanInfos
-        CS.List spi t es             -> (es >>= typedSpanInfos) ++ [(t, spi)]
+        CS.List spi t es             -> (es >>= typedSpanInfos) ++ [TypedSpanInfo t spi]
         CS.ListCompr _ e stmts       -> typedSpanInfos e ++ (stmts >>= typedSpanInfos)
         CS.EnumFrom _ e              -> typedSpanInfos e
         CS.EnumFromThen _ e1 e2      -> typedSpanInfos e1 ++ typedSpanInfos e2
@@ -491,8 +494,8 @@ instance HasTypedSpanInfos (CS.Alt a) a where
 
 instance HasTypedSpanInfos (CS.InfixOp a) a where
     typedSpanInfos op = case op of
-        CS.InfixOp t q     -> [(t, CSPI.getSpanInfo q)]
-        CS.InfixConstr t q -> [(t, CSPI.getSpanInfo q)]
+        CS.InfixOp t q     -> [TypedSpanInfo t $ CSPI.getSpanInfo q]
+        CS.InfixConstr t q -> [TypedSpanInfo t $ CSPI.getSpanInfo q]
 
 instance HasTypedSpanInfos (CS.Statement a) a where
     typedSpanInfos stmt = case stmt of
@@ -500,9 +503,9 @@ instance HasTypedSpanInfos (CS.Statement a) a where
         CS.StmtDecl _ _ ds -> ds >>= typedSpanInfos
         CS.StmtBind _ p e  -> typedSpanInfos p ++ typedSpanInfos e
 
-instance CP.HasPosition (a, CSPI.SpanInfo) where
-    getPosition (_, spi) = CP.getPosition spi
+instance CP.HasPosition (TypedSpanInfo a) where
+    getPosition (TypedSpanInfo _ spi) = CP.getPosition spi
 
-instance CSPI.HasSpanInfo (a, CSPI.SpanInfo) where
-    getSpanInfo (_, spi) = spi
-    setSpanInfo spi (x, _) = (x, spi)
+instance CSPI.HasSpanInfo (TypedSpanInfo a) where
+    getSpanInfo (TypedSpanInfo _ spi) = spi
+    setSpanInfo spi (TypedSpanInfo x _) = TypedSpanInfo x spi
