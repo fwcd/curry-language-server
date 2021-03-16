@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.CodeAction (codeActionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -10,8 +10,11 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
+import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Data.Maybe (fromMaybe)
+import qualified Data.Aeson as A
+import Data.Maybe (fromMaybe, maybeToList)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -37,4 +40,21 @@ class HasCodeActions s where
     codeActions :: s -> IO [J.CodeAction]
 
 instance HasCodeActions (CS.Module CT.PredType) where
-    codeActions = undefined -- TODO
+    codeActions mdl@(CS.Module spi _ _ _ _ _ _) = do
+        maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
+
+        let typeHintActions = do
+                (spi', i, t) <- untypedTopLevelDecls mdl
+                range <- maybeToList $ currySpanInfo2Range spi'
+                uri <- maybeToList maybeUri
+                -- TODO: Move the command identifier ('decl.applyTypeHint') to some
+                --       central place to avoid repetition.
+                let text = ppToText i <> " :: " <> ppToText t
+                    args = [A.toJSON uri, A.toJSON $ range ^. J.start, A.toJSON text]
+                    command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
+                    caKind = J.CodeActionQuickFix
+                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing Nothing Nothing $ Just command
+                return lens
+
+        return typeHintActions
+
