@@ -53,7 +53,7 @@ qualIdentHover pos = runMaybeT $ do
 
 typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
 typedSpanInfoHover pos = runMaybeT $ do
-    TypedSpanInfo t spi <- MaybeT $ findTypeAtPos pos
-    let msg = J.HoverContents $ J.markedUpContent "curry" $ "_ :: " <> ppToText t
+    TypedSpanInfo txt t spi <- MaybeT $ findTypeAtPos pos
+    let msg = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppToText t
         range = currySpanInfo2Range spi
     return $ J.Hover msg range
