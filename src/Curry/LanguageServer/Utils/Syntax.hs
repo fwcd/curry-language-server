@@ -485,11 +485,16 @@ instance HasTypedSpanInfos (CS.Expression a) a where
         CS.IfThenElse _ e1 e2 e3     -> typedSpanInfos e1 ++ typedSpanInfos e2 ++ typedSpanInfos e3
         CS.Case _ _ _ e as           -> typedSpanInfos e ++ (as >>= typedSpanInfos)
 
--- TODO
 instance HasTypedSpanInfos (CS.Alt a) a where
+    typedSpanInfos (CS.Alt _ p rhs) = typedSpanInfos p ++ typedSpanInfos rhs
 
--- TODO
 instance HasTypedSpanInfos (CS.InfixOp a) a where
+    typedSpanInfos op = case op of
+        CS.InfixOp t q     -> [(t, CSPI.getSpanInfo q)]
+        CS.InfixConstr t q -> [(t, CSPI.getSpanInfo q)]
 
--- TODO
 instance HasTypedSpanInfos (CS.Statement a) a where
+    typedSpanInfos stmt = case stmt of
+        CS.StmtExpr _ e    -> typedSpanInfos e
+        CS.StmtDecl _ _ ds -> ds >>= typedSpanInfos
+        CS.StmtBind _ p e  -> typedSpanInfos p ++ typedSpanInfos e
