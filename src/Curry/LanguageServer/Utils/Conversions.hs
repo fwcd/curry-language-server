@@ -47,7 +47,8 @@ curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text tags relat
           code = Nothing
           src = Nothing
           text = T.pack $ PP.render $ CM.msgTxt msg
-          tags = Nothing
+          tags | "Unused" `T.isPrefixOf` text = Just $ J.List [J.DtUnnecessary]
+               | otherwise                    = Just $ J.List []
           related = Nothing
 
 curryPos2Pos :: CP.Position -> Maybe J.Position
