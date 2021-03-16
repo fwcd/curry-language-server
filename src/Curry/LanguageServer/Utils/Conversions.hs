@@ -267,13 +267,14 @@ class HasCodeLenses s where
 instance HasCodeLenses (CS.Module CT.PredType) where
     codeLenses (CS.Module _ _ _ _ _ _ decls) = typeHintLenses
         where typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
-              untypedDecls = [(spi, t) | CS.FunctionDecl spi t i _ <- decls, i `S.notMember` typeSigIdents]
-              -- TODO: Move the command identifier ('decl.applyTypeHint') to some
-              --       central place to avoid repetition.
+              untypedDecls = [(spi, i, t) | CS.FunctionDecl spi t i _ <- decls, i `S.notMember` typeSigIdents]
               typeHintLenses = do
-                  (spi, t) <- untypedDecls
+                  (spi, i, t) <- untypedDecls
                   range <- maybeToList $ currySpanInfo2Range spi
-                  let command = J.Command (ppToText t) "decl.applyTypeHint" Nothing
+                  -- TODO: Move the command identifier ('decl.applyTypeHint') to some
+                  --       central place to avoid repetition.
+                  let text = ppToText i <> " :: " <> ppToText t
+                      command = J.Command text "decl.applyTypeHint" Nothing
                       lens = J.CodeLens range (Just command) Nothing
                   return lens
 
