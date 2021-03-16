@@ -19,6 +19,7 @@ import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
+import Data.Maybe (maybeToList)
 import qualified Language.LSP.Types as J
 
 type ModuleAST = CS.Module CT.PredType
@@ -228,7 +229,21 @@ class HasIdentifiers e where
     identifiers :: e -> [CI.Ident]
 
 instance HasIdentifiers (CS.Module a) where
-    identifiers (CS.Module _ _ _ _ _ _ decls) = decls >>= identifiers
+    identifiers (CS.Module _ _ _ _ _ imps decls) = (imps >>= identifiers) ++ (decls >>= identifiers)
+
+instance HasIdentifiers CS.ImportDecl where
+    identifiers (CS.ImportDecl _ _ _ _ spec) = maybeToList spec >>= identifiers
+
+instance HasIdentifiers CS.ImportSpec where
+    identifiers spec = case spec of
+        CS.Importing _ is -> is >>= identifiers
+        CS.Hiding _ is    -> is >>= identifiers
+
+instance HasIdentifiers CS.Import where
+    identifiers imp = case imp of
+        CS.Import _ i            -> [i]
+        CS.ImportTypeWith _ i is -> i : is
+        CS.ImportTypeAll _ i     -> [i]
 
 instance HasIdentifiers (CS.Decl a) where
     identifiers decl = case decl of
