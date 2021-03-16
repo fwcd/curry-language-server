@@ -2,11 +2,10 @@
 
 module Curry.LanguageServer.CPM.Process
     ( invokeCPM
-    , CM (..)
     ) where
 
 import Control.Exception (try, IOException)
-import Control.Monad (when, fail, join)
+import Control.Monad (when, join)
 import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.Utils.General (replaceString)
 import Data.Either.Combinators (mapLeft)

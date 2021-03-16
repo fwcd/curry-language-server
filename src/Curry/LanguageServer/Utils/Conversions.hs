@@ -73,9 +73,9 @@ currySpan2Range CSP.Span {..} = do
 
 currySpan2Location :: CSP.Span -> MaybeT IO J.Location
 currySpan2Location CSP.NoSpan = liftMaybe Nothing
-currySpan2Location span = do
-    range <- liftMaybe $ currySpan2Range span
-    uri <- curryPos2Uri $ CSP.start span
+currySpan2Location spn = do
+    range <- liftMaybe $ currySpan2Range spn
+    uri <- curryPos2Uri $ CSP.start spn
     return $ J.Location uri range
 
 currySpan2Uri :: CSP.Span -> MaybeT IO J.Uri
@@ -217,12 +217,12 @@ instance HasDocumentSymbols (CS.Expression a) where
         CS.LeftSection _ e' _        -> documentSymbols e'
         CS.RightSection _ _ e'       -> documentSymbols e'
         CS.Lambda _ _ e'             -> documentSymbols e'
-        CS.Let _ _ decls e           -> (decls >>= documentSymbols) ++ documentSymbols e
+        CS.Let _ _ decls e'          -> (decls >>= documentSymbols) ++ documentSymbols e'
         CS.Do _ _ stmts e'           -> (stmts >>= documentSymbols) ++ documentSymbols e'
         CS.IfThenElse _ e1 e2 e3     -> documentSymbols e1 ++ documentSymbols e2 ++ documentSymbols e3
-        CS.Case _ _ _ e alts         -> documentSymbols e ++ (alts >>= documentSymbols)
+        CS.Case _ _ _ e' alts        -> documentSymbols e' ++ (alts >>= documentSymbols)
         _                            -> []
-        where fieldSymbols (CS.Field _ _ e) = documentSymbols e
+        where fieldSymbols (CS.Field _ _ e') = documentSymbols e'
 
 instance HasDocumentSymbols (CS.Statement a) where
     documentSymbols stmt = case stmt of
