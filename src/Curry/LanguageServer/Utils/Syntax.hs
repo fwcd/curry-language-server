@@ -3,6 +3,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
     HasDeclarations (..),
     HasQualIdentifiers (..),
+    HasIdentifiers (..),
     HasQualIdentifier (..),
     HasIdentifier (..),
     ModuleAST,
@@ -208,6 +209,21 @@ instance HasQualIdentifiers CS.TypeExpr where
 
 instance HasQualIdentifiers CS.QualTypeExpr where
     qualIdentifiers (CS.QualTypeExpr _ _ t) = qualIdentifiers t
+
+class HasIdentifiers e where
+    identifiers :: e -> [CI.Ident]
+
+instance HasIdentifiers (CS.Module a) where
+    identifiers (CS.Module _ _ _ _ _ _ decls) = decls >>= identifiers
+
+instance HasIdentifiers (CS.Decl a) where
+    identifiers = undefined
+    -- identifiers decl = case decl of
+    --     CS.InfixDecl _ _ _ is         -> is
+    --     CS.DataDecl _ i is cdecls _   -> (i : is) ++ cdecls >>= identifiers
+    --     CS.ExternalDataDecl _ i is    -> i : is
+    --     CS.NewtypeDecl _ i is cdecl _ -> (i : is) ++ identifiers cdecl
+    --     CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
 
 class HasQualIdentifier e where
     qualIdentifier :: e -> Maybe CI.QualIdent
