@@ -231,13 +231,51 @@ instance HasIdentifiers (CS.Module a) where
     identifiers (CS.Module _ _ _ _ _ _ decls) = decls >>= identifiers
 
 instance HasIdentifiers (CS.Decl a) where
-    identifiers = undefined
-    -- identifiers decl = case decl of
-    --     CS.InfixDecl _ _ _ is         -> is
-    --     CS.DataDecl _ i is cdecls _   -> (i : is) ++ cdecls >>= identifiers
-    --     CS.ExternalDataDecl _ i is    -> i : is
-    --     CS.NewtypeDecl _ i is cdecl _ -> (i : is) ++ identifiers cdecl
-    --     CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
+    identifiers decl = case decl of
+        CS.InfixDecl _ _ _ is         -> is
+        CS.DataDecl _ i is cdecls _   -> (i : is) ++ (cdecls >>= identifiers)
+        CS.ExternalDataDecl _ i is    -> i : is
+        CS.NewtypeDecl _ i is cdecl _ -> (i : is) ++ identifiers cdecl
+        CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
+        CS.TypeSig _ is t             -> is ++ identifiers t
+        CS.FunctionDecl _ _ i es      -> i : (es >>= identifiers)
+        -- CS.ExternalDecl _ vs          -> vs >>= identifiers
+        -- CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
+        CS.FreeDecl _ vs              -> vs >>= identifiers
+        CS.DefaultDecl _ ts           -> ts >>= identifiers
+        CS.ClassDecl _ _ _ i1 i2 ds   -> i1 : i2 : (ds >>= identifiers)
+        CS.InstanceDecl _ _ _ _ _ ds  -> ds >>= identifiers
+
+instance HasIdentifiers (CS.Var a) where
+    identifiers (CS.Var _ i) = [i]
+
+instance HasIdentifiers CS.ConstrDecl where
+    identifiers cdecl = case cdecl of
+        CS.ConstrDecl _ i ts   -> i : (ts >>= identifiers)
+        CS.ConOpDecl _ t1 i t2 -> i : (identifiers t1 ++ identifiers t2)
+        CS.RecordDecl _ i fs   -> i : (fs >>= identifiers)
+
+instance HasIdentifiers CS.FieldDecl where
+    identifiers (CS.FieldDecl _ _ t) = identifiers t
+
+instance HasIdentifiers CS.NewConstrDecl where
+    identifiers cdecl = case cdecl of
+        CS.NewConstrDecl _ i t       -> i : identifiers t
+        CS.NewRecordDecl _ i (i', t) -> i : i' : identifiers t
+
+instance HasIdentifiers CS.TypeExpr where
+    identifiers texpr = case texpr of
+        CS.ApplyType _ t1 t2 -> identifiers t1 ++ identifiers t2
+        CS.VariableType _ i  -> [i]
+        CS.TupleType _ ts    -> ts >>= identifiers
+        CS.ListType _ t      -> identifiers t
+        CS.ArrowType _ t1 t2 -> identifiers t1 ++ identifiers t2
+        CS.ParenType _ t     -> identifiers t
+        CS.ForallType _ is t -> is ++ identifiers t
+        _                    -> []
+
+instance HasIdentifiers CS.QualTypeExpr where
+    identifiers (CS.QualTypeExpr _ _ t) = identifiers t
 
 class HasQualIdentifier e where
     qualIdentifier :: e -> Maybe CI.QualIdent
