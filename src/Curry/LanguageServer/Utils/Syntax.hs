@@ -1,4 +1,4 @@
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -7,6 +7,7 @@ module Curry.LanguageServer.Utils.Syntax (
     HasIdentifiers (..),
     HasQualIdentifier (..),
     HasIdentifier (..),
+    HasTypedSpanInfos (..),
     ModuleAST,
     elementAt,
     moduleIdentifier
@@ -402,7 +403,7 @@ instance HasIdentifier (CS.Decl a) where
         CS.ClassDecl _ _ _ ident _ _  -> Just ident
         _                             -> Nothing
 
-class HasTypedSpanInfos e a | e -> a where
+class HasTypedSpanInfos e a where
     typedSpanInfos :: e -> [(a, CSPI.SpanInfo)]
 
 instance HasTypedSpanInfos (CS.Module a) a where
@@ -410,7 +411,7 @@ instance HasTypedSpanInfos (CS.Module a) a where
 
 instance HasTypedSpanInfos (CS.Decl a) a where
     typedSpanInfos decl = case decl of
-        CS.FunctionDecl spi t _ es   -> (t, spi) : (es >>= typedSpanInfos)
+        CS.FunctionDecl _ t i es     -> (t, CSPI.getSpanInfo i) : (es >>= typedSpanInfos)
         CS.ExternalDecl _ vs         -> vs >>= typedSpanInfos
         CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
         CS.FreeDecl _ vs             -> vs >>= typedSpanInfos
@@ -419,12 +420,31 @@ instance HasTypedSpanInfos (CS.Decl a) a where
         _                            -> []
 
 instance HasTypedSpanInfos (CS.Equation a) a where
-    typedSpanInfos = undefined -- TODO
+    typedSpanInfos (CS.Equation _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
 
 instance HasTypedSpanInfos (CS.Var a) a where
-    typedSpanInfos = undefined -- TODO
+    typedSpanInfos (CS.Var t i) = [(t, CSPI.getSpanInfo i)]
 
 instance HasTypedSpanInfos (CS.Pattern a) a where
+    typedSpanInfos pat = case pat of
+        CS.LiteralPattern spi t _         -> [(t, spi)]
+        CS.NegativePattern spi t _        -> [(t, spi)]
+        CS.VariablePattern spi t _        -> [(t, spi)]
+        CS.ConstructorPattern spi t _ ps  -> (ps >>= typedSpanInfos) ++ [(t, spi)]
+        CS.InfixPattern spi t p1 _ p2     -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [(t, spi)]
+        CS.ParenPattern _ p               -> typedSpanInfos p
+        CS.RecordPattern spi t _ fs       -> (fs >>= typedSpanInfos) ++ [(t, spi)]
+        CS.TuplePattern _ ps              -> ps >>= typedSpanInfos
+        CS.ListPattern spi t ps           -> (ps >>= typedSpanInfos) ++ [(t, spi)]
+        CS.AsPattern _ _ p                -> typedSpanInfos p
+        CS.LazyPattern _ p                -> typedSpanInfos p
+        CS.FunctionPattern spi t _ ps     -> (ps >>= typedSpanInfos) ++ [(t, spi)]
+        CS.InfixFuncPattern spi t p1 _ p2 -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [(t, spi)]
+
+instance HasTypedSpanInfos e a => HasTypedSpanInfos (CS.Field e) a where
+    typedSpanInfos (CS.Field _ _ e) = typedSpanInfos e
+
+instance HasTypedSpanInfos (CS.Lhs a) a where
     typedSpanInfos = undefined -- TODO
 
 instance HasTypedSpanInfos (CS.Rhs a) a where
