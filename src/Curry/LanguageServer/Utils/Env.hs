@@ -39,9 +39,10 @@ findAtPos :: J.Position -> LM (CI.QualIdent, CSPI.SpanInfo)
 findAtPos pos = do
     (_, ast) <- lift ask
     let mident = moduleIdentifier ast
+        qualIdent = withSpanInfo <$> (elementAt pos $ qualIdentifiers ast)
         exprIdent = joinFst $ qualIdentifier <.$> (withSpanInfo <$> (elementAt pos $ expressions ast))
         declIdent = CI.qualifyWith mident <.$> (joinFst $ identifier <.$> (withSpanInfo <$> (elementAt pos $ declarations ast)))
-    liftMaybe $ exprIdent <|> declIdent
+    liftMaybe $ qualIdent <|> exprIdent <|> declIdent
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)

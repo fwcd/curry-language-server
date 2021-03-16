@@ -2,6 +2,7 @@
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
     HasDeclarations (..),
+    HasQualIdentifiers (..),
     HasQualIdentifier (..),
     HasIdentifier (..),
     ModuleAST,
