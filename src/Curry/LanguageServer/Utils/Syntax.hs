@@ -42,7 +42,9 @@ instance HasExpressions CS.Module where
 
 instance HasExpressions CS.Decl where
     expressions decl = case decl of
-        CS.FunctionDecl _ _ _ eqs -> eqs >>= expressions
+        CS.FunctionDecl _ _ _ eqs    -> eqs >>= expressions
+        CS.ClassDecl _ _ _ _ _ ds    -> ds >>= expressions
+        CS.InstanceDecl _ _ _ _ _ ds -> ds >>= expressions
         _ -> [] -- TODO
 
 instance HasExpressions CS.Equation where
