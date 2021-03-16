@@ -27,6 +27,7 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Base.Types as CT
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
@@ -36,6 +37,7 @@ import Control.Monad.Trans.Maybe
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri
 import Data.Maybe
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
@@ -262,8 +264,18 @@ instance HasSymbolKind CETC.TypeInfo where
 class HasCodeLenses s where
     codeLenses :: s -> [J.CodeLens]
 
-instance HasCodeLenses (CS.Module a) where
-    codeLenses = const [] -- TODO
+instance HasCodeLenses (CS.Module CT.PredType) where
+    codeLenses (CS.Module _ _ _ _ _ _ decls) = typeHintLenses
+        where typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
+              untypedDecls = [(spi, t) | CS.FunctionDecl spi t i _ <- decls, i `S.notMember` typeSigIdents]
+              -- TODO: Move the command identifier ('decl.applyTypeHint') to some
+              --       central place to avoid repetition.
+              typeHintLenses = do
+                  (spi, t) <- untypedDecls
+                  range <- maybeToList $ currySpanInfo2Range spi
+                  let command = J.Command (ppToText t) "decl.applyTypeHint" Nothing
+                      lens = J.CodeLens range (Just command) Nothing
+                  return lens
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]
