@@ -1,5 +1,7 @@
 module Curry.LanguageServer.Handlers (handlers) where
 
+import Curry.LanguageServer.Handlers.CodeLens (codeLensHandler)
+import Curry.LanguageServer.Handlers.Command (commandHandler)
 import Curry.LanguageServer.Handlers.Completion (completionHandler)
 import Curry.LanguageServer.Handlers.Definition (definitionHandler)
 import Curry.LanguageServer.Handlers.DocumentSymbols (documentSymbolHandler)
@@ -15,10 +17,12 @@ handlers :: S.Handlers LSM
 handlers = mconcat
     [ -- Request handlers
       completionHandler
+    , commandHandler
     , definitionHandler
     , documentSymbolHandler
     , hoverHandler
     , workspaceSymbolHandler
+    , codeLensHandler
       -- Notification handlers
     , initializedHandler
     , didOpenHandler

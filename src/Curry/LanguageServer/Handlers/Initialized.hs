@@ -12,7 +12,6 @@ import Data.Default (Default (..))
 import Data.Maybe (maybeToList, fromMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
 initializedHandler :: S.Handlers LSM
