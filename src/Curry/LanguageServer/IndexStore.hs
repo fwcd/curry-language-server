@@ -151,8 +151,9 @@ findCurrySourcesInProject cfg dirPath = do
 
             liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
             result <- runCM $ do
-                config <- invokeCPMConfig dirPath $ CFG.cfgCpmPath cfg
-                deps   <- invokeCPMDeps   dirPath $ CFG.cfgCpmPath cfg
+                let cpmPath = CFG.cfgCurryPath cfg ++ " cypm"
+                config <- invokeCPMConfig dirPath cpmPath
+                deps   <- invokeCPMDeps   dirPath cpmPath
                 return (config, deps)
             
             case result of

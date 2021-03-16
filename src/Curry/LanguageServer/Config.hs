@@ -8,7 +8,7 @@ data Config = Config { cfgForceRecompilation :: Bool
                      , cfgImportPaths :: [FilePath]
                      , cfgLibraryPaths :: [FilePath]
                      , cfgLogLevel :: String
-                     , cfgCpmPath :: String
+                     , cfgCurryPath :: String
                      }
     deriving (Show, Eq)
 
@@ -17,7 +17,7 @@ instance Default Config where
                  , cfgImportPaths = []
                  , cfgLibraryPaths = []
                  , cfgLogLevel = "info"
-                 , cfgCpmPath = "cypm"
+                 , cfgCurryPath = "pakcs"
                  }
 
 instance FromJSON Config where
@@ -28,7 +28,7 @@ instance FromJSON Config where
         cfgImportPaths <- l .:? "importPaths" .!= cfgImportPaths def
         cfgLibraryPaths <- l .:? "libraryPaths" .!= cfgLibraryPaths def
         cfgLogLevel <- l .:? "logLevel" .!= cfgLogLevel def
-        cfgCpmPath <- l .:? "cpmPath" .!= cfgCpmPath def
+        cfgCurryPath <- l .:? "CurryPath" .!= cfgCurryPath def
         return Config {..}
 
 instance ToJSON Config where
@@ -37,6 +37,6 @@ instance ToJSON Config where
             "importPaths" .= cfgImportPaths,
             "libraryPaths" .= cfgLibraryPaths,
             "logLevel" .= cfgLogLevel,
-            "cpmPath" .= cfgCpmPath
+            "CurryPath" .= cfgCurryPath
         ]]]
         
