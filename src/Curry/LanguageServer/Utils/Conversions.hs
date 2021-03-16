@@ -153,7 +153,7 @@ instance HasDocumentSymbols (CS.Decl a) where
                   childs = documentSymbols rhs
         -- TODO: 'Var' is currently not exported by Curry.Syntax.Type
         -- CS.FreeDecl _ vars -> map varSymbol vars
-        CS.ClassDecl _ _ _ _ ident decls -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.ClassDecl _ _ _ ident _ decls -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkInterface
                   childs = decls >>= documentSymbols
