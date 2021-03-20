@@ -5,6 +5,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Base.TopEnv as CT
 
+import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -46,8 +47,7 @@ fetchDefinitions store entry pos = do
 definition :: I.IndexStore -> J.Position -> LM J.Location
 definition _ pos = do
     (qident, _) <- liftMaybe =<< findQualIdentAtPos pos
-    valueInfo   <- lookupValueInfo qident
-    let qident' = CT.origName <$> valueInfo
-        ident   = CI.qidIdent qident
-        ident'  = CI.qidIdent <$> qident'
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo $ fromMaybe ident ident')
+    valueQIdent <- (CT.origName <$>) <$> lookupValueInfo qident
+    typeQIdent  <- (CT.origName <$>) <$> lookupTypeInfo qident
+    let origIdent = CI.qidIdent $ fromMaybe qident (valueQIdent <|> typeQIdent)
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo origIdent)
