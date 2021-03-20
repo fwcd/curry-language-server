@@ -1,6 +1,7 @@
 -- | (Value) environments and position lookup in the AST.
 module Curry.LanguageServer.Utils.Env (
     CanLookupValueInfo (..),
+    CanLookupTypeInfo (..),
     LookupEnv,
     LM,
     runLM,
@@ -72,10 +73,20 @@ typeInfoKind tinfo = case tinfo of
     CETC.TypeVar k          -> k
 
 class CanLookupValueInfo i where
-    lookupValueInfo :: i -> LM CEV.ValueInfo
+    lookupValueInfo :: i -> LM (Maybe CEV.ValueInfo)
 
 instance CanLookupValueInfo CI.QualIdent where
     lookupValueInfo ident = do
         (env, ast) <- ask
         let mident = moduleIdentifier ast
-        liftMaybe $ listToMaybe $ CEV.qualLookupValueUnique mident ident $ CE.valueEnv env
+        return $ listToMaybe $ CEV.qualLookupValueUnique mident ident $ CE.valueEnv env
+
+class CanLookupTypeInfo i where
+    lookupTypeInfo :: i -> LM (Maybe CETC.TypeInfo)
+
+instance CanLookupTypeInfo CI.QualIdent where
+    lookupTypeInfo ident = do
+        (env, ast) <- ask
+        let mident = moduleIdentifier ast
+        return $ listToMaybe $ CETC.qualLookupTypeInfoUnique mident ident $ CE.tyConsEnv env
+
