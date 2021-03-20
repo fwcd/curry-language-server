@@ -43,10 +43,11 @@ didSaveHandler = S.notificationHandler J.STextDocumentDidSave $ \nt -> do
     updateIndexStoreDebounced uri
 
 didCloseHandler :: S.Handlers LSM
-didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \_nt -> do
+didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \nt -> do
     liftIO $ debugM "cls.textDocument" "Processing close notification"
-    -- TODO: Remove file and debouncer from LSM state?
-    return ()
+    -- TODO: Remove file from LSM state?
+    let uri = nt ^. J.params . J.textDocument . J.uri
+    removeDebouncer uri
 
 -- | Recompiles and stores the updated compilation, (re)using a debounced version of the function.
 updateIndexStoreDebounced :: J.Uri -> LSM ()
@@ -56,11 +57,18 @@ updateIndexStoreDebounced uri = do
     when (M.notMember uri dbs) $ do
         -- TODO: Make this delay configurable, e.g. through a config option
         let delayMs = 500
+        liftIO $ infoM "cls.textDocument" $ "Creating debouncer for " ++ show uri
         freshDb <- debounceConst (delayMs * 1000) (void $ runMaybeT $ updateIndexStore uri)
         putDebouncers $ M.insert uri freshDb dbs
 
     db <- fromJust . M.lookup uri <$> getDebouncers
     liftIO db
+
+-- | Removes the debouncer for the given URI.
+removeDebouncer :: J.Uri -> LSM ()
+removeDebouncer uri = do
+    liftIO $ infoM "cls.textDocument" $ "Removing debouncer for " ++ show uri
+    modifyDebouncers $ M.delete uri
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: J.Uri -> MaybeT LSM ()
