@@ -123,7 +123,7 @@ instance HasDocumentSymbols (CS.Module a) where
         where name = ppToText ident
               symKind = J.SkModule
               range = currySpanInfo2Range spi
-              childs = decls >>= documentSymbols
+              childs = documentSymbols =<< decls
 
 instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
@@ -134,7 +134,7 @@ instance HasDocumentSymbols (CS.Decl a) where
             where name = ppToText ident
                   symKind = if length cs > 1 then J.SkEnum
                                              else J.SkStruct
-                  childs = cs >>= documentSymbols
+                  childs = documentSymbols =<< cs
         CS.NewtypeDecl _ ident _ c _ -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkStruct
@@ -146,12 +146,12 @@ instance HasDocumentSymbols (CS.Decl a) where
             where name = ppToText ident
                   symKind = if eqsArity eqs > 0 then J.SkFunction
                                                 else J.SkConstant
-                  childs = eqs >>= documentSymbols
+                  childs = documentSymbols =<< eqs
         CS.TypeDecl _ ident _ _ -> [documentSymbolFrom name symKind range Nothing]
             where name = ppToText ident
                   symKind = J.SkInterface
-        CS.ExternalDecl _ vars -> vars >>= documentSymbols
-        CS.FreeDecl _ vars -> vars >>= documentSymbols
+        CS.ExternalDecl _ vars -> documentSymbols =<< vars
+        CS.FreeDecl _ vars -> documentSymbols =<< vars
         CS.PatternDecl _ pat rhs -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppPatternToName pat
                   symKind = if patArity pat > 0 then J.SkFunction
@@ -160,11 +160,11 @@ instance HasDocumentSymbols (CS.Decl a) where
         CS.ClassDecl _ _ _ ident _ decls -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkInterface
-                  childs = decls >>= documentSymbols
+                  childs = documentSymbols =<< decls
         CS.InstanceDecl _ _ _ qident t decls -> [documentSymbolFrom name symKind range $ Just childs]
             where name = ppToText qident <> " (" <> (T.pack $ PP.render $ CPP.pPrintPrec 2 t) <> ")"
                   symKind = J.SkNamespace
-                  childs = decls >>= documentSymbols
+                  childs = documentSymbols =<< decls
         _ -> []
         where lhsArity :: CS.Lhs a -> Int
               lhsArity lhs = case lhs of
@@ -195,8 +195,8 @@ instance HasDocumentSymbols (CS.Equation a) where
 
 instance HasDocumentSymbols (CS.Rhs a) where
     documentSymbols rhs = case rhs of
-        CS.SimpleRhs _ _ e decls      -> documentSymbols e ++ (decls >>= documentSymbols)
-        CS.GuardedRhs _ _ conds decls -> (conds >>= documentSymbols) ++ (decls >>= documentSymbols)
+        CS.SimpleRhs _ _ e decls      -> documentSymbols e ++ (documentSymbols =<< decls)
+        CS.GuardedRhs _ _ conds decls -> (documentSymbols =<< conds) ++ (documentSymbols =<< decls)
 
 instance HasDocumentSymbols (CS.CondExpr a) where
     documentSymbols (CS.CondExpr _ e1 e2) = documentSymbols e1 ++ documentSymbols e2
@@ -205,11 +205,11 @@ instance HasDocumentSymbols (CS.Expression a) where
     documentSymbols e = case e of
         CS.Paren _ e'                -> documentSymbols e'
         CS.Typed _ e' _              -> documentSymbols e'
-        CS.Record _ _ _ fields       -> fields >>= fieldSymbols
-        CS.RecordUpdate _ e' fields  -> documentSymbols e' ++ (fields >>= fieldSymbols)
-        CS.Tuple _ entries           -> entries >>= documentSymbols
-        CS.List _ _ entries          -> entries >>= documentSymbols
-        CS.ListCompr _ e' stmts      -> documentSymbols e' ++ (stmts >>= documentSymbols)
+        CS.Record _ _ _ fields       -> fieldSymbols =<< fields
+        CS.RecordUpdate _ e' fields  -> documentSymbols e' ++ (fieldSymbols =<< fields)
+        CS.Tuple _ entries           -> documentSymbols =<< entries
+        CS.List _ _ entries          -> documentSymbols =<< entries
+        CS.ListCompr _ e' stmts      -> documentSymbols e' ++ (documentSymbols =<< stmts)
         CS.EnumFrom _ e'             -> documentSymbols e'
         CS.EnumFromThen _ e1 e2      -> documentSymbols e1 ++ documentSymbols e2
         CS.EnumFromThenTo _ e1 e2 e3 -> documentSymbols e1 ++ documentSymbols e2 ++ documentSymbols e3
@@ -219,17 +219,17 @@ instance HasDocumentSymbols (CS.Expression a) where
         CS.LeftSection _ e' _        -> documentSymbols e'
         CS.RightSection _ _ e'       -> documentSymbols e'
         CS.Lambda _ _ e'             -> documentSymbols e'
-        CS.Let _ _ decls e'          -> (decls >>= documentSymbols) ++ documentSymbols e'
-        CS.Do _ _ stmts e'           -> (stmts >>= documentSymbols) ++ documentSymbols e'
+        CS.Let _ _ decls e'          -> (documentSymbols =<< decls) ++ documentSymbols e'
+        CS.Do _ _ stmts e'           -> (documentSymbols =<< stmts) ++ documentSymbols e'
         CS.IfThenElse _ e1 e2 e3     -> documentSymbols e1 ++ documentSymbols e2 ++ documentSymbols e3
-        CS.Case _ _ _ e' alts        -> documentSymbols e' ++ (alts >>= documentSymbols)
+        CS.Case _ _ _ e' alts        -> documentSymbols e' ++ (documentSymbols =<< alts)
         _                            -> []
         where fieldSymbols (CS.Field _ _ e') = documentSymbols e'
 
 instance HasDocumentSymbols (CS.Statement a) where
     documentSymbols stmt = case stmt of
         CS.StmtExpr _ e       -> documentSymbols e
-        CS.StmtDecl _ _ decls -> decls >>= documentSymbols
+        CS.StmtDecl _ _ decls -> documentSymbols =<< decls
         CS.StmtBind _ _ e     -> documentSymbols e
 
 instance HasDocumentSymbols (CS.Alt a) where
