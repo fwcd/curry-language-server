@@ -79,7 +79,8 @@ instance CanLookupValueInfo CI.QualIdent where
     lookupValueInfo ident = do
         (env, ast) <- ask
         let mident = moduleIdentifier ast
-        return $ listToMaybe $ CEV.qualLookupValueUnique mident ident $ CE.valueEnv env
+            valueEnv = CE.valueEnv env
+        return $ listToMaybe $ CEV.qualLookupValueUnique mident ident valueEnv <|> CEV.qualLookupValue ident valueEnv
 
 class CanLookupTypeInfo i where
     lookupTypeInfo :: i -> LM (Maybe CETC.TypeInfo)
@@ -88,5 +89,5 @@ instance CanLookupTypeInfo CI.QualIdent where
     lookupTypeInfo ident = do
         (env, ast) <- ask
         let mident = moduleIdentifier ast
-        return $ listToMaybe $ CETC.qualLookupTypeInfoUnique mident ident $ CE.tyConsEnv env
-
+            tcEnv = CE.tyConsEnv env
+        return $ listToMaybe $ CETC.qualLookupTypeInfoUnique mident ident tcEnv <|> CETC.qualLookupTypeInfo ident tcEnv
