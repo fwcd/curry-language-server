@@ -13,7 +13,7 @@ import Control.Monad.IO.Unlift (MonadUnliftIO, askRunInIO)
 
 -- | A simple debouncer that fires when n microseconds have passed since the last call.
 -- Source: https://www.reddit.com/r/haskell/comments/ky1llf/concurrent_programming_puzzle_debouncing_events/gjmpbqg
-debounce :: (MonadIO m, MonadUnliftIO m) => Int -> (a -> m ()) -> m (a -> m ())
+debounce :: (MonadIO m, MonadIO n, MonadUnliftIO m) => Int -> (a -> m ()) -> m (a -> n ())
 debounce delay action = do
     chan <- liftIO newChan
     runInIO <- askRunInIO
