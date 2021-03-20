@@ -238,7 +238,13 @@ instance HasQualIdentifiers CS.TypeExpr where
         _                      -> []
 
 instance HasQualIdentifiers CS.QualTypeExpr where
-    qualIdentifiers (CS.QualTypeExpr _ _ t) = qualIdentifiers t
+    qualIdentifiers (CS.QualTypeExpr _ ctx t) = qualIdentifiers ctx ++ qualIdentifiers t
+
+instance HasQualIdentifiers CS.Constraint where
+    qualIdentifiers (CS.Constraint _ q t) = q : qualIdentifiers t
+
+instance HasQualIdentifiers a => HasQualIdentifiers [a] where
+    qualIdentifiers = (qualIdentifiers =<<)
 
 class HasIdentifiers e where
     identifiers :: e -> [CI.Ident]
