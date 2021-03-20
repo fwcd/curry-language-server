@@ -16,7 +16,8 @@ workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder ->
     let query = req ^. J.params . J.query
     store <- getStore
     symbols <- liftIO $ fetchWorkspaceSymbols store $ T.pack query
-    responder $ Right $ J.List symbols
+    let maxSymbols = 150
+    responder $ Right $ J.List $ take maxSymbols symbols
 
 fetchWorkspaceSymbols :: I.IndexStore -> T.Text -> IO [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
