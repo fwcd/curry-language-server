@@ -67,7 +67,7 @@ instance CompletionQueryFilter (CI.QualIdent, a) where
 
 instance CompletionQueryFilter CI.QualIdent where
     matchesCompletionQuery query qid = (pfText `T.isPrefixOf` idText)
-                                    && (T.null pfMod || T.null idMod || pfMod == idMod)
+                                    && (T.null pfMod || pfMod == idMod)
         where pfText = VFS.prefixText query
               pfMod  = VFS.prefixModule query
               idText = T.pack $ CI.idName $ CI.qidIdent qid
