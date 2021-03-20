@@ -60,7 +60,7 @@ class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
 
 instance CompletionQueryFilter T.Text where
-    matchesCompletionQuery query = (VFS.prefixText query `T.isPrefixOf`)
+    matchesCompletionQuery query txt = VFS.prefixText query `T.isPrefixOf` txt && T.null (VFS.prefixModule query)
 
 instance CompletionQueryFilter (CI.QualIdent, a) where
     matchesCompletionQuery query (qid, _) = matchesCompletionQuery query qid
