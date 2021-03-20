@@ -118,10 +118,10 @@ class HasQualIdentifiers e where
     qualIdentifiers :: e -> [CI.QualIdent]
 
 instance HasQualIdentifiers (CS.Module a) where
-    qualIdentifiers (CS.Module _ _ _ _ exports _ decls) = (qualIdentifiers =<< maybeToList exports) ++ (qualIdentifiers =<< decls)
+    qualIdentifiers (CS.Module _ _ _ _ exports _ decls) = qualIdentifiers exports ++ qualIdentifiers decls
 
 instance HasQualIdentifiers CS.ExportSpec where
-    qualIdentifiers (CS.Exporting _ es) = qualIdentifiers =<< es
+    qualIdentifiers (CS.Exporting _ es) = qualIdentifiers es
 
 instance HasQualIdentifiers CS.Export where
     qualIdentifiers export = case export of
@@ -132,22 +132,22 @@ instance HasQualIdentifiers CS.Export where
 
 instance HasQualIdentifiers (CS.Decl a) where
     qualIdentifiers decl = case decl of
-        CS.DataDecl _ _ _ cs qs      -> (qualIdentifiers =<< cs) ++ qs
+        CS.DataDecl _ _ _ cs qs      -> qualIdentifiers cs ++ qs
         CS.NewtypeDecl _ _ _ c qs    -> qualIdentifiers c ++ qs
         CS.TypeDecl _ _ _ e          -> qualIdentifiers e
         CS.TypeSig _ _ e             -> qualIdentifiers e
-        CS.FunctionDecl _ _ _ es     -> qualIdentifiers =<< es
+        CS.FunctionDecl _ _ _ es     -> qualIdentifiers es
         CS.PatternDecl _ p rhs       -> qualIdentifiers p ++ qualIdentifiers rhs
-        CS.DefaultDecl _ es          -> qualIdentifiers =<< es
-        CS.ClassDecl _ _ _ _ _ ds    -> qualIdentifiers =<< ds
-        CS.InstanceDecl _ _ _ q _ ds -> q : (qualIdentifiers =<< ds)
+        CS.DefaultDecl _ es          -> qualIdentifiers es
+        CS.ClassDecl _ _ _ _ _ ds    -> qualIdentifiers ds
+        CS.InstanceDecl _ _ _ q _ ds -> q : qualIdentifiers ds
         _                            -> []
 
 instance HasQualIdentifiers CS.ConstrDecl where
     qualIdentifiers cdecl = case cdecl of
-        CS.ConstrDecl _ _ ts   -> qualIdentifiers =<< ts
+        CS.ConstrDecl _ _ ts   -> qualIdentifiers ts
         CS.ConOpDecl _ t1 _ t2 -> qualIdentifiers t1 ++ qualIdentifiers t2
-        CS.RecordDecl _ _ fs   -> qualIdentifiers =<< fs
+        CS.RecordDecl _ _ fs   -> qualIdentifiers fs
 
 instance HasQualIdentifiers CS.FieldDecl where
     qualIdentifiers (CS.FieldDecl _ _ t) = qualIdentifiers t
@@ -162,28 +162,28 @@ instance HasQualIdentifiers (CS.Equation a) where
 
 instance HasQualIdentifiers (CS.Lhs a) where
     qualIdentifiers lhs = case lhs of
-        CS.FunLhs _ _ ps   -> qualIdentifiers =<< ps
+        CS.FunLhs _ _ ps   -> qualIdentifiers ps
         CS.OpLhs _ p1 _ p2 -> qualIdentifiers p1 ++ qualIdentifiers p2
-        CS.ApLhs _ l ps    -> qualIdentifiers l ++ (qualIdentifiers =<< ps)
+        CS.ApLhs _ l ps    -> qualIdentifiers l ++ qualIdentifiers ps
 
 instance HasQualIdentifiers (CS.Pattern a) where
     qualIdentifiers pat = case pat of
-        CS.ConstructorPattern _ _ q ps  -> q : (qualIdentifiers =<< ps)
+        CS.ConstructorPattern _ _ q ps  -> q : qualIdentifiers ps
         CS.InfixPattern _ _ p1 q p2     -> q : qualIdentifiers p1 ++ qualIdentifiers p2
         CS.ParenPattern _ p             -> qualIdentifiers p
-        CS.RecordPattern _ _ q fs       -> q : (qualIdentifiers =<< fs)
-        CS.TuplePattern _ ps            -> qualIdentifiers =<< ps
-        CS.ListPattern _ _ ps           -> qualIdentifiers =<< ps
+        CS.RecordPattern _ _ q fs       -> q : qualIdentifiers fs
+        CS.TuplePattern _ ps            -> qualIdentifiers ps
+        CS.ListPattern _ _ ps           -> qualIdentifiers ps
         CS.AsPattern _ _ p              -> qualIdentifiers p
         CS.LazyPattern _ p              -> qualIdentifiers p
-        CS.FunctionPattern _ _ q ps     -> q : (qualIdentifiers =<< ps)
+        CS.FunctionPattern _ _ q ps     -> q : qualIdentifiers ps
         CS.InfixFuncPattern _ _ p1 q p2 -> q : qualIdentifiers p1 ++ qualIdentifiers p2
         _                               -> []
 
 instance HasQualIdentifiers (CS.Rhs a) where
     qualIdentifiers rhs = case rhs of
-        CS.SimpleRhs _ _ e ds   -> qualIdentifiers e ++ (qualIdentifiers =<< ds)
-        CS.GuardedRhs _ _ es ds -> (qualIdentifiers =<< es) ++ (qualIdentifiers =<< ds)
+        CS.SimpleRhs _ _ e ds   -> qualIdentifiers e ++ qualIdentifiers ds
+        CS.GuardedRhs _ _ es ds -> qualIdentifiers es ++ qualIdentifiers ds
 
 instance HasQualIdentifiers (CS.CondExpr a) where
     qualIdentifiers (CS.CondExpr _ e1 e2) = qualIdentifiers e1 ++ qualIdentifiers e2
@@ -192,11 +192,11 @@ instance HasQualIdentifiers (CS.Expression a) where
     qualIdentifiers e = case e of
         CS.Paren _ e'                -> qualIdentifiers e'
         CS.Typed _ e' t              -> qualIdentifiers e' ++ qualIdentifiers t
-        CS.Record _ _ q fields       -> q : (qualIdentifiers =<< fields)
-        CS.RecordUpdate _ e' fields  -> qualIdentifiers e' ++ (qualIdentifiers =<< fields)
-        CS.Tuple _ entries           -> qualIdentifiers =<< entries
-        CS.List _ _ entries          -> qualIdentifiers =<< entries
-        CS.ListCompr _ e' stmts      -> qualIdentifiers e' ++ (qualIdentifiers =<< stmts)
+        CS.Record _ _ q fields       -> q : qualIdentifiers fields
+        CS.RecordUpdate _ e' fields  -> qualIdentifiers e' ++ qualIdentifiers fields
+        CS.Tuple _ entries           -> qualIdentifiers entries
+        CS.List _ _ entries          -> qualIdentifiers entries
+        CS.ListCompr _ e' stmts      -> qualIdentifiers e' ++ qualIdentifiers stmts
         CS.EnumFrom _ e'             -> qualIdentifiers e'
         CS.EnumFromThen _ e1 e2      -> qualIdentifiers e1 ++ qualIdentifiers e2
         CS.EnumFromThenTo _ e1 e2 e3 -> qualIdentifiers e1 ++ qualIdentifiers e2 ++ qualIdentifiers e3
@@ -206,10 +206,10 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.LeftSection _ e' _        -> qualIdentifiers e'
         CS.RightSection _ _ e'       -> qualIdentifiers e'
         CS.Lambda _ _ e'             -> qualIdentifiers e'
-        CS.Let _ _ decls e'          -> (qualIdentifiers =<< decls) ++ qualIdentifiers e'
-        CS.Do _ _ stmts e'           -> (qualIdentifiers =<< stmts) ++ qualIdentifiers e'
+        CS.Let _ _ decls e'          -> qualIdentifiers decls ++ qualIdentifiers e'
+        CS.Do _ _ stmts e'           -> qualIdentifiers stmts ++ qualIdentifiers e'
         CS.IfThenElse _ e1 e2 e3     -> qualIdentifiers e1 ++ qualIdentifiers e2 ++ qualIdentifiers e3
-        CS.Case _ _ _ e' alts        -> qualIdentifiers e' ++ (qualIdentifiers =<< alts)
+        CS.Case _ _ _ e' alts        -> qualIdentifiers e' ++ qualIdentifiers alts
         CS.Variable _ _ q            -> [q]
         CS.Constructor _ _ q         -> [q]
         _                            -> []
@@ -220,7 +220,7 @@ instance HasQualIdentifiers a => HasQualIdentifiers (CS.Field a) where
 instance HasQualIdentifiers (CS.Statement a) where
     qualIdentifiers stmt = case stmt of
         CS.StmtExpr _ e    -> qualIdentifiers e
-        CS.StmtDecl _ _ ds -> qualIdentifiers =<< ds
+        CS.StmtDecl _ _ ds -> qualIdentifiers ds
         CS.StmtBind _ p e  -> qualIdentifiers p ++ qualIdentifiers e
 
 instance HasQualIdentifiers (CS.Alt a) where
@@ -230,7 +230,7 @@ instance HasQualIdentifiers CS.TypeExpr where
     qualIdentifiers texpr = case texpr of
         CS.ConstructorType _ q -> [q]
         CS.ApplyType _ t1 t2   -> qualIdentifiers t1 ++ qualIdentifiers t2
-        CS.TupleType _ ts      -> qualIdentifiers =<< ts
+        CS.TupleType _ ts      -> qualIdentifiers ts
         CS.ListType _ t        -> qualIdentifiers t
         CS.ArrowType _ t1 t2   -> qualIdentifiers t1 ++ qualIdentifiers t2
         CS.ParenType _ t       -> qualIdentifiers t
@@ -245,6 +245,9 @@ instance HasQualIdentifiers CS.Constraint where
 
 instance HasQualIdentifiers a => HasQualIdentifiers [a] where
     qualIdentifiers = (qualIdentifiers =<<)
+
+instance HasQualIdentifiers a => HasQualIdentifiers (Maybe a) where
+    qualIdentifiers = qualIdentifiers . maybeToList
 
 class HasIdentifiers e where
     identifiers :: e -> [CI.Ident]
