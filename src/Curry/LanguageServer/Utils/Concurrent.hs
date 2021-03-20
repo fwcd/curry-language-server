@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Utils.Concurrent (
-    debounce
+    debounce,
+    debounceConst
 ) where
 
 import Control.Concurrent (threadDelay)
@@ -28,3 +29,7 @@ debounce delay action = do
                 Right () -> runInIO $ action x
     
     return $ liftIO . writeChan chan
+
+-- | Debounces an action without parameters.
+debounceConst :: (MonadIO m, MonadIO n, MonadUnliftIO m) => Int -> m () -> m (n ())
+debounceConst delay action = ($ ()) <$> debounce delay (const action)
