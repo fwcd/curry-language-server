@@ -112,7 +112,7 @@ instance HasDeclarations CS.Decl where
         -- TODO: Fetch declarations inside equations/expressions/...
         CS.ClassDecl _ _ _ _ _ ds     -> ds
         CS.InstanceDecl  _ _ _ _ _ ds -> ds
-        _                        -> []
+        _                             -> []
 
 class HasQualIdentifiers e where
     qualIdentifiers :: e -> [CI.QualIdent]
@@ -147,7 +147,7 @@ instance HasQualIdentifiers CS.ConstrDecl where
     qualIdentifiers cdecl = case cdecl of
         CS.ConstrDecl _ _ ts   -> qualIdentifiers =<< ts
         CS.ConOpDecl _ t1 _ t2 -> qualIdentifiers t1 ++ qualIdentifiers t2
-        CS.RecordDecl _ _ fs -> qualIdentifiers =<< fs
+        CS.RecordDecl _ _ fs   -> qualIdentifiers =<< fs
 
 instance HasQualIdentifiers CS.FieldDecl where
     qualIdentifiers (CS.FieldDecl _ _ t) = qualIdentifiers t
@@ -437,15 +437,15 @@ instance HasTypedSpanInfos (CS.Pattern a) a where
         CS.LiteralPattern spi t _         -> [TypedSpanInfo txt t spi]
         CS.NegativePattern spi t _        -> [TypedSpanInfo txt t spi]
         CS.VariablePattern spi t _        -> [TypedSpanInfo txt t spi]
-        CS.ConstructorPattern spi t _ ps  -> (typedSpanInfos =<< ps) ++ [TypedSpanInfo txt t spi]
+        CS.ConstructorPattern spi t _ ps  -> TypedSpanInfo txt t spi : (typedSpanInfos =<< ps)
         CS.InfixPattern spi t p1 _ p2     -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [TypedSpanInfo txt t spi]
         CS.ParenPattern _ p               -> typedSpanInfos p
-        CS.RecordPattern spi t _ fs       -> (typedSpanInfos =<< fs) ++ [TypedSpanInfo txt t spi]
+        CS.RecordPattern spi t _ fs       -> TypedSpanInfo txt t spi : (typedSpanInfos =<< fs)
         CS.TuplePattern _ ps              -> typedSpanInfos =<< ps
-        CS.ListPattern spi t ps           -> (typedSpanInfos =<< ps) ++ [TypedSpanInfo txt t spi]
+        CS.ListPattern spi t ps           -> TypedSpanInfo txt t spi : (typedSpanInfos =<< ps)
         CS.AsPattern _ _ p                -> typedSpanInfos p
         CS.LazyPattern _ p                -> typedSpanInfos p
-        CS.FunctionPattern spi t _ ps     -> (typedSpanInfos =<< ps) ++ [TypedSpanInfo txt t spi]
+        CS.FunctionPattern spi t _ ps     -> TypedSpanInfo txt t spi : (typedSpanInfos =<< ps)
         CS.InfixFuncPattern spi t p1 _ p2 -> typedSpanInfos p1 ++ typedSpanInfos p2 ++ [TypedSpanInfo txt t spi]
         where txt = ppToText pat
 
@@ -473,10 +473,10 @@ instance HasTypedSpanInfos (CS.Expression a) a where
         CS.Constructor spi t _       -> [TypedSpanInfo txt t spi]
         CS.Paren _ e                 -> typedSpanInfos e
         CS.Typed _ e _               -> typedSpanInfos e
-        CS.Record spi t _ fs         -> (typedSpanInfos =<< fs) ++ [TypedSpanInfo txt t spi]
+        CS.Record spi t _ fs         -> TypedSpanInfo txt t spi : (typedSpanInfos =<< fs)
         CS.RecordUpdate _ e fs       -> typedSpanInfos e ++ (typedSpanInfos =<< fs)
         CS.Tuple _ es                -> typedSpanInfos =<< es
-        CS.List spi t es             -> (typedSpanInfos =<< es) ++ [TypedSpanInfo txt t spi]
+        CS.List spi t es             -> TypedSpanInfo txt t spi : (typedSpanInfos =<< es)
         CS.ListCompr _ e stmts       -> typedSpanInfos e ++ (typedSpanInfos =<< stmts)
         CS.EnumFrom _ e              -> typedSpanInfos e
         CS.EnumFromThen _ e1 e2      -> typedSpanInfos e1 ++ typedSpanInfos e2
