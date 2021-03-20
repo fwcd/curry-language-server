@@ -6,7 +6,6 @@ module Curry.LanguageServer.Utils.Sema (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
-import qualified Base.Types as CT
 import qualified Curry.Syntax as CS
 
 import qualified Data.Set as S

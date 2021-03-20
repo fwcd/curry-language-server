@@ -1,6 +1,6 @@
 module Curry.LanguageServer.CPM.Monad (CM, cm, runCM) where
 
-import Control.Monad.Trans.Except
+import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 
 -- | The monad for running the Curry Package Manager process.
 type CM a = ExceptT String IO a

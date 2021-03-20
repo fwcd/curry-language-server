@@ -4,7 +4,7 @@ import Curry.LanguageServer.CPM.Monad
 import Curry.LanguageServer.CPM.Process (invokeCPM)
 import Data.Either.Combinators (rightToMaybe)
 import Data.Maybe (mapMaybe)
-import Text.Parsec
+import Text.Parsec (Parsec, noneOf, spaces, string, many, parse)
 
 type Parser a = Parsec String () a
 

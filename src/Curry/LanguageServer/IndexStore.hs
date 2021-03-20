@@ -51,7 +51,7 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath
+import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
 import System.Log.Logger
 import System.Process (readProcessWithExitCode)
 

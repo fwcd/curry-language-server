@@ -12,11 +12,9 @@ import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.IndexStore as I
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar, modifyMVar)
 import Control.Monad.Reader (ReaderT, runReaderT, ask)
-import Control.Monad.State.Class
+import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.Trans (lift, liftIO)
-import qualified Data.Map as M
-import Language.LSP.Server
-import qualified Language.LSP.Types      as J
+import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
 
 -- The language server's state, e.g. holding loaded/compiled modules.
 newtype LSState = LSState { indexStore :: I.IndexStore }

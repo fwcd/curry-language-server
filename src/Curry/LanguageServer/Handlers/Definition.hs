@@ -7,7 +7,7 @@ import qualified Base.TopEnv as CT
 
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO, lift)
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.IndexStore as I
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
