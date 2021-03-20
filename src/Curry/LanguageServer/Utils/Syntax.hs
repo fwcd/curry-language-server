@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -41,32 +41,32 @@ elementContains pos = maybe False (rangeElem pos) . currySpanInfo2Range . CSPI.g
 moduleIdentifier :: CS.Module a -> CI.ModuleIdent
 moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
 
-class HasExpressions s where
+class HasExpressions s a | s -> a where
     -- | Fetches all expressions as pre-order traversal
-    expressions :: s a -> [CS.Expression a]
+    expressions :: s -> [CS.Expression a]
 
-instance HasExpressions CS.Module where
+instance HasExpressions (CS.Module a) a where
     expressions (CS.Module _ _ _ _ _ _ decls) = expressions =<< decls
 
-instance HasExpressions CS.Decl where
+instance HasExpressions (CS.Decl a) a where
     expressions decl = case decl of
         CS.FunctionDecl _ _ _ eqs    -> expressions =<< eqs
         CS.ClassDecl _ _ _ _ _ ds    -> expressions =<< ds
         CS.InstanceDecl _ _ _ _ _ ds -> expressions =<< ds
         _ -> [] -- TODO
 
-instance HasExpressions CS.Equation where
+instance HasExpressions (CS.Equation a) a where
     expressions (CS.Equation _ _ rhs) = expressions rhs
 
-instance HasExpressions CS.Rhs where
+instance HasExpressions (CS.Rhs a) a where
     expressions rhs = case rhs of
         CS.SimpleRhs _ _ e decls      -> expressions e ++ (expressions =<< decls)
         CS.GuardedRhs _ _ conds decls -> (expressions =<< conds) ++ (expressions =<< decls)
 
-instance HasExpressions CS.CondExpr where
+instance HasExpressions (CS.CondExpr a) a where
     expressions (CS.CondExpr _ e1 e2) = expressions e1 ++ expressions e2
 
-instance HasExpressions CS.Expression where
+instance HasExpressions (CS.Expression a) a where
     expressions e = e : case e of
         CS.Paren _ e'                -> expressions e'
         CS.Typed _ e' _              -> expressions e'
@@ -91,23 +91,23 @@ instance HasExpressions CS.Expression where
         _                            -> []
         where fieldExpressions (CS.Field _ _ e') = expressions e'
 
-instance HasExpressions CS.Statement where
+instance HasExpressions (CS.Statement a) a where
     expressions stmt = case stmt of
         CS.StmtExpr _ e       -> expressions e
         CS.StmtDecl _ _ decls -> expressions =<< decls
         CS.StmtBind _ _ e     -> expressions e
 
-instance HasExpressions CS.Alt where
+instance HasExpressions (CS.Alt a) a where
     expressions (CS.Alt _ _ rhs) = expressions rhs
 
-class HasDeclarations s where
+class HasDeclarations s a | s -> a where
     -- | Fetches all declarations as pre-order traversal
-    declarations :: s a -> [CS.Decl a]
+    declarations :: s -> [CS.Decl a]
 
-instance HasDeclarations CS.Module where
+instance HasDeclarations (CS.Module a) a where
     declarations (CS.Module _ _ _ _ _ _ decls) = declarations =<< decls
 
-instance HasDeclarations CS.Decl where
+instance HasDeclarations (CS.Decl a) a where
     declarations decl = decl : case decl of
         -- TODO: Fetch declarations inside equations/expressions/...
         CS.ClassDecl _ _ _ _ _ ds     -> ds
