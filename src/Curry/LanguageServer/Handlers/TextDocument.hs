@@ -58,16 +58,23 @@ updateIndexStoreDebounced uri = do
         -- TODO: Make this delay configurable, e.g. through a config option
         let delayMs = 500
         liftIO $ infoM "cls.textDocument" $ "Creating debouncer for " ++ show uri
-        freshDb <- debounceConst (delayMs * 1000) (void $ runMaybeT $ updateIndexStore uri)
-        putDebouncers $ M.insert uri freshDb dbs
+        fresh <- debounceConst (delayMs * 1000) (void $ runMaybeT $ updateIndexStore uri)
+        modifyDebouncers $ M.insert uri fresh
 
-    db <- fromJust . M.lookup uri <$> getDebouncers
+    (db, _) <- fromJust . M.lookup uri <$> getDebouncers
     liftIO db
 
 -- | Removes the debouncer for the given URI.
 removeDebouncer :: J.Uri -> LSM ()
 removeDebouncer uri = do
+    dbs <- getDebouncers
     liftIO $ infoM "cls.textDocument" $ "Removing debouncer for " ++ show uri
+
+    -- Cancel old debouncer
+    case M.lookup uri dbs of
+        Just (_, canceller) -> liftIO canceller
+        _                   -> return ()
+
     modifyDebouncers $ M.delete uri
 
 -- | Recompiles and stores the updated compilation for a given URI.

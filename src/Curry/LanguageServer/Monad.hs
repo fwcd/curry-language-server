@@ -15,6 +15,7 @@ import Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar, modifyMVar)
 import Control.Monad.Reader (ReaderT, runReaderT, ask)
 import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.Trans (lift, liftIO)
+import Curry.LanguageServer.Utils.Concurrent (ConstDebouncer)
 import Data.Default (Default(..))
 import qualified Data.Map as M
 import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
@@ -22,7 +23,7 @@ import qualified Language.LSP.Types as J
 
 -- The language server's state, e.g. holding loaded/compiled modules.
 data LSState = LSState { lssIndexStore :: I.IndexStore
-                       , lssDebouncers :: M.Map J.Uri (IO ())
+                       , lssDebouncers :: M.Map J.Uri (ConstDebouncer IO)
                        }
 
 instance Default LSState where
@@ -69,15 +70,15 @@ modifyStore :: (I.IndexStore -> I.IndexStore) -> LSM ()
 modifyStore m = modifyLSState $ \s -> s { lssIndexStore = m $ lssIndexStore s }
 
 -- | Fetches the debouncers for updating the index store.
-getDebouncers :: LSM (M.Map J.Uri (IO ()))
+getDebouncers :: LSM (M.Map J.Uri (ConstDebouncer IO))
 getDebouncers = lssDebouncers <$> getLSState
 
 -- | Replaces the debouncers for updating the index store.
-putDebouncers :: M.Map J.Uri (IO ()) -> LSM ()
+putDebouncers :: M.Map J.Uri (ConstDebouncer IO) -> LSM ()
 putDebouncers d = modifyLSState $ \s -> s { lssDebouncers = d }
 
 -- | Updates the debouncers for updating the index store.
-modifyDebouncers :: (M.Map J.Uri (IO ()) -> M.Map J.Uri (IO ())) -> LSM ()
+modifyDebouncers :: (M.Map J.Uri (ConstDebouncer IO) -> M.Map J.Uri (ConstDebouncer IO)) -> LSM ()
 modifyDebouncers f = modifyLSState $ \s -> s { lssDebouncers = f $ lssDebouncers s }
 
 -- | Runs the language server's state monad.
