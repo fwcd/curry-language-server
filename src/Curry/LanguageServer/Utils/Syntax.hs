@@ -1,4 +1,4 @@
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances, UndecidableInstances #-}
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax (
     HasExpressions (..),
@@ -46,13 +46,13 @@ class HasExpressions s a | s -> a where
     expressions :: s -> [CS.Expression a]
 
 instance HasExpressions (CS.Module a) a where
-    expressions (CS.Module _ _ _ _ _ _ decls) = expressions =<< decls
+    expressions (CS.Module _ _ _ _ _ _ decls) = expressions decls
 
 instance HasExpressions (CS.Decl a) a where
     expressions decl = case decl of
-        CS.FunctionDecl _ _ _ eqs    -> expressions =<< eqs
-        CS.ClassDecl _ _ _ _ _ ds    -> expressions =<< ds
-        CS.InstanceDecl _ _ _ _ _ ds -> expressions =<< ds
+        CS.FunctionDecl _ _ _ eqs    -> expressions eqs
+        CS.ClassDecl _ _ _ _ _ ds    -> expressions ds
+        CS.InstanceDecl _ _ _ _ _ ds -> expressions ds
         _ -> [] -- TODO
 
 instance HasExpressions (CS.Equation a) a where
@@ -60,8 +60,8 @@ instance HasExpressions (CS.Equation a) a where
 
 instance HasExpressions (CS.Rhs a) a where
     expressions rhs = case rhs of
-        CS.SimpleRhs _ _ e decls      -> expressions e ++ (expressions =<< decls)
-        CS.GuardedRhs _ _ conds decls -> (expressions =<< conds) ++ (expressions =<< decls)
+        CS.SimpleRhs _ _ e decls      -> expressions e ++ expressions decls
+        CS.GuardedRhs _ _ conds decls -> expressions conds ++ expressions decls
 
 instance HasExpressions (CS.CondExpr a) a where
     expressions (CS.CondExpr _ e1 e2) = expressions e1 ++ expressions e2
@@ -72,9 +72,9 @@ instance HasExpressions (CS.Expression a) a where
         CS.Typed _ e' _              -> expressions e'
         CS.Record _ _ _ fields       -> fieldExpressions =<< fields
         CS.RecordUpdate _ e' fields  -> expressions e' ++ (fieldExpressions =<< fields)
-        CS.Tuple _ entries           -> expressions =<< entries
-        CS.List _ _ entries          -> expressions =<< entries
-        CS.ListCompr _ e' stmts      -> expressions e' ++ (expressions =<< stmts)
+        CS.Tuple _ entries           -> expressions entries
+        CS.List _ _ entries          -> expressions entries
+        CS.ListCompr _ e' stmts      -> expressions e' ++ expressions stmts
         CS.EnumFrom _ e'             -> expressions e'
         CS.EnumFromThen _ e1 e2      -> expressions e1 ++ expressions e2
         CS.EnumFromThenTo _ e1 e2 e3 -> expressions e1 ++ expressions e2 ++ expressions e3
@@ -84,28 +84,34 @@ instance HasExpressions (CS.Expression a) a where
         CS.LeftSection _ e' _        -> expressions e'
         CS.RightSection _ _ e'       -> expressions e'
         CS.Lambda _ _ e'             -> expressions e'
-        CS.Let _ _ decls e'          -> (expressions =<< decls) ++ expressions e'
-        CS.Do _ _ stmts e'           -> (expressions =<< stmts) ++ expressions e'
+        CS.Let _ _ decls e'          -> expressions decls ++ expressions e'
+        CS.Do _ _ stmts e'           -> expressions stmts ++ expressions e'
         CS.IfThenElse _ e1 e2 e3     -> expressions e1 ++ expressions e2 ++ expressions e3
-        CS.Case _ _ _ e' alts        -> expressions e' ++ (expressions =<< alts)
+        CS.Case _ _ _ e' alts        -> expressions e' ++ expressions alts
         _                            -> []
         where fieldExpressions (CS.Field _ _ e') = expressions e'
 
 instance HasExpressions (CS.Statement a) a where
     expressions stmt = case stmt of
         CS.StmtExpr _ e       -> expressions e
-        CS.StmtDecl _ _ decls -> expressions =<< decls
+        CS.StmtDecl _ _ decls -> expressions decls
         CS.StmtBind _ _ e     -> expressions e
 
 instance HasExpressions (CS.Alt a) a where
     expressions (CS.Alt _ _ rhs) = expressions rhs
+
+instance HasExpressions s a => HasExpressions [s] a where
+    expressions = (expressions =<<)
+
+instance HasExpressions s a => HasExpressions (Maybe s) a where
+    expressions = expressions . maybeToList
 
 class HasDeclarations s a | s -> a where
     -- | Fetches all declarations as pre-order traversal
     declarations :: s -> [CS.Decl a]
 
 instance HasDeclarations (CS.Module a) a where
-    declarations (CS.Module _ _ _ _ _ _ decls) = declarations =<< decls
+    declarations (CS.Module _ _ _ _ _ _ decls) = declarations decls
 
 instance HasDeclarations (CS.Decl a) a where
     declarations decl = decl : case decl of
@@ -113,6 +119,12 @@ instance HasDeclarations (CS.Decl a) a where
         CS.ClassDecl _ _ _ _ _ ds     -> ds
         CS.InstanceDecl  _ _ _ _ _ ds -> ds
         _                             -> []
+
+instance HasDeclarations s a => HasDeclarations [s] a where
+    declarations = (declarations =<<)
+
+instance HasDeclarations s a => HasDeclarations (Maybe s) a where
+    declarations = declarations . maybeToList
 
 class HasQualIdentifiers e where
     qualIdentifiers :: e -> [CI.QualIdent]
