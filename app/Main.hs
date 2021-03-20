@@ -27,6 +27,7 @@ runLanguageServer = do
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
         , S.options = S.defaultOptions
             { S.textDocumentSync = Just syncOptions
+            , S.completionTriggerCharacters = Just ['.']
             , S.executeCommandCommands = Just $ fst <$> commands
             , S.serverInfo = Just $ J.ServerInfo "Curry Language Server" Nothing
             }
