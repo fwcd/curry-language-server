@@ -18,8 +18,8 @@ import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.List.Extra (nubOrdOn)
-import Data.Maybe (maybeToList)
+import Data.List.Extra (nubOrd, nubOrdOn)
+import Data.Maybe (maybeToList, fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.VFS as VFS
@@ -48,10 +48,12 @@ fetchCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionI
 fetchCompletions entry query = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ I.mseCompilerEnv entry
-        valueCompletions   = toCompletionItem        <$> filter (matchesCompletionQuery query) ((CT.allBindings . CE.valueEnv)  =<< env)
-        typeCompletions    = toCompletionItem        <$> filter (matchesCompletionQuery query) ((CT.allBindings . CE.tyConsEnv) =<< env)
+        valueCompletions   = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env)
+        typeCompletions    = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env)
+        moduleCompletions  = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env)
         keywordCompletions = keywordToCompletionItem <$> filter (matchesCompletionQuery query) keywords
-        completions        = nubOrdOn (^. J.label) $ valueCompletions ++ typeCompletions ++ keywordCompletions
+        completions        = valueCompletions ++ typeCompletions ++ moduleCompletions ++ keywordCompletions
+    infoM "cls.completions" $ "Found mods " ++ show ((maybeToList . fmap CI.moduleName . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env)
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
@@ -73,15 +75,24 @@ instance CompletionQueryFilter CI.QualIdent where
               idText = T.pack $ CI.idName $ CI.qidIdent qid
               idMod  = T.pack $ maybe "" CI.moduleName $ CI.qidModule qid
 
+instance CompletionQueryFilter CI.ModuleIdent where
+    matchesCompletionQuery query mid = pfName `T.isPrefixOf` idName
+        where idName = T.pack $ CI.moduleName mid
+              pfText = VFS.prefixText query
+              pfMod  = VFS.prefixModule query
+              pfName | T.null pfMod = pfText
+                     | otherwise    = pfMod <> "." <> pfText
+
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem?
 
 class ToCompletionItem a where
-    toCompletionItem :: a -> J.CompletionItem
+    toCompletionItem :: VFS.PosPrefixInfo -> a -> J.CompletionItem
 
 instance ToCompletionItem (CI.QualIdent, CEV.ValueInfo) where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItem (qid, vinfo) = item
-        where name = T.pack $ CI.idName $ CI.qidIdent qid
+    toCompletionItem query (qid, vinfo) = completionFrom name ciKind detail doc
+        where fullName = ppToText qid
+              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case vinfo of
                   CEV.DataConstructor _ _ _ _   -> J.CiEnumMember
                   CEV.NewtypeConstructor _ _ _  -> J.CiEnumMember
@@ -94,12 +105,12 @@ instance ToCompletionItem (CI.QualIdent, CEV.ValueInfo) where
               doc = case vinfo of
                   CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ ppToText <$> recordLabels
                   _                                      -> Nothing
-              item = completionFrom name ciKind detail doc
 
 instance ToCompletionItem (CI.QualIdent, CETC.TypeInfo) where
     -- | Converts a Curry type binding to a completion item.
-    toCompletionItem (qid, tinfo) = item
-        where name = T.pack $ CI.idName $ CI.qidIdent qid
+    toCompletionItem query (qid, tinfo) = completionFrom name ciKind detail doc
+        where fullName = ppToText qid
+              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case tinfo of
                   CETC.DataType _ _ _     -> J.CiStruct
                   CETC.RenamingType _ _ _ -> J.CiInterface
@@ -113,7 +124,14 @@ instance ToCompletionItem (CI.QualIdent, CETC.TypeInfo) where
                   CETC.RenamingType _ _ c -> Just $ ppToText c
                   CETC.AliasType _ _ _ t  -> Just $ ppToText t
                   _                       -> Nothing
-              item = completionFrom name ciKind detail doc
+
+instance ToCompletionItem CI.ModuleIdent where
+    toCompletionItem query mid = completionFrom name ciKind detail doc
+        where fullName = T.pack $ CI.moduleName mid
+              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
+              ciKind = J.CiModule
+              detail = Nothing
+              doc = Nothing
 
 -- | Creates a completion item from a keyword.
 keywordToCompletionItem :: T.Text -> J.CompletionItem
