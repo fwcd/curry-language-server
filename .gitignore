@@ -1,6 +1,8 @@
 .vscode
 .DS_Store
 .stack-work
+dist
+dist-newstyle
 .curry
 curry-language-server.cabal
 *~
