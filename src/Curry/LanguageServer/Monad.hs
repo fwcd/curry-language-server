@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 module Curry.LanguageServer.Monad (
     LSState (..),
-    defaultLSState, newLSStateVar,
+    newLSStateVar,
     LSM,
     getLSState, putLSState, modifyLSState,
     getStore, putStore, modifyStore,
@@ -14,16 +14,17 @@ import Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar, modifyMVar)
 import Control.Monad.Reader (ReaderT, runReaderT, ask)
 import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.Trans (lift, liftIO)
+import Data.Default (Default(..))
 import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
 
 -- The language server's state, e.g. holding loaded/compiled modules.
 newtype LSState = LSState { indexStore :: I.IndexStore }
 
-defaultLSState :: LSState
-defaultLSState = LSState { indexStore = I.emptyStore }
+instance Default LSState where
+  def = LSState { indexStore = I.emptyStore }
 
 newLSStateVar :: IO (MVar LSState)
-newLSStateVar = newMVar defaultLSState
+newLSStateVar = newMVar def
 
 -- The monad holding (thread-safe) state used by the language server.
 type LSM = LspT CFG.Config (ReaderT (MVar LSState) IO)
