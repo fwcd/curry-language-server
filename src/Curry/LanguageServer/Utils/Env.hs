@@ -39,9 +39,10 @@ runLM lm = curry $ runReaderT $ runMaybeT lm
 findQualIdentAtPos :: J.Position -> LM (Maybe (CI.QualIdent, CSPI.SpanInfo))
 findQualIdentAtPos pos = do
     (_, ast) <- lift ask
-    let qualIdent = withSpanInfo <$> (elementAt pos $ qualIdentifiers ast)
-        exprIdent = joinFst $ qualIdentifier <.$> (withSpanInfo <$> (elementAt pos $ expressions ast))
-    return $ qualIdent <|> exprIdent
+    let mid = moduleIdentifier ast
+        qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
+        exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
+    return $ CI.qualQualify mid <.$> (qualIdent <|> exprIdent)
 
 -- | Finds the type at the given position.
 findTypeAtPos :: J.Position -> LM (Maybe (TypedSpanInfo CT.PredType))
