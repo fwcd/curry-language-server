@@ -53,7 +53,6 @@ fetchCompletions entry query = do
         moduleCompletions  = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env)
         keywordCompletions = keywordToCompletionItem <$> filter (matchesCompletionQuery query) keywords
         completions        = valueCompletions ++ typeCompletions ++ moduleCompletions ++ keywordCompletions
-    infoM "cls.completions" $ "Found mods " ++ show ((maybeToList . fmap CI.moduleName . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env)
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
