@@ -215,7 +215,7 @@ instance HasQualIdentifiers (CS.Expression a) where
         _                            -> []
 
 instance HasQualIdentifiers a => HasQualIdentifiers (CS.Field a) where
-    qualIdentifiers (CS.Field _ _ e) = qualIdentifiers e
+    qualIdentifiers (CS.Field _ q e) = q : qualIdentifiers e
 
 instance HasQualIdentifiers (CS.Statement a) where
     qualIdentifiers stmt = case stmt of
