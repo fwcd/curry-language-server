@@ -253,15 +253,15 @@ class HasIdentifiers e where
     identifiers :: e -> [CI.Ident]
 
 instance HasIdentifiers (CS.Module a) where
-    identifiers (CS.Module _ _ _ _ _ imps decls) = (identifiers =<< imps) ++ (identifiers =<< decls)
+    identifiers (CS.Module _ _ _ _ _ imps decls) = identifiers imps ++ identifiers decls
 
 instance HasIdentifiers CS.ImportDecl where
-    identifiers (CS.ImportDecl _ _ _ _ spec) = identifiers =<< maybeToList spec
+    identifiers (CS.ImportDecl _ _ _ _ spec) = identifiers spec
 
 instance HasIdentifiers CS.ImportSpec where
     identifiers spec = case spec of
-        CS.Importing _ is -> identifiers =<< is
-        CS.Hiding _ is    -> identifiers =<< is
+        CS.Importing _ is -> identifiers is
+        CS.Hiding _ is    -> identifiers is
 
 instance HasIdentifiers CS.Import where
     identifiers imp = case imp of
@@ -272,18 +272,18 @@ instance HasIdentifiers CS.Import where
 instance HasIdentifiers (CS.Decl a) where
     identifiers decl = case decl of
         CS.InfixDecl _ _ _ is         -> is
-        CS.DataDecl _ i is cdecls _   -> (i : is) ++ (identifiers =<< cdecls)
+        CS.DataDecl _ i is cdecls _   -> (i : is) ++ identifiers cdecls
         CS.ExternalDataDecl _ i is    -> i : is
         CS.NewtypeDecl _ i is cdecl _ -> (i : is) ++ identifiers cdecl
         CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
         CS.TypeSig _ is t             -> is ++ identifiers t
-        CS.FunctionDecl _ _ i es      -> i : (identifiers =<< es)
-        CS.ExternalDecl _ vs          -> identifiers =<< vs
+        CS.FunctionDecl _ _ i es      -> i : identifiers es
+        CS.ExternalDecl _ vs          -> identifiers vs
         CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
-        CS.FreeDecl _ vs              -> identifiers =<< vs
-        CS.DefaultDecl _ ts           -> identifiers =<< ts
-        CS.ClassDecl _ _ _ i1 i2 ds   -> i1 : i2 : (identifiers =<< ds)
-        CS.InstanceDecl _ _ _ _ _ ds  -> identifiers =<< ds
+        CS.FreeDecl _ vs              -> identifiers vs
+        CS.DefaultDecl _ ts           -> identifiers ts
+        CS.ClassDecl _ _ _ i1 i2 ds   -> i1 : i2 : identifiers ds
+        CS.InstanceDecl _ _ _ _ _ ds  -> identifiers ds
 
 instance HasIdentifiers (CS.Equation a) where
     identifiers (CS.Equation _ lhs rhs) = identifiers lhs ++ identifiers rhs
@@ -291,34 +291,34 @@ instance HasIdentifiers (CS.Equation a) where
 instance HasIdentifiers (CS.Pattern a) where
     identifiers pat = case pat of
         CS.VariablePattern _ _ i        -> [i]
-        CS.ConstructorPattern _ _ _ ps  -> identifiers =<< ps
+        CS.ConstructorPattern _ _ _ ps  -> identifiers ps
         CS.InfixPattern _ _ p1 _ p2     -> identifiers p1 ++ identifiers p2
         CS.ParenPattern _ p             -> identifiers p
-        CS.RecordPattern _ _ _ fs       -> identifiers =<< fs
-        CS.TuplePattern _ ps            -> identifiers =<< ps
-        CS.ListPattern _ _ ps           -> identifiers =<< ps
+        CS.RecordPattern _ _ _ fs       -> identifiers fs
+        CS.TuplePattern _ ps            -> identifiers ps
+        CS.ListPattern _ _ ps           -> identifiers ps
         CS.AsPattern _ i p              -> i : identifiers p
         CS.LazyPattern _ p              -> identifiers p
-        CS.FunctionPattern _ _ _ ps     -> identifiers =<< ps
+        CS.FunctionPattern _ _ _ ps     -> identifiers ps
         CS.InfixFuncPattern _ _ p1 _ p2 -> identifiers p1 ++ identifiers p2
         _                               -> []
 
 instance HasIdentifiers (CS.Statement a) where
     identifiers stmt = case stmt of
         CS.StmtExpr _ e    -> identifiers e
-        CS.StmtDecl _ _ ds -> identifiers =<< ds
+        CS.StmtDecl _ _ ds -> identifiers ds
         CS.StmtBind _ p e  -> identifiers p ++ identifiers e
 
 instance HasIdentifiers (CS.Lhs a) where
     identifiers lhs = case lhs of
-        CS.FunLhs _ _ ps   -> identifiers =<< ps
+        CS.FunLhs _ _ ps   -> identifiers ps
         CS.OpLhs _ p1 _ p2 -> identifiers p1 ++ identifiers p2
-        CS.ApLhs _ l ps    -> identifiers l ++ (identifiers =<< ps)
+        CS.ApLhs _ l ps    -> identifiers l ++ identifiers ps
 
 instance HasIdentifiers (CS.Rhs a) where
     identifiers rhs = case rhs of
-        CS.SimpleRhs _ _ e ds   -> identifiers e ++ (identifiers =<< ds)
-        CS.GuardedRhs _ _ es ds -> (identifiers =<< es) ++ (identifiers =<< ds)
+        CS.SimpleRhs _ _ e ds   -> identifiers e ++ identifiers ds
+        CS.GuardedRhs _ _ es ds -> identifiers es ++ identifiers ds
 
 instance HasIdentifiers (CS.CondExpr a) where
     identifiers (CS.CondExpr _ e1 e2) = identifiers e1 ++ identifiers e2
@@ -327,11 +327,11 @@ instance HasIdentifiers (CS.Expression a) where
     identifiers e = case e of
         CS.Paren _ e'                -> identifiers e'
         CS.Typed _ e' _              -> identifiers e'
-        CS.Record _ _ _ fields       -> identifiers =<< fields
-        CS.RecordUpdate _ e' fields  -> identifiers e' ++ (identifiers =<< fields)
-        CS.Tuple _ entries           -> identifiers =<< entries
-        CS.List _ _ entries          -> identifiers =<< entries
-        CS.ListCompr _ e' stmts      -> identifiers e' ++ (identifiers =<< stmts)
+        CS.Record _ _ _ fields       -> identifiers fields
+        CS.RecordUpdate _ e' fields  -> identifiers e' ++ identifiers fields
+        CS.Tuple _ entries           -> identifiers entries
+        CS.List _ _ entries          -> identifiers entries
+        CS.ListCompr _ e' stmts      -> identifiers e' ++ identifiers stmts
         CS.EnumFrom _ e'             -> identifiers e'
         CS.EnumFromThen _ e1 e2      -> identifiers e1 ++ identifiers e2
         CS.EnumFromThenTo _ e1 e2 e3 -> identifiers e1 ++ identifiers e2 ++ identifiers e3
@@ -341,10 +341,10 @@ instance HasIdentifiers (CS.Expression a) where
         CS.LeftSection _ e' _        -> identifiers e'
         CS.RightSection _ _ e'       -> identifiers e'
         CS.Lambda _ _ e'             -> identifiers e'
-        CS.Let _ _ decls e'          -> (identifiers =<< decls) ++ identifiers e'
-        CS.Do _ _ stmts e'           -> (identifiers =<< stmts) ++ identifiers e'
+        CS.Let _ _ decls e'          -> identifiers decls ++ identifiers e'
+        CS.Do _ _ stmts e'           -> identifiers stmts ++ identifiers e'
         CS.IfThenElse _ e1 e2 e3     -> identifiers e1 ++ identifiers e2 ++ identifiers e3
-        CS.Case _ _ _ e' alts        -> identifiers e' ++ (identifiers =<< alts)
+        CS.Case _ _ _ e' alts        -> identifiers e' ++ identifiers alts
         _                            -> []
 
 instance HasIdentifiers (CS.Alt a) where
@@ -358,9 +358,9 @@ instance HasIdentifiers (CS.Var a) where
 
 instance HasIdentifiers CS.ConstrDecl where
     identifiers cdecl = case cdecl of
-        CS.ConstrDecl _ i ts   -> i : (identifiers =<< ts)
+        CS.ConstrDecl _ i ts   -> i : identifiers ts
         CS.ConOpDecl _ t1 i t2 -> i : (identifiers t1 ++ identifiers t2)
-        CS.RecordDecl _ i fs   -> i : (identifiers =<< fs)
+        CS.RecordDecl _ i fs   -> i : identifiers fs
 
 instance HasIdentifiers CS.FieldDecl where
     identifiers (CS.FieldDecl _ _ t) = identifiers t
@@ -374,7 +374,7 @@ instance HasIdentifiers CS.TypeExpr where
     identifiers texpr = case texpr of
         CS.ApplyType _ t1 t2 -> identifiers t1 ++ identifiers t2
         CS.VariableType _ i  -> [i]
-        CS.TupleType _ ts    -> identifiers =<< ts
+        CS.TupleType _ ts    -> identifiers ts
         CS.ListType _ t      -> identifiers t
         CS.ArrowType _ t1 t2 -> identifiers t1 ++ identifiers t2
         CS.ParenType _ t     -> identifiers t
@@ -383,6 +383,12 @@ instance HasIdentifiers CS.TypeExpr where
 
 instance HasIdentifiers CS.QualTypeExpr where
     identifiers (CS.QualTypeExpr _ _ t) = identifiers t
+
+instance HasIdentifiers a => HasIdentifiers [a] where
+    identifiers = (identifiers =<<)
+
+instance HasIdentifiers a => HasIdentifiers (Maybe a) where
+    identifiers = identifiers . maybeToList
 
 class HasQualIdentifier e where
     qualIdentifier :: e -> Maybe CI.QualIdent
