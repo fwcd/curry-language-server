@@ -48,9 +48,10 @@ qualIdentHover pos = runMaybeT $ do
     (ident, spi) <- MaybeT $ findQualIdentAtPos pos
     valueInfo <- lift $ lookupValueInfo ident
     typeInfo <- lift $ lookupTypeInfo ident
+    mid <- lift getModuleIdentifier
 
-    let valueMsg = (\v -> ppToText (CT.origName v) <> " :: " <> ppToText (valueInfoType v)) <$> valueInfo
-        typeMsg  = (\t -> ppToText (CT.origName t) <> " :: " <> ppToText (typeInfoKind t))  <$> typeInfo
+    let valueMsg = (\v -> ppToText (CT.origName v) <> " :: " <> ppTypeSchemeToText mid (valueInfoType v)) <$> valueInfo
+        typeMsg  = (\t -> ppToText (CT.origName t) <> " :: " <> ppToText               (typeInfoKind t))  <$> typeInfo
 
     msg <- liftMaybe $ valueMsg <|> typeMsg
 
@@ -62,8 +63,9 @@ qualIdentHover pos = runMaybeT $ do
 typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
 typedSpanInfoHover pos = runMaybeT $ do
     TypedSpanInfo txt t spi <- MaybeT $ findTypeAtPos pos
+    mid <- lift getModuleIdentifier
 
-    let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppToText t
+    let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppPredTypeToText mid t
         range = currySpanInfo2Range spi
 
     return $ J.Hover contents range

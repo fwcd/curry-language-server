@@ -12,6 +12,8 @@ module Curry.LanguageServer.Utils.Conversions (
     currySpanInfo2Location,
     currySpanInfo2Uri,
     ppToText,
+    ppTypeSchemeToText,
+    ppPredTypeToText,
     HasDocumentSymbols (..),
     HasSymbolKind (..),
     HasWorkspaceSymbols (..),
@@ -26,6 +28,7 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
@@ -98,6 +101,12 @@ currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
+
+ppTypeSchemeToText :: CI.ModuleIdent -> CT.TypeScheme -> T.Text
+ppTypeSchemeToText mid = T.pack . PP.render . CCT.ppTypeScheme mid
+
+ppPredTypeToText :: CI.ModuleIdent -> CT.PredType -> T.Text
+ppPredTypeToText mid = T.pack . PP.render . CCT.ppPredType mid
 
 ppPatternToName :: CS.Pattern a -> T.Text
 ppPatternToName pat = case pat of

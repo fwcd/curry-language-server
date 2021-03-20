@@ -7,6 +7,7 @@ module Curry.LanguageServer.Utils.Env (
     runLM,
     findQualIdentAtPos,
     findTypeAtPos,
+    getModuleIdentifier,
     valueInfoType,
     typeInfoKind
 ) where
@@ -50,6 +51,9 @@ findTypeAtPos pos = do
     (_, ast) <- lift ask
     let typedSpanInfo = elementAt pos $ typedSpanInfos ast
     return typedSpanInfo
+
+getModuleIdentifier :: LM CI.ModuleIdent
+getModuleIdentifier = moduleIdentifier . snd <$> lift ask
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
