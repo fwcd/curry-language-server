@@ -34,9 +34,9 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
         liftIO $ debugM "cls.definition" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.idxModules store)
         entry <- I.getModule normUri
         liftIO $ fetchDefinitions store entry pos
-    responder $ Right $ J.InR $ J.InL $ J.List $ fromMaybe [] defs
+    responder $ Right $ J.InR $ J.InR $ J.List $ fromMaybe [] defs
 
-fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.Location]
+fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.LocationLink]
 fetchDefinitions store entry pos = do
     defs <- runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
                            env <- liftMaybe $ I.mseCompilerEnv entry
@@ -44,10 +44,10 @@ fetchDefinitions store entry pos = do
     infoM "cls.definition" $ "Found " ++ show defs
     return $ maybeToList defs
 
-definition :: I.IndexStore -> J.Position -> LM J.Location
+definition :: I.IndexStore -> J.Position -> LM J.LocationLink
 definition _ pos = do
     (qident, _) <- liftMaybe =<< findQualIdentAtPos pos
     valueQIdent <- (CT.origName <$>) <$> lookupValueInfo qident
     typeQIdent  <- (CT.origName <$>) <$> lookupTypeInfo qident
     let origIdent = CI.qidIdent $ fromMaybe qident (valueQIdent <|> typeQIdent)
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo origIdent)
+    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfos2LocationLink (CSPI.getSpanInfo qident) (CSPI.getSpanInfo origIdent))
