@@ -16,6 +16,9 @@ module Curry.LanguageServer.Utils.Conversions (
     currySpanInfo2Location,
     currySpanInfo2LocationLink,
     currySpanInfos2LocationLink,
+    setCurryPosUri,
+    setCurrySpanUri,
+    setCurrySpanInfoUri,
     ppToText,
     ppTypeSchemeToText,
     ppPredTypeToText,
@@ -42,7 +45,7 @@ import qualified Text.PrettyPrint as PP
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(runMaybeT))
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Uri (filePathToUri)
+import Curry.LanguageServer.Utils.Uri (filePathToUri, uriToFilePath)
 import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
@@ -135,6 +138,25 @@ currySpanInfos2LocationLink :: CSPI.HasSpanInfo a => a -> CSPI.SpanInfo -> Maybe
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.NoSpanInfo) spi = currySpanInfo2LocationLink spi
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan}) (CSPI.getSpanInfo -> CSPI.SpanInfo {srcSpan=destSpan}) = currySpans2LocationLink srcSpan destSpan
 currySpanInfos2LocationLink _ _ = liftMaybe Nothing
+
+setCurryPosUri :: CP.HasPosition a => J.Uri -> a -> Maybe a
+setCurryPosUri uri x@(CP.getPosition -> p) = do
+    fp <- uriToFilePath uri
+    return $ CP.setPosition p { CP.file = fp } x
+
+setCurrySpanUri :: J.Uri -> CSP.Span -> Maybe CSP.Span
+setCurrySpanUri uri CSP.Span {..} = do
+    fp <- uriToFilePath uri
+    p1 <- setCurryPosUri uri start
+    p2 <- setCurryPosUri uri end
+    return $ CSP.Span fp p1 p2
+setCurrySpanUri _ CSP.NoSpan = Just CSP.NoSpan
+
+setCurrySpanInfoUri :: CSPI.HasSpanInfo a => J.Uri -> a -> Maybe a
+setCurrySpanInfoUri uri x@(CSPI.getSpanInfo -> spi@CSPI.SpanInfo {..}) = do
+    spn <- setCurrySpanUri uri srcSpan
+    return $ CSPI.setSpanInfo spi { CSPI.srcSpan = spn } x
+setCurrySpanInfoUri _ x = Just x
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
