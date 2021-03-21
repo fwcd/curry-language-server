@@ -1,5 +1,5 @@
 -- | Conversions between Curry Compiler and language server structures
-{-# LANGUAGE RecordWildCards, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE RecordWildCards, ViewPatterns, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
 module Curry.LanguageServer.Utils.Conversions (
     curryMsg2Diagnostic,
     curryPos2Pos,
@@ -115,26 +115,26 @@ currySpans2LocationLink srcSpan destSpan = do
     uri <- currySpan2Uri destSpan
     return $ J.LocationLink (Just srcRange) uri destRange destRange
 
-currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
-currySpanInfo2Range CSPI.NoSpanInfo = Nothing
-currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
+currySpanInfo2Range :: CSPI.HasSpanInfo a => a -> Maybe J.Range
+currySpanInfo2Range (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Range srcSpan
+currySpanInfo2Range _ = Nothing
 
-currySpanInfo2Uri :: CSPI.SpanInfo -> MaybeT IO J.Uri
-currySpanInfo2Uri CSPI.NoSpanInfo = liftMaybe Nothing
-currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
+currySpanInfo2Uri :: CSPI.HasSpanInfo a => a -> MaybeT IO J.Uri
+currySpanInfo2Uri (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Uri srcSpan
+currySpanInfo2Uri _ = liftMaybe Nothing
 
-currySpanInfo2Location :: CSPI.SpanInfo -> MaybeT IO J.Location
-currySpanInfo2Location CSPI.NoSpanInfo = liftMaybe Nothing
-currySpanInfo2Location CSPI.SpanInfo {..} = currySpan2Location srcSpan
+currySpanInfo2Location :: CSPI.HasSpanInfo a => a -> MaybeT IO J.Location
+currySpanInfo2Location (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Location srcSpan
+currySpanInfo2Location _ = liftMaybe Nothing
 
-currySpanInfo2LocationLink :: CSPI.SpanInfo -> MaybeT IO J.LocationLink
-currySpanInfo2LocationLink CSPI.NoSpanInfo = liftMaybe Nothing
-currySpanInfo2LocationLink CSPI.SpanInfo {..} = currySpan2LocationLink srcSpan
+currySpanInfo2LocationLink :: CSPI.HasSpanInfo a => a -> MaybeT IO J.LocationLink
+currySpanInfo2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2LocationLink srcSpan
+currySpanInfo2LocationLink _ = liftMaybe Nothing
 
-currySpanInfos2LocationLink :: CSPI.SpanInfo -> CSPI.SpanInfo -> MaybeT IO J.LocationLink
-currySpanInfos2LocationLink CSPI.NoSpanInfo spi = currySpanInfo2LocationLink spi
-currySpanInfos2LocationLink _ CSPI.NoSpanInfo = liftMaybe Nothing
-currySpanInfos2LocationLink srcSpi destSpi = currySpans2LocationLink (CSPI.srcSpan srcSpi) (CSPI.srcSpan destSpi)
+currySpanInfos2LocationLink :: CSPI.HasSpanInfo a => a -> CSPI.SpanInfo -> MaybeT IO J.LocationLink
+currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.NoSpanInfo) spi = currySpanInfo2LocationLink spi
+currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan}) (CSPI.getSpanInfo -> CSPI.SpanInfo {srcSpan=destSpan}) = currySpans2LocationLink srcSpan destSpan
+currySpanInfos2LocationLink _ _ = liftMaybe Nothing
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
