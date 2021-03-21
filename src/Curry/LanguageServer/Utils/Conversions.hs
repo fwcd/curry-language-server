@@ -134,7 +134,7 @@ currySpanInfo2LocationLink :: CSPI.HasSpanInfo a => a -> MaybeT IO J.LocationLin
 currySpanInfo2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2LocationLink srcSpan
 currySpanInfo2LocationLink _ = liftMaybe Nothing
 
-currySpanInfos2LocationLink :: CSPI.HasSpanInfo a => a -> CSPI.SpanInfo -> MaybeT IO J.LocationLink
+currySpanInfos2LocationLink :: (CSPI.HasSpanInfo a, CSPI.HasSpanInfo b) => a -> b -> MaybeT IO J.LocationLink
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.NoSpanInfo) spi = currySpanInfo2LocationLink spi
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan}) (CSPI.getSpanInfo -> CSPI.SpanInfo {srcSpan=destSpan}) = currySpans2LocationLink srcSpan destSpan
 currySpanInfos2LocationLink _ _ = liftMaybe Nothing
