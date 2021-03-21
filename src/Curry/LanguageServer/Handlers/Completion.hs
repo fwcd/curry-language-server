@@ -45,23 +45,51 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
     responder $ Right $ J.InR result
 
 fetchCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
-fetchCompletions entry query = do
+fetchCompletions entry query
+    | isPragma  = pragmaCompletions query
+    | otherwise = generalCompletions entry query
+    where line = VFS.fullLine query
+          isPragma = "{-#" `T.isPrefixOf` line
+
+pragmaCompletions :: VFS.PosPrefixInfo -> IO [J.CompletionItem]
+pragmaCompletions query
+    | isLanguagePragma = return $ toMatchingCompletions query $ Keyword <$> knownExtensions
+    | isOptionPragma   = return []
+    | otherwise        = return $ toMatchingCompletions query $ Keyword <$> pragmaKinds
+    where line = VFS.fullLine query
+          languagePragma = "LANGUAGE"
+          optionPragmas = ("OPTIONS_" <>) <$> ["KICS2", "PAKCS", "CYMAKE", "FRONTEND" :: T.Text]
+          isLanguagePragma = languagePragma `T.isInfixOf` line
+          isOptionPragma = any (`T.isInfixOf` line) optionPragmas
+          pragmaKinds = languagePragma : optionPragmas
+          knownExtensions = ["AnonFreeVars", "CPP", "FunctionalPatterns", "NegativeLiterals", "NoImplicitPrelude" :: T.Text]
+
+generalCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+generalCompletions entry query = do
     -- TODO: Context-awareness (through nested envs?)
     let env = maybeToList $ I.mseCompilerEnv entry
-        valueCompletions   = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env)
-        typeCompletions    = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env)
-        moduleCompletions  = toCompletionItem query  <$> filter (matchesCompletionQuery query) (nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env)
-        keywordCompletions = keywordToCompletionItem <$> filter (matchesCompletionQuery query) keywords
+        valueCompletions   = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env
+        typeCompletions    = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env
+        moduleCompletions  = toMatchingCompletions query $ nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env
+        keywordCompletions = toMatchingCompletions query keywords
         completions        = valueCompletions ++ typeCompletions ++ moduleCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
-    where keywords = T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
+    where keywords = Keyword . T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
+
+toMatchingCompletions :: (ToCompletionItem a, CompletionQueryFilter a) => VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
+toMatchingCompletions query = map (toCompletionItem query) . filter (matchesCompletionQuery query)
+
+newtype Keyword = Keyword T.Text
 
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
 
 instance CompletionQueryFilter T.Text where
     matchesCompletionQuery query txt = VFS.prefixText query `T.isPrefixOf` txt && T.null (VFS.prefixModule query)
+
+instance CompletionQueryFilter Keyword where
+    matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter (CI.QualIdent, a) where
     matchesCompletionQuery query (qid, _) = matchesCompletionQuery query qid
@@ -125,6 +153,7 @@ instance ToCompletionItem (CI.QualIdent, CETC.TypeInfo) where
                   _                       -> Nothing
 
 instance ToCompletionItem CI.ModuleIdent where
+    -- | Creates a completion item from a module identifier.
     toCompletionItem query mid = completionFrom name ciKind detail doc
         where fullName = T.pack $ CI.moduleName mid
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
@@ -132,9 +161,18 @@ instance ToCompletionItem CI.ModuleIdent where
               detail = Nothing
               doc = Nothing
 
--- | Creates a completion item from a keyword.
-keywordToCompletionItem :: T.Text -> J.CompletionItem
-keywordToCompletionItem kw = completionFrom kw J.CiKeyword Nothing $ Just "Keyword"
+instance ToCompletionItem Keyword where
+    -- | Creates a completion item from a keyword.
+    toCompletionItem _ (Keyword kw) = completionFrom kw ciKind detail doc
+        where ciKind = J.CiKeyword
+              detail = Nothing
+              doc = Just "Keyword"
+
+instance ToCompletionItem T.Text where
+    toCompletionItem _ txt = completionFrom txt ciKind detail doc
+        where ciKind = J.CiText
+              detail = Nothing
+              doc = Nothing
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
 completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
