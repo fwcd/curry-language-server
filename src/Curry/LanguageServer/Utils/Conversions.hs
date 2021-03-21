@@ -5,12 +5,17 @@ module Curry.LanguageServer.Utils.Conversions (
     curryPos2Pos,
     curryPos2Uri,
     curryPos2Location,
+    curryPos2LocationLink,
     currySpan2Range,
-    currySpan2Location,
     currySpan2Uri,
+    currySpan2Location,
+    currySpan2LocationLink,
+    currySpans2LocationLink,
     currySpanInfo2Range,
-    currySpanInfo2Location,
     currySpanInfo2Uri,
+    currySpanInfo2Location,
+    currySpanInfo2LocationLink,
+    currySpanInfos2LocationLink,
     ppToText,
     ppTypeSchemeToText,
     ppPredTypeToText,
@@ -69,6 +74,13 @@ curryPos2Location cp = do
     uri <- curryPos2Uri cp
     return $ J.Location uri $ pointRange p
 
+curryPos2LocationLink :: CP.Position -> MaybeT IO J.LocationLink
+curryPos2LocationLink cp = do
+    p <- liftMaybe $ curryPos2Pos cp
+    uri <- curryPos2Uri cp
+    let range = pointRange p
+    return $ J.LocationLink Nothing uri range range
+
 currySpan2Range :: CSP.Span -> Maybe J.Range
 currySpan2Range CSP.NoSpan = Nothing
 currySpan2Range CSP.Span {..} = do
@@ -76,28 +88,53 @@ currySpan2Range CSP.Span {..} = do
     J.Position el ec <- curryPos2Pos end
     return $ J.Range s $ J.Position el (ec + 1)
 
+currySpan2Uri :: CSP.Span -> MaybeT IO J.Uri
+currySpan2Uri CSP.NoSpan = liftMaybe Nothing
+currySpan2Uri CSP.Span {..} = curryPos2Uri start
+
 currySpan2Location :: CSP.Span -> MaybeT IO J.Location
 currySpan2Location CSP.NoSpan = liftMaybe Nothing
 currySpan2Location spn = do
     range <- liftMaybe $ currySpan2Range spn
-    uri <- curryPos2Uri $ CSP.start spn
+    uri <- currySpan2Uri spn
     return $ J.Location uri range
 
-currySpan2Uri :: CSP.Span -> MaybeT IO J.Uri
-currySpan2Uri CSP.NoSpan = liftMaybe Nothing
-currySpan2Uri CSP.Span {..} = curryPos2Uri start
+currySpan2LocationLink :: CSP.Span -> MaybeT IO J.LocationLink
+currySpan2LocationLink CSP.NoSpan = liftMaybe Nothing
+currySpan2LocationLink spn = do
+    range <- liftMaybe $ currySpan2Range spn
+    uri <- currySpan2Uri spn
+    return $ J.LocationLink Nothing uri range range
+
+currySpans2LocationLink :: CSP.Span -> CSP.Span -> MaybeT IO J.LocationLink
+currySpans2LocationLink CSP.NoSpan destSpan = currySpan2LocationLink destSpan
+currySpans2LocationLink _ CSP.NoSpan = liftMaybe Nothing
+currySpans2LocationLink srcSpan destSpan = do
+    srcRange <- liftMaybe $ currySpan2Range srcSpan
+    destRange <- liftMaybe $ currySpan2Range destSpan
+    uri <- currySpan2Uri destSpan
+    return $ J.LocationLink (Just srcRange) uri destRange destRange
 
 currySpanInfo2Range :: CSPI.SpanInfo -> Maybe J.Range
 currySpanInfo2Range CSPI.NoSpanInfo = Nothing
 currySpanInfo2Range CSPI.SpanInfo {..} = currySpan2Range srcSpan
 
+currySpanInfo2Uri :: CSPI.SpanInfo -> MaybeT IO J.Uri
+currySpanInfo2Uri CSPI.NoSpanInfo = liftMaybe Nothing
+currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
+
 currySpanInfo2Location :: CSPI.SpanInfo -> MaybeT IO J.Location
 currySpanInfo2Location CSPI.NoSpanInfo = liftMaybe Nothing
 currySpanInfo2Location CSPI.SpanInfo {..} = currySpan2Location srcSpan
 
-currySpanInfo2Uri :: CSPI.SpanInfo -> MaybeT IO J.Uri
-currySpanInfo2Uri CSPI.NoSpanInfo = liftMaybe Nothing
-currySpanInfo2Uri CSPI.SpanInfo {..} = currySpan2Uri srcSpan
+currySpanInfo2LocationLink :: CSPI.SpanInfo -> MaybeT IO J.LocationLink
+currySpanInfo2LocationLink CSPI.NoSpanInfo = liftMaybe Nothing
+currySpanInfo2LocationLink CSPI.SpanInfo {..} = currySpan2LocationLink srcSpan
+
+currySpanInfos2LocationLink :: CSPI.SpanInfo -> CSPI.SpanInfo -> MaybeT IO J.LocationLink
+currySpanInfos2LocationLink CSPI.NoSpanInfo spi = currySpanInfo2LocationLink spi
+currySpanInfos2LocationLink _ CSPI.NoSpanInfo = liftMaybe Nothing
+currySpanInfos2LocationLink srcSpi destSpi = currySpans2LocationLink (CSPI.srcSpan srcSpi) (CSPI.srcSpan destSpi)
 
 ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . PP.render . CPP.pPrint
