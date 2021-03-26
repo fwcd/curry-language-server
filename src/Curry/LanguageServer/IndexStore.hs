@@ -125,8 +125,9 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [SymbolStoreEntry]
-storedSymbolsByQualIdent q = filter ((== q) . sseQualIdent) . storedSymbols name
+storedSymbolsByQualIdent q = filter (qidEq q . sseQualIdent) . storedSymbols name
     where name = T.pack $ CI.idName $ CI.qidIdent q
+          qidEq = (==) `on` ppToText
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
