@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.Definition (definitionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -15,8 +16,10 @@ import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
+import Data.List (find)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, maybeToList)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -52,7 +55,9 @@ definition store pos = do
     return $ J.LocationLink srcRange destUri destRange destRange
 
 definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
-definitionInStore store qident = (^. J.location) . I.sseSymbol <$> I.storedSymbolByQualIdent qident store
+definitionInStore store qident = find (isCurrySource . (^. J.uri)) locations
+    where locations = (^. J.location) . I.sseSymbol <$> I.storedSymbolsByQualIdent qident store
+          isCurrySource uri = ".curry" `T.isSuffixOf` J.getUri uri
 
 definitionInEnvs :: CI.QualIdent -> LM (Maybe J.Location)
 definitionInEnvs qident = do
