@@ -10,6 +10,7 @@ module Curry.LanguageServer.IndexStore (
     storedModule,
     storedModuleByIdent,
     storedModules,
+    storedSymbols,
     storedSymbolsWithPrefix,
     addWorkspaceDir,
     recompileModule,
@@ -43,7 +44,7 @@ import Data.Default
 import Data.Function (on)
 import Data.List (nubBy, unionBy)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, listToMaybe, fromMaybe)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
@@ -112,6 +113,10 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 -- | Fetches the entries in the store as a list.
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . idxModules
+
+-- | Fetches the given (unqualified) symbol names in the store.
+storedSymbols :: T.Text -> IndexStore -> [SymbolStoreEntry]
+storedSymbols t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
