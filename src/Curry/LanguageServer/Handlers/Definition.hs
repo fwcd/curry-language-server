@@ -45,9 +45,18 @@ fetchDefinitions store entry pos = do
     return $ maybeToList defs
 
 definition :: I.IndexStore -> J.Position -> LM J.LocationLink
-definition _ pos = do
+definition store pos = do
     (qident, _) <- liftMaybe =<< findQualIdentAtPos pos
+    Just (J.Location destUri destRange) <- (definitionInStore store qident <|>) <$> definitionInEnvs qident
+    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qident)
+    return $ J.LocationLink srcRange destUri destRange destRange
+
+definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
+definitionInStore store qident = (^. J.location) . I.sseSymbol <$> I.storedSymbolByQualIdent qident store
+
+definitionInEnvs :: CI.QualIdent -> LM (Maybe J.Location)
+definitionInEnvs qident = do
     valueQIdent <- (CT.origName <$>) <$> lookupValueInfo qident
     typeQIdent  <- (CT.origName <$>) <$> lookupTypeInfo qident
     let origIdent = CI.qidIdent $ fromMaybe qident (valueQIdent <|> typeQIdent)
-    liftMaybe =<< (liftIO $ runMaybeT $ currySpanInfos2LocationLink (CSPI.getSpanInfo qident) (CSPI.getSpanInfo origIdent))
+    liftIO $ runMaybeT $ currySpanInfo2Location (CSPI.getSpanInfo origIdent)
