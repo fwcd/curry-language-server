@@ -12,6 +12,7 @@ module Curry.LanguageServer.IndexStore (
     storedModules,
     storedSymbols,
     storedSymbolsWithPrefix,
+    storedSymbolByQualIdent,
     addWorkspaceDir,
     recompileModule,
     getModuleCount,
@@ -42,7 +43,7 @@ import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (nubBy, unionBy)
+import Data.List (nubBy, unionBy, find)
 import qualified Data.Map as M
 import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList)
 import qualified Data.Text as T
@@ -121,6 +122,11 @@ storedSymbols t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
 storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxSymbols
+
+-- | Fetches a stored symbol by qualified identifier.
+storedSymbolByQualIdent :: CI.QualIdent -> IndexStore -> Maybe SymbolStoreEntry
+storedSymbolByQualIdent q = find ((== q) . sseQualIdent) . storedSymbols name
+    where name = T.pack $ CI.idName $ CI.qidIdent q
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
