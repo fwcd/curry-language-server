@@ -67,7 +67,7 @@ pragmaCompletions query
 generalCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions entry query = do
     -- TODO: Context-awareness (through nested envs?)
-    let env = maybeToList $ I.mseCompilerEnv entry
+    let env                = maybeToList $ I.mseCompilerEnv entry
         valueCompletions   = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env
         typeCompletions    = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env
         moduleCompletions  = toMatchingCompletions query $ nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env
