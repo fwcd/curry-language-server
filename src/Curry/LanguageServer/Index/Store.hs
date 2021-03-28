@@ -230,7 +230,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
-    let msgNormUri msg = runMaybeT $ do
+    let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
             uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
             liftIO $ normalizeUriWithPath uri'
 
@@ -249,8 +249,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     forM_ asts $ \(uri', (env, ast)) -> do
         -- Update module store
         let updateEntry e = e
-                { mseWarningMessages = M.findWithDefault [] (Just uri') warns
-                , mseErrorMessages = M.findWithDefault [] (Just uri') errors
+                { mseWarningMessages = M.findWithDefault [] uri' warns
+                , mseErrorMessages = M.findWithDefault [] uri' errors
                 , mseModuleAST = Just ast
                 -- , mseCompilerEnv = Just env
                 }
@@ -269,8 +269,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     -- Update store with messages from files that were not successfully compiled
 
     let uris = S.fromList $ fst <$> asts
-        catFstMaybes xs = xs >>= \(x, y) -> (, y) <$> maybeToList x
-        other = filter ((`S.notMember` uris) . fst) . catFstMaybes . M.toList
+        other = filter ((`S.notMember` uris) . fst) . M.toList
     
     forM_ (other warns) $ \(uri', msgs) -> do
         let updateEntry e = e { mseWarningMessages = msgs }
