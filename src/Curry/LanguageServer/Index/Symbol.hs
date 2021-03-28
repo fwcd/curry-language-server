@@ -2,13 +2,16 @@
 module Curry.LanguageServer.Index.Symbol (
     SymbolKind (..),
     Symbol (..),
-    sParentIdent
+    sParentIdent,
+    sIsFromCurrySource
 ) where
 
+import Control.Lens ((^.))
 import Data.Default (Default (..))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types.Lens as J
 
 -- | The 'kind' of the symbol in the LSP sense.
 data SymbolKind = ValueFunction
@@ -47,3 +50,6 @@ instance Default Symbol where
 
 sParentIdent :: Symbol -> T.Text
 sParentIdent s = fromMaybe "" $ T.stripSuffix ("." <> sIdent s) $ sQualIdent s
+
+sIsFromCurrySource :: Symbol -> Bool
+sIsFromCurrySource s = maybe False ((".curry" `T.isSuffixOf`) . J.getUri . (^. J.uri)) $ sLocation s

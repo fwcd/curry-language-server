@@ -264,7 +264,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols ++ modSymbols)
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-        modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) symbolDelta $ idxSymbols s }
+        modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` (\s' -> (sQualIdent s', sIsFromCurrySource s')))) symbolDelta $ idxSymbols s }
     
     -- Update store with messages from files that were not successfully compiled
 

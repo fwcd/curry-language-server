@@ -57,11 +57,9 @@ definitions store pos = do
     let qids = qid : (flip CI.qualQualify qid <$>
                ([mid, CI.mkMIdent ["Prelude"]] ++ [mid' | CS.ImportDecl _ mid' _ _ _ <- imps]))
     -- Perform lookup
-    let locs = mapMaybe (definitionInStore store) qids
+    let locs = definitionsInStore store =<< qids
     srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid)
     return [J.LocationLink srcRange destUri destRange destRange | J.Location destUri destRange <- locs]
 
-definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
-definitionInStore store qid = find (isCurrySource . (^. J.uri)) locations
-    where locations = mapMaybe I.sLocation $ I.storedSymbolsByQualIdent qid store
-          isCurrySource uri = ".curry" `T.isSuffixOf` J.getUri uri
+definitionsInStore :: I.IndexStore -> CI.QualIdent -> [J.Location]
+definitionsInStore store qid = mapMaybe I.sLocation $ filter I.sIsFromCurrySource $ I.storedSymbolsByQualIdent qid store
