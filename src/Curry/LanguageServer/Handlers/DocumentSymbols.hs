@@ -3,7 +3,7 @@ module Curry.LanguageServer.Handlers.DocumentSymbols (documentSymbolHandler) whe
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
 import Control.Lens ((^.))
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Utils.Conversions (HasDocumentSymbols(..))
 import Curry.LanguageServer.Monad

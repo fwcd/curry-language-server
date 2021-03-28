@@ -8,7 +8,7 @@ import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Trans.Maybe
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
@@ -35,7 +35,7 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
 fetchHover :: I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
-    env <- liftMaybe $ I.mseCompilerEnv entry
+    env <- liftMaybe Nothing -- FIXME
     hover <- MaybeT $ runLM (hoverAt pos) env ast
     liftIO $ infoM "cls.hover" $ "Found " ++ show hover
     return hover

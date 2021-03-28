@@ -10,7 +10,7 @@ import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
@@ -42,7 +42,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
 fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.LocationLink]
 fetchDefinitions store entry pos = do
     defs <- runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
-                           env <- liftMaybe $ I.mseCompilerEnv entry
+                           env <- liftMaybe Nothing -- FIXME
                            MaybeT $ runLM (definition store pos) env ast
     infoM "cls.definition" $ "Found " ++ show defs
     return $ maybeToList defs

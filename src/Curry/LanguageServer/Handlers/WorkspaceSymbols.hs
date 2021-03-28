@@ -2,7 +2,7 @@ module Curry.LanguageServer.Handlers.WorkspaceSymbols (workspaceSymbolHandler) w
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S

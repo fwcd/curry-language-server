@@ -13,7 +13,7 @@ import Control.Lens ((^.))
 import Control.Monad (join)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Conversions (ppToText)
 import Curry.LanguageServer.Utils.Env (valueInfoType, typeInfoKind)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -67,7 +67,7 @@ pragmaCompletions query
 generalCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions entry query = do
     -- TODO: Context-awareness (through nested envs?)
-    let env                = maybeToList $ I.mseCompilerEnv entry
+    let env                = maybeToList Nothing -- FIXME
         valueCompletions   = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env
         typeCompletions    = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env
         moduleCompletions  = toMatchingCompletions query $ nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env

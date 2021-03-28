@@ -10,7 +10,7 @@ module Curry.LanguageServer.Monad (
 ) where
 
 import qualified Curry.LanguageServer.Config as CFG
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar, modifyMVar)
 import Control.Monad.Reader (ReaderT, runReaderT, ask)
 import Control.Monad.State.Class (MonadState(..))

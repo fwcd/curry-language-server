@@ -4,7 +4,7 @@ import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.LogHandler (setupLogging)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
 import Data.Default (Default (..))
 import Data.Maybe (maybeToList, fromMaybe)

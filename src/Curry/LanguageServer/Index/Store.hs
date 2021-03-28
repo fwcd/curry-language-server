@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.IndexStore (
+module Curry.LanguageServer.Index.Store (
     ModuleStoreEntry (..),
     SymbolStoreEntry (..),
     IndexStore (..),
@@ -62,12 +62,13 @@ import System.Process (readProcessWithExitCode)
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
 data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
-                                         , mseCompilerEnv :: Maybe CE.CompilerEnv
                                          , mseErrorMessages :: [CM.Message]
                                          , mseWarningMessages :: [CM.Message]
                                          , mseWorkspaceDir :: Maybe FilePath
                                          , mseImportPaths :: [FilePath]
                                          }
+
+
 
 -- | An index store entry containing a symbol.
 data SymbolStoreEntry = SymbolStoreEntry { sseSymbol :: J.SymbolInformation
@@ -84,7 +85,6 @@ data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEn
 
 instance Default ModuleStoreEntry where
     def = ModuleStoreEntry { mseModuleAST = Nothing
-                           , mseCompilerEnv = Nothing
                            , mseWarningMessages = []
                            , mseErrorMessages = []
                            , mseWorkspaceDir = Nothing
@@ -253,7 +253,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
                 { mseWarningMessages = M.findWithDefault [] (Just uri') warns
                 , mseErrorMessages = M.findWithDefault [] (Just uri') errors
                 , mseModuleAST = Just ast
-                , mseCompilerEnv = Just env
+                -- , mseCompilerEnv = Just env
                 }
         modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 

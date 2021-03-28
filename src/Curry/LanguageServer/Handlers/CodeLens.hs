@@ -8,7 +8,7 @@ import qualified Base.Types as CT
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
 import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Range, currySpanInfo2Uri, ppToText)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
