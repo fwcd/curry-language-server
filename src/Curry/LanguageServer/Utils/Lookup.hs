@@ -1,5 +1,5 @@
 -- | (Value) environments and position lookup in the AST.
-module Curry.LanguageServer.Utils.Env (
+module Curry.LanguageServer.Utils.Lookup (
     CanLookupValueInfo (..),
     CanLookupTypeInfo (..),
     LookupEnv,
