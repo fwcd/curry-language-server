@@ -157,7 +157,7 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
               detail = I.sPrintedType s
-              doc = Just $ T.intercalate "\n" $ filter (not . T.null)
+              doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
                   , T.intercalate ", " $ I.sConstructors s
                   ]
@@ -185,7 +185,7 @@ completionFrom l k d c es = J.CompletionItem label kind tags detail doc deprecat
         kind = Just k
         tags = Nothing
         detail = d
-        doc = J.CompletionDocString <$> c
+        doc = J.CompletionDocMarkup . J.MarkupContent J.MkMarkdown <$> c
         deprecated = Just False
         preselect = Nothing
         sortText = Nothing
