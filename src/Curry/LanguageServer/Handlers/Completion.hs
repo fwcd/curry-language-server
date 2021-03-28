@@ -2,22 +2,16 @@
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Curry.Base.Ident as CI
-import qualified Base.TopEnv as CT
-import qualified Base.Types as CTY
-import qualified CompilerEnv as CE
-import qualified Env.TypeConstructor as CETC
-import qualified Env.Value as CEV
 
 import Control.Lens ((^.))
 import Control.Monad (join)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
+import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Utils.Convert (ppToText)
+import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.List.Extra (nubOrd, nubOrdOn)
 import Data.Maybe (maybeToList, fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
@@ -33,20 +27,21 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         pos = req ^. J.params . J.position
     normUri <- liftIO $ normalizeUriWithPath uri
     completions <- fmap (join . maybeToList) $ runMaybeT $ do
+        store <- get
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
-        liftIO $ fetchCompletions entry query
+        liftIO $ fetchCompletions entry store query
     let maxCompletions = 25
         items = take maxCompletions completions
         incomplete = length completions > maxCompletions
         result = J.CompletionList incomplete $ J.List items
     responder $ Right $ J.InR result
 
-fetchCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
-fetchCompletions entry query
+fetchCompletions :: I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+fetchCompletions entry store query
     | isPragma  = pragmaCompletions query
-    | otherwise = generalCompletions entry query
+    | otherwise = generalCompletions entry store query
     where line = VFS.fullLine query
           isPragma = "{-#" `T.isPrefixOf` line
 
@@ -63,15 +58,15 @@ pragmaCompletions query
           pragmaKinds = languagePragma : optionPragmas
           knownExtensions = ["AnonFreeVars", "CPP", "FunctionalPatterns", "NegativeLiterals", "NoImplicitPrelude" :: T.Text]
 
-generalCompletions :: I.ModuleStoreEntry -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
-generalCompletions entry query = do
-    -- TODO: Context-awareness (through nested envs?)
-    let env                = maybeToList Nothing -- FIXME
-        valueCompletions   = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.valueEnv)  =<< env
-        typeCompletions    = toMatchingCompletions query $ nubOrdOn fst $ (CT.allBindings . CE.tyConsEnv) =<< env
-        moduleCompletions  = toMatchingCompletions query $ nubOrd $ (maybeToList . CI.qidModule . fst) =<< (CT.allImports . CE.valueEnv) =<< env
+generalCompletions :: I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+generalCompletions entry store query = do
+    -- TODO: Filter only imported symbols (and otherwise attach an edit to import them)
+    -- TODO: Qualified symbols
+    -- TODO: Qualified symbols from renamed imports
+    let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
+        symbolCompletions  = toMatchingCompletions query $ I.storedSymbolsByIdent (VFS.prefixText query) store
         keywordCompletions = toMatchingCompletions query keywords
-        completions        = valueCompletions ++ typeCompletions ++ moduleCompletions ++ keywordCompletions
+        completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = Keyword . T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
@@ -90,23 +85,12 @@ instance CompletionQueryFilter T.Text where
 instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
-instance CompletionQueryFilter (CI.QualIdent, a) where
-    matchesCompletionQuery query (qid, _) = matchesCompletionQuery query qid
-
-instance CompletionQueryFilter CI.QualIdent where
-    matchesCompletionQuery query qid = (pfText `T.isPrefixOf` idText)
-                                    && (T.null pfMod || pfMod == idMod)
-        where pfText = VFS.prefixText query
-              pfMod  = VFS.prefixModule query
-              idText = T.pack $ CI.idName $ CI.qidIdent qid
-              idMod  = T.pack $ maybe "" CI.moduleName $ CI.qidModule qid
-
-instance CompletionQueryFilter CI.ModuleIdent where
-    matchesCompletionQuery query mid = pfName `T.isPrefixOf` idName
-        where idName = T.pack $ CI.moduleName mid
+instance CompletionQueryFilter I.Symbol where
+    matchesCompletionQuery query s = pfFull `T.isPrefixOf` idFull
+        where idFull = I.sQualIdent s
               pfText = VFS.prefixText query
               pfMod  = VFS.prefixModule query
-              pfName | T.null pfMod = pfText
+              pfFull | T.null pfMod = pfText
                      | otherwise    = pfMod <> "." <> pfText
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem?
@@ -114,49 +98,26 @@ instance CompletionQueryFilter CI.ModuleIdent where
 class ToCompletionItem a where
     toCompletionItem :: VFS.PosPrefixInfo -> a -> J.CompletionItem
 
-instance ToCompletionItem (CI.QualIdent, CEV.ValueInfo) where
+instance ToCompletionItem I.Symbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItem query (qid, vinfo) = completionFrom name ciKind detail doc
-        where fullName = ppToText qid
+    toCompletionItem query s = completionFrom name ciKind detail doc
+        where fullName = I.sQualIdent s
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
-              ciKind = case vinfo of
-                  CEV.DataConstructor _ _ _ _   -> J.CiEnumMember
-                  CEV.NewtypeConstructor _ _ _  -> J.CiEnumMember
-                  CEV.Value _ _ _ t | arity > 0 -> J.CiFunction
-                                    | otherwise -> J.CiConstant
-                      where arity = CTY.arrowArity $ CTY.rawType t
-                  CEV.Label _ _ _              -> J.CiFunction -- Arity is always 1 for record labels
-              detail = Nothing -- FIXME: Show type
-              doc = case vinfo of
-                  CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ ppToText <$> recordLabels
-                  _                                      -> Nothing
-
-instance ToCompletionItem (CI.QualIdent, CETC.TypeInfo) where
-    -- | Converts a Curry type binding to a completion item.
-    toCompletionItem query (qid, tinfo) = completionFrom name ciKind detail doc
-        where fullName = ppToText qid
-              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
-              ciKind = case tinfo of
-                  CETC.DataType _ _ _     -> J.CiStruct
-                  CETC.RenamingType _ _ _ -> J.CiInterface
-                  CETC.AliasType _ _ _ _  -> J.CiInterface
-                  CETC.TypeClass _ _ _    -> J.CiInterface
-                  CETC.TypeVar _          -> J.CiTypeParameter
-              detail = Nothing -- FIXME: Show kind
-              doc = case tinfo of
-                  CETC.DataType _ _ cs    -> Just $ T.intercalate ", " $ ppToText <$> CTY.constrIdent <$> cs
-                  CETC.RenamingType _ _ c -> Just $ ppToText c
-                  CETC.AliasType _ _ _ t  -> Just $ ppToText t
-                  _                       -> Nothing
-
-instance ToCompletionItem CI.ModuleIdent where
-    -- | Creates a completion item from a module identifier.
-    toCompletionItem query mid = completionFrom name ciKind detail doc
-        where fullName = T.pack $ CI.moduleName mid
-              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
-              ciKind = J.CiModule
-              detail = Nothing
-              doc = Nothing
+              ciKind = case I.sKind s of
+                  I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
+                                     | otherwise                 -> J.CiFunction
+                  I.ValueConstructor | I.sArrowArity s == Just 0 -> J.CiEnumMember
+                                     | otherwise                 -> J.CiConstructor
+                  I.Module                                       -> J.CiModule
+                  I.TypeData | length (I.sConstructors s) == 1   -> J.CiStruct
+                             | otherwise                         -> J.CiEnum
+                  I.TypeNew                                      -> J.CiStruct
+                  I.TypeAlias                                    -> J.CiInterface
+                  I.TypeClass                                    -> J.CiInterface
+                  I.TypeVar                                      -> J.CiVariable
+                  I.Other                                        -> J.CiText
+              detail = I.sPrintedType s
+              doc = Just $ T.intercalate ", " $ I.sConstructors s
 
 instance ToCompletionItem Keyword where
     -- | Creates a completion item from a keyword.

@@ -10,7 +10,7 @@ module Curry.LanguageServer.Index.Store (
     storedModule,
     storedModuleByIdent,
     storedModules,
-    storedSymbols,
+    storedSymbolsByIdent,
     storedSymbolsWithPrefix,
     storedSymbolsByQualIdent,
     addWorkspaceDir,
@@ -113,8 +113,8 @@ storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . idxModules
 
 -- | Fetches the given (unqualified) symbol names in the store.
-storedSymbols :: T.Text -> IndexStore -> [Symbol]
-storedSymbols t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
+storedSymbolsByIdent :: T.Text -> IndexStore -> [Symbol]
+storedSymbolsByIdent t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
@@ -122,7 +122,7 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbols name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByIdent name
     where name = T.pack $ CI.idName $ CI.qidIdent q
 
 -- | Compiles the given directory recursively and stores its entries.
