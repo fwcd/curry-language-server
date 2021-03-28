@@ -90,11 +90,10 @@ toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
     
     if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
         then [ CompletionSymbol
-                   { cmsSymbol = s
-                   , cmsModuleName = Nothing
-                   , cmsImportEdits = Nothing
-                   }
-             ]
+                { cmsSymbol = s
+                , cmsModuleName = m
+                , cmsImportEdits = Nothing
+                } | m <- [Nothing, Just $ I.sParentIdent s]]
         else do
             CS.ImportDecl _ mid' isQual alias spec <- imps
             let isImported = case spec of
@@ -102,7 +101,7 @@ toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
                     Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ ppToText <$> (identifiers =<< is)
                     Nothing                  -> const True
                 moduleNames = (Just $ ppToText $ fromMaybe mid' alias) : [Nothing | not isQual]
-            (\m -> CompletionSymbol
+            [CompletionSymbol
                 { cmsSymbol = s
                 , cmsModuleName = m
                 , cmsImportEdits = if isImported $ I.sIdent s
@@ -114,7 +113,7 @@ toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
                                                                                                     edit = J.TextEdit range text
                                                                                                 in [edit]
                         _                                                                    -> []
-                }) <$> moduleNames
+                } | m <- moduleNames]
 
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
