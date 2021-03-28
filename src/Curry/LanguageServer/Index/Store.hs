@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Index.Store (
     ModuleStoreEntry (..),
-    SymbolStoreEntry (..),
     IndexStore (..),
     emptyStore,
     storedModuleCount,
@@ -38,6 +37,7 @@ import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
 import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
 import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
+import Curry.LanguageServer.Index.Symbol
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
@@ -70,17 +70,12 @@ data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
 
 
 
--- | An index store entry containing a symbol.
-data SymbolStoreEntry = SymbolStoreEntry { sseSymbol :: J.SymbolInformation
-                                         , sseQualIdent :: CI.QualIdent
-                                         }
-
 -- | An in-memory map of URIs to parsed modules and
 -- unqualified symbol names to actual symbols/symbol information.
 -- Since (unqualified) symbol names can be ambiguous, a trie leaf
 -- holds a list of symbol entries rather than just a single one.
 data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEntry
-                             , idxSymbols :: TR.Trie [SymbolStoreEntry]
+                             , idxSymbols :: TR.Trie [Symbol]
                              }
 
 instance Default ModuleStoreEntry where
@@ -118,15 +113,15 @@ storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . idxModules
 
 -- | Fetches the given (unqualified) symbol names in the store.
-storedSymbols :: T.Text -> IndexStore -> [SymbolStoreEntry]
+storedSymbols :: T.Text -> IndexStore -> [Symbol]
 storedSymbols t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
-storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
+storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
 storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxSymbols
 
 -- | Fetches stored symbols by qualified identifier.
-storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [SymbolStoreEntry]
+storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
 storedSymbolsByQualIdent q = filter (qidEq q . sseQualIdent) . storedSymbols name
     where name = T.pack $ CI.idName $ CI.qidIdent q
           qidEq = (==) `on` ppToText
@@ -261,7 +256,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
         typeSymbols  <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.tyConsEnv env)
 
-        let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
+        let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [Symbol s qid])) <$> (valueSymbols ++ typeSymbols)
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
         modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta $ idxSymbols s }
