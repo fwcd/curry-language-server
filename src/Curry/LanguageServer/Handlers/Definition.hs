@@ -3,10 +3,7 @@ module Curry.LanguageServer.Handlers.Definition (definitionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
-import qualified Curry.Base.SpanInfo as CSPI
-import qualified Base.TopEnv as CT
 
-import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
@@ -51,7 +48,7 @@ fetchDefinitions store entry pos = do
 definition :: I.IndexStore -> J.Position -> LM J.LocationLink
 definition store pos = do
     (qident, _) <- liftMaybe =<< findQualIdentAtPos pos
-    Just (J.Location destUri destRange) <- (definitionInStore store qident <|>) <$> definitionInEnvs qident
+    J.Location destUri destRange <- liftMaybe $ definitionInStore store qident
     srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qident)
     return $ J.LocationLink srcRange destUri destRange destRange
 
@@ -59,10 +56,3 @@ definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
 definitionInStore store qident = find (isCurrySource . (^. J.uri)) locations
     where locations = mapMaybe I.sLocation $ I.storedSymbolsByQualIdent qident store
           isCurrySource uri = ".curry" `T.isSuffixOf` J.getUri uri
-
-definitionInEnvs :: CI.QualIdent -> LM (Maybe J.Location)
-definitionInEnvs qident = do
-    valueQIdent <- (CT.origName <$>) <$> lookupValueInfo qident
-    typeQIdent  <- (CT.origName <$>) <$> lookupTypeInfo qident
-    let origIdent = CI.qidIdent $ fromMaybe qident (valueQIdent <|> typeQIdent)
-    liftIO $ runMaybeT $ currySpanInfo2Location (CSPI.getSpanInfo origIdent)
