@@ -23,9 +23,7 @@ module Curry.LanguageServer.Utils.Convert (
     ppTypeSchemeToText,
     ppPredTypeToText,
     HasDocumentSymbols (..),
-    HasSymbolKind (..),
-    HasWorkspaceSymbols (..),
-    bindingToQualSymbols
+    HasWorkspaceSymbols (..)
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -38,15 +36,13 @@ import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
-import qualified Env.TypeConstructor as CETC
-import qualified Env.Value as CEV
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(runMaybeT))
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri (filePathToUri, uriToFilePath)
-import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
@@ -180,9 +176,6 @@ documentSymbolFrom :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.Docume
 documentSymbolFrom n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
     where r' = fromMaybe emptyRange r
 
-symbolInformationFrom :: T.Text -> J.SymbolKind -> Maybe J.Location -> Maybe J.SymbolInformation
-symbolInformationFrom n k = ((\l -> J.SymbolInformation n k Nothing l Nothing) <$>)
-
 class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
@@ -309,26 +302,6 @@ instance HasDocumentSymbols CS.NewConstrDecl where
         CS.NewRecordDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
         where symKind = J.SkEnumMember
 
-class HasSymbolKind s where
-    symbolKind :: s -> J.SymbolKind
-    
-instance HasSymbolKind CEV.ValueInfo where
-    symbolKind vinfo = case vinfo of
-        CEV.DataConstructor _ _ _ _   -> J.SkEnumMember
-        CEV.NewtypeConstructor _ _ _  -> J.SkEnumMember
-        CEV.Value _ _ _ t | arity > 0 -> J.SkFunction
-                          | otherwise -> J.SkConstant
-            where arity = CT.arrowArity $ CT.rawType t
-        CEV.Label _ _ _              -> J.SkFunction -- Arity is always 1 for record labels
-
-instance HasSymbolKind CETC.TypeInfo where
-    symbolKind tinfo = case tinfo of
-        CETC.DataType _ _ _     -> J.SkStruct
-        CETC.RenamingType _ _ _ -> J.SkInterface
-        CETC.AliasType _ _ _ _  -> J.SkInterface
-        CETC.TypeClass _ _ _    -> J.SkInterface
-        CETC.TypeVar _          -> J.SkTypeParameter
-
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]
 
@@ -340,13 +313,6 @@ instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s whe
                 where cs' = maybe [] (\(J.List cs'') -> cs'') cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s
-
-bindingToQualSymbols :: HasSymbolKind k => (CI.QualIdent, k) -> IO [(CI.QualIdent, J.SymbolInformation)]
-bindingToQualSymbols (qident, v) = do
-    loc <- runMaybeT $ currySpanInfo2Location $ CI.qidSpanInfo qident
-    let name = T.pack $ CI.idName $ CI.qidIdent qident
-        symKind = symbolKind v
-    return $ maybeToList $ pair qident <$> symbolInformationFrom name symKind loc
 
 -- Language Server Protocol -> Curry Compiler
 
