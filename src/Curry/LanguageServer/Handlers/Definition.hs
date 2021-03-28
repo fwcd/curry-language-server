@@ -16,7 +16,7 @@ import Curry.LanguageServer.Utils.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.List (find)
+import Data.List (find, sortOn)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, maybeToList, mapMaybe, listToMaybe)
 import qualified Data.Text as T
@@ -62,4 +62,7 @@ definitions store pos = do
     return [J.LocationLink srcRange destUri destRange destRange | J.Location destUri destRange <- locs]
 
 definitionsInStore :: I.IndexStore -> CI.QualIdent -> [J.Location]
-definitionsInStore store qid = mapMaybe I.sLocation $ filter I.sIsFromCurrySource $ I.storedSymbolsByQualIdent qid store
+definitionsInStore store qid = mapMaybe I.sLocation symbols'
+    where symbols = I.storedSymbolsByQualIdent qid store
+          symbols' | any I.sIsFromCurrySource symbols = filter I.sIsFromCurrySource symbols
+                   | otherwise                        = symbols
