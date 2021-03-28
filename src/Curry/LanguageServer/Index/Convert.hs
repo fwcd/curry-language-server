@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Index.Convert (
     ToSymbols (..)
 ) where
@@ -14,6 +15,7 @@ import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
 import Curry.LanguageServer.Utils.General (lastSafe)
 import Data.Default (Default (..))
+import Data.List (inits)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
@@ -39,12 +41,14 @@ instance ToSymbols CETC.TypeInfo where
 instance ToSymbols CI.ModuleIdent where
     toSymbols mid = do
         loc <- runMaybeT $ currySpanInfo2Location mid
-        return $ pure def
-            { sKind = Module
-            , sQualIdent = ppToText mid
-            , sIdent = T.pack $ fromMaybe "" $ lastSafe $ CI.midQualifiers mid
-            , sLocation = loc
-            }
+        return $ do
+            quals <- tail $ inits $ T.pack <$> CI.midQualifiers mid
+            return def
+                { sKind = Module
+                , sQualIdent = T.intercalate "." quals
+                , sIdent = fromMaybe "" $ lastSafe quals
+                , sLocation = loc
+                }
 
 makeValueSymbol :: SymbolKind -> CI.QualIdent -> CT.TypeScheme -> IO Symbol
 makeValueSymbol k q t = do
