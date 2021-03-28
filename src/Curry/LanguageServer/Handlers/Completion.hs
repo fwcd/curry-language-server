@@ -12,6 +12,7 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText)
+import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (maybeToList, fromMaybe)
@@ -67,7 +68,7 @@ generalCompletions entry store query = do
     -- TODO: Qualified symbols
     -- TODO: Qualified symbols from renamed imports
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions query $ flip toCompletionSymbols entry =<< I.storedSymbols store -- TODO: Filter directly at store level
+        symbolCompletions  = toMatchingCompletions query $ toCompletionSymbols entry =<< I.storedSymbols store -- TODO: Filter directly at store level
         keywordCompletions = toMatchingCompletions query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
@@ -85,34 +86,29 @@ data CompletionSymbol = CompletionSymbol
     , cmsImportEdits :: Maybe [J.TextEdit]
     }
 
-class ToCompletionSymbols a where
-    toCompletionSymbols :: I.Symbol -> a -> [CompletionSymbol]
-
-instance ToCompletionSymbols I.ModuleStoreEntry where
-    toCompletionSymbols s = (toCompletionSymbols s =<<) . maybeToList . I.mseModuleAST
-
-instance ToCompletionSymbols (CS.Module a) where
-    toCompletionSymbols s (CS.Module _ _ _ _ _ imps _) = toCompletionSymbols s =<< imps
-
-instance ToCompletionSymbols CS.ImportDecl where
-    toCompletionSymbols s (CS.ImportDecl _ mid isQual alias spec)
-        | I.sParentIdent s == ppToText mid = cmss
-        | otherwise                        = []
-        where importIdents imp = case imp of
-                  CS.Import _ i            -> [i]
-                  CS.ImportTypeWith _ i is -> i : is
-                  CS.ImportTypeAll _ i     -> [i]
-              isImported = case spec of
-                  Just (CS.Importing _ is) -> flip S.member $ S.fromList $ importIdents =<< is
-                  Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ importIdents =<< is
-                  Nothing                  -> const True
-              moduleNames = (Just $ ppToText $ fromMaybe mid alias) : [Nothing | not isQual]
-              cmss = (\m -> CompletionSymbol
-                  { cmsSymbol = s
-                  , cmsModuleName = m
-                  , cmsImportEdits = Nothing -- TODO
-                  }) <$> moduleNames
-              
+toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
+toCompletionSymbols entry s = do
+    CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
+    
+    if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
+        then [ CompletionSymbol
+                   { cmsSymbol = s
+                   , cmsModuleName = Nothing
+                   , cmsImportEdits = Nothing
+                   }
+             ]
+        else do
+            CS.ImportDecl _ mid' isQual alias spec <- imps
+            let isImported = case spec of
+                    Just (CS.Importing _ is) -> flip S.member $ S.fromList $ identifiers =<< is
+                    Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ identifiers =<< is
+                    Nothing                  -> const True
+                moduleNames = (Just $ ppToText $ fromMaybe mid' alias) : [Nothing | not isQual]
+            (\m -> CompletionSymbol
+                { cmsSymbol = s
+                , cmsModuleName = m
+                , cmsImportEdits = Nothing -- TODO
+                }) <$> moduleNames
 
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
