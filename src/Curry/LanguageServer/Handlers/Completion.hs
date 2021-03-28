@@ -5,7 +5,7 @@ module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 import qualified Curry.Syntax as CS
 
 import Control.Lens ((^.))
-import Control.Monad (join)
+import Control.Monad (join, guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Control.Monad.State.Class (get)
@@ -89,19 +89,25 @@ toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
     
     if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
-        then [ CompletionSymbol
+        then do
+            m <- [Nothing, Just $ I.sParentIdent s]
+            return CompletionSymbol
                 { cmsSymbol = s
                 , cmsModuleName = m
                 , cmsImportEdits = Nothing
-                } | m <- [Nothing, Just $ I.sParentIdent s]]
+                }
         else do
             CS.ImportDecl _ mid' isQual alias spec <- imps
+            guard $ ppToText mid' == I.sParentIdent s
+
             let isImported = case spec of
                     Just (CS.Importing _ is) -> flip S.member $ S.fromList $ ppToText <$> (identifiers =<< is)
                     Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ ppToText <$> (identifiers =<< is)
                     Nothing                  -> const True
                 moduleNames = (Just $ ppToText $ fromMaybe mid' alias) : [Nothing | not isQual]
-            [CompletionSymbol
+            
+            m <- moduleNames
+            return CompletionSymbol
                 { cmsSymbol = s
                 , cmsModuleName = m
                 , cmsImportEdits = if isImported $ I.sIdent s
@@ -113,7 +119,7 @@ toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
                                                                                                     edit = J.TextEdit range text
                                                                                                 in [edit]
                         _                                                                    -> []
-                } | m <- moduleNames]
+                }
 
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
