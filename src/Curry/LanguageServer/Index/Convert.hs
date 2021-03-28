@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 module Curry.LanguageServer.Index.Convert (
     ToSymbols (..)
 ) where
@@ -22,20 +22,20 @@ import qualified Data.Text as T
 class ToSymbols s where
     toSymbols :: s -> IO [Symbol]
     
-instance ToSymbols CEV.ValueInfo where
-    toSymbols vinfo = pure <$> case vinfo of
-        CEV.DataConstructor q _ ls t  -> (\s -> s { sConstructors = ppToText <$> ls })
+instance ToSymbols (CI.QualIdent, CEV.ValueInfo) where
+    toSymbols (q, vinfo) = pure <$> case vinfo of
+        CEV.DataConstructor _ _ ls t  -> (\s -> s { sConstructors = ppToText <$> ls })
                                      <$> makeValueSymbol ValueConstructor q t
-        CEV.NewtypeConstructor q _ t  -> makeValueSymbol ValueConstructor q t
-        CEV.Value q _ _ t             -> makeValueSymbol ValueFunction q t
-        CEV.Label q _ t               -> makeValueSymbol ValueFunction q t
+        CEV.NewtypeConstructor _ _ t  -> makeValueSymbol ValueConstructor q t
+        CEV.Value _ _ _ t             -> makeValueSymbol ValueFunction q t
+        CEV.Label _ _ t               -> makeValueSymbol ValueFunction q t
 
-instance ToSymbols CETC.TypeInfo where
-    toSymbols tinfo = case tinfo of
-        CETC.DataType q k _     -> pure <$> makeTypeSymbol TypeData q k
-        CETC.RenamingType q k _ -> pure <$> makeTypeSymbol TypeNew q k
-        CETC.AliasType q k _ _  -> pure <$> makeTypeSymbol TypeAlias q k
-        CETC.TypeClass q k _    -> pure <$> makeTypeSymbol TypeClass q k
+instance ToSymbols (CI.QualIdent, CETC.TypeInfo) where
+    toSymbols (q, tinfo) = case tinfo of
+        CETC.DataType _ k _     -> pure <$> makeTypeSymbol TypeData q k
+        CETC.RenamingType _ k _ -> pure <$> makeTypeSymbol TypeNew q k
+        CETC.AliasType _ k _ _  -> pure <$> makeTypeSymbol TypeAlias q k
+        CETC.TypeClass _ k _    -> pure <$> makeTypeSymbol TypeClass q k
         CETC.TypeVar _          -> return []
 
 instance ToSymbols CI.ModuleIdent where

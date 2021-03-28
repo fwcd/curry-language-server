@@ -87,8 +87,10 @@ data CompletionSymbol = CompletionSymbol
 toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
 toCompletionSymbols entry s = do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
+    let pre = "Prelude"
+        impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
     
-    if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
+    if (I.sParentIdent s == pre && pre `S.notMember` impNames) || I.sParentIdent s == ppToText mid
         then do
             m <- [Nothing, Just $ I.sParentIdent s]
             return CompletionSymbol
