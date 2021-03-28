@@ -10,6 +10,7 @@ module Curry.LanguageServer.Index.Store (
     storedModule,
     storedModuleByIdent,
     storedModules,
+    storedSymbols,
     storedSymbolsByIdent,
     storedSymbolsWithPrefix,
     storedSymbolsByQualIdent,
@@ -111,6 +112,10 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 -- | Fetches the entries in the store as a list.
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . idxModules
+
+-- | Fetches all symbols.
+storedSymbols :: IndexStore -> [Symbol]
+storedSymbols = join . TR.toListBy (const id) . idxSymbols
 
 -- | Fetches the given (unqualified) symbol names in the store.
 storedSymbolsByIdent :: T.Text -> IndexStore -> [Symbol]

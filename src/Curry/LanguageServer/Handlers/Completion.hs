@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
--- Curry Compiler Libraries + Dependencies
-
 import Control.Lens ((^.))
 import Control.Monad (join)
 import Control.Monad.IO.Class (liftIO)
@@ -64,7 +62,7 @@ generalCompletions entry store query = do
     -- TODO: Qualified symbols
     -- TODO: Qualified symbols from renamed imports
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions query $ I.storedSymbolsByIdent (VFS.prefixText query) store
+        symbolCompletions  = toMatchingCompletions query $ I.storedSymbols store -- TODO: Filter directly at store level
         keywordCompletions = toMatchingCompletions query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
@@ -86,12 +84,8 @@ instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter I.Symbol where
-    matchesCompletionQuery query s = pfFull `T.isPrefixOf` idFull
-        where idFull = I.sQualIdent s
-              pfText = VFS.prefixText query
-              pfMod  = VFS.prefixModule query
-              pfFull | T.null pfMod = pfText
-                     | otherwise    = pfMod <> "." <> pfText
+    -- TODO: Qualified names
+    matchesCompletionQuery query s = VFS.prefixText query `T.isPrefixOf` I.sIdent s
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem?
 
