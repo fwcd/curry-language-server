@@ -257,9 +257,9 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
         -- Update symbol store
-        valueSymbols <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.valueEnv env)
-        typeSymbols  <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.tyConsEnv env)
-        modSymbols   <- liftIO $ (maybeToList =<<) <$> mapM toSymbol (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
+        valueSymbols <- liftIO $ join <$> mapM (toSymbols . snd) (CT.allBindings $ CE.valueEnv env)
+        typeSymbols  <- liftIO $ join <$> mapM (toSymbols . snd) (CT.allBindings $ CE.tyConsEnv env)
+        modSymbols   <- liftIO $ join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
 
         let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols ++ modSymbols)
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"

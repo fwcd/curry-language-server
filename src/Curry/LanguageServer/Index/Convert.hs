@@ -1,5 +1,5 @@
 module Curry.LanguageServer.Index.Convert (
-    ToSymbol (..)
+    ToSymbols (..)
 ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -17,29 +17,29 @@ import Data.Default (Default (..))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
-class ToSymbol s where
-    toSymbol :: s -> IO (Maybe Symbol)
+class ToSymbols s where
+    toSymbols :: s -> IO [Symbol]
     
-instance ToSymbol CEV.ValueInfo where
-    toSymbol vinfo = Just <$> case vinfo of
+instance ToSymbols CEV.ValueInfo where
+    toSymbols vinfo = pure <$> case vinfo of
         CEV.DataConstructor q _ ls t  -> (\s -> s { sConstructors = ppToText <$> ls })
                                      <$> makeValueSymbol ValueConstructor q t
         CEV.NewtypeConstructor q _ t  -> makeValueSymbol ValueConstructor q t
         CEV.Value q _ _ t             -> makeValueSymbol ValueFunction q t
         CEV.Label q _ t               -> makeValueSymbol ValueFunction q t
 
-instance ToSymbol CETC.TypeInfo where
-    toSymbol tinfo = case tinfo of
-        CETC.DataType q k _     -> Just <$> makeTypeSymbol TypeData q k
-        CETC.RenamingType q k _ -> Just <$> makeTypeSymbol TypeNew q k
-        CETC.AliasType q k _ _  -> Just <$> makeTypeSymbol TypeAlias q k
-        CETC.TypeClass q k _    -> Just <$> makeTypeSymbol TypeClass q k
-        CETC.TypeVar _          -> return Nothing
+instance ToSymbols CETC.TypeInfo where
+    toSymbols tinfo = case tinfo of
+        CETC.DataType q k _     -> pure <$> makeTypeSymbol TypeData q k
+        CETC.RenamingType q k _ -> pure <$> makeTypeSymbol TypeNew q k
+        CETC.AliasType q k _ _  -> pure <$> makeTypeSymbol TypeAlias q k
+        CETC.TypeClass q k _    -> pure <$> makeTypeSymbol TypeClass q k
+        CETC.TypeVar _          -> return []
 
-instance ToSymbol CI.ModuleIdent where
-    toSymbol mid = do
+instance ToSymbols CI.ModuleIdent where
+    toSymbols mid = do
         loc <- runMaybeT $ currySpanInfo2Location mid
-        return $ Just def
+        return $ pure def
             { sKind = Module
             , sQualIdent = ppToText mid
             , sIdent = T.pack $ fromMaybe "" $ lastSafe $ CI.midQualifiers mid
