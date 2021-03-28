@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -11,11 +11,11 @@ import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Utils.Convert (ppToText)
+import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.Maybe (maybeToList, fromMaybe)
+import Data.Maybe (maybeToList, fromMaybe, isNothing)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
@@ -97,14 +97,22 @@ toCompletionSymbols entry s = do
         else do
             CS.ImportDecl _ mid' isQual alias spec <- imps
             let isImported = case spec of
-                    Just (CS.Importing _ is) -> flip S.member $ S.fromList $ identifiers =<< is
-                    Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ identifiers =<< is
+                    Just (CS.Importing _ is) -> flip S.member $ S.fromList $ ppToText <$> (identifiers =<< is)
+                    Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ ppToText <$> (identifiers =<< is)
                     Nothing                  -> const True
                 moduleNames = (Just $ ppToText $ fromMaybe mid' alias) : [Nothing | not isQual]
             (\m -> CompletionSymbol
                 { cmsSymbol = s
                 , cmsModuleName = m
-                , cmsImportEdits = Nothing -- TODO
+                , cmsImportEdits = if isImported $ I.sIdent s
+                    then Nothing
+                    else Just $ case spec of
+                        Just (CS.Importing (currySpanInfo2Range -> Just (J.Range _ pos)) is) -> let range = J.Range pos pos
+                                                                                                    text | null is   = I.sIdent s
+                                                                                                         | otherwise = ", " <> I.sIdent s
+                                                                                                    edit = J.TextEdit range text
+                                                                                                in [edit]
+                        _                                                                    -> []
                 }) <$> moduleNames
 
 class CompletionQueryFilter a where
@@ -150,7 +158,7 @@ instance ToCompletionItems CompletionSymbol where
                   I.Other                                        -> J.CiText
               detail = I.sPrintedType s
               doc = Just $ T.intercalate "\n" $ filter (not . T.null)
-                  [ if null edits then "" else "_requires import_"
+                  [ if isNothing edits then "" else "_requires import_"
                   , T.intercalate ", " $ I.sConstructors s
                   ]
 
