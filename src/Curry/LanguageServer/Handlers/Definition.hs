@@ -3,10 +3,12 @@ module Curry.LanguageServer.Handlers.Definition (definitionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
+import qualified Curry.Syntax as CS
 
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
+import Control.Monad.Reader.Class (ask)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert
@@ -16,7 +18,7 @@ import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.List (find)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, maybeToList, mapMaybe)
+import Data.Maybe (fromMaybe, maybeToList, mapMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
@@ -39,23 +41,25 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
 
 fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.LocationLink]
 fetchDefinitions store entry pos = do
-    defs <- runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
-                           MaybeT $ runLM (definition store pos) ast
+    defs <- (fromMaybe [] <$>) $ runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
+                                                MaybeT $ runLM (definitions store pos) ast
     infoM "cls.definition" $ "Found " ++ show defs
-    return $ maybeToList defs
+    return defs
 
-definition :: I.IndexStore -> J.Position -> LM J.LocationLink
-definition store pos = do
-    mid <- getModuleIdentifier
+definitions :: I.IndexStore -> J.Position -> LM [J.LocationLink]
+definitions store pos = do
+    -- Find qualified identifier under cursor
     (qid, _) <- liftMaybe =<< findQualIdentAtPos pos
-    -- TODO: This is not quite correct yet, since the AST may contain
-    --       unqualified QualIdents that actually refer to some imported
-    --       symbol rather than something from the current module.
-    let qid' = qid { CI.qidModule = Just $ fromMaybe mid $ CI.qidModule qid }
-    liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid'
-    J.Location destUri destRange <- liftMaybe $ definitionInStore store qid'
-    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid')
-    return $ J.LocationLink srcRange destUri destRange destRange
+    liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid
+    -- Resolve the qualified identifier using imports
+    -- TODO: Deal with aliases correctly
+    CS.Module _ _ _ mid _ imps _ <- ask
+    let qids = qid : (flip CI.qualQualify qid <$>
+               ([mid, CI.mkMIdent ["Prelude"]] ++ [mid' | CS.ImportDecl _ mid' _ _ _ <- imps]))
+    -- Perform lookup
+    let locs = mapMaybe (definitionInStore store) qids
+    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid)
+    return [J.LocationLink srcRange destUri destRange destRange | J.Location destUri destRange <- locs]
 
 definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
 definitionInStore store qid = find (isCurrySource . (^. J.uri)) locations
