@@ -231,29 +231,31 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
-    let -- Ignore parses from interface files, only consider source files for now
-        asts = filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
-        fps = S.fromList $ fst <$> asts
-        msgNormUri msg = runMaybeT $ do
+    let msgNormUri msg = runMaybeT $ do
             uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
             liftIO $ normalizeUriWithPath uri'
+
+    -- Ignore parses from interface files, only consider source files for now
+    asts <- liftIO $ mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
 
     warns  <- liftIO $ groupIntoMapByM msgNormUri $ C.csWarnings cs
     errors <- liftIO $ groupIntoMapByM msgNormUri $ C.csErrors cs
 
     liftIO $ debugM "cls.indexStore" $ "Recompiled module paths: " ++ show (fst <$> asts)
 
-    forM_ asts $ \(fp, (env, ast)) -> do
-        uri' <- liftIO $ filePathToNormalizedUri fp
+    -- Update store with compiled modules
 
+    let modifyEntry f uri' ms' = M.alter (Just . f . fromMaybe defEntry) uri' ms'
+
+    forM_ asts $ \(uri', (env, ast)) -> do
         -- Update module store
-        let modifyEntry = \e -> e
+        let updateEntry e = e
                 { mseWarningMessages = M.findWithDefault [] (Just uri') warns
                 , mseErrorMessages = M.findWithDefault [] (Just uri') errors
                 , mseModuleAST = Just ast
                 , mseCompilerEnv = Just env
                 }
-        modify $ \s -> s { idxModules = M.alter (Just . modifyEntry . fromMaybe defEntry) uri' $ idxModules s }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
         -- Update symbol store
         valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
@@ -264,7 +266,19 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
 
         modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta $ idxSymbols s }
     
-    -- TODO: Errors/warnings from modules without an ast
+    -- Update store with messages from files that were not successfully compiled
+
+    let uris = S.fromList $ fst <$> asts
+        catFstMaybes xs = xs >>= \(x, y) -> (, y) <$> maybeToList x
+        other = filter ((`S.notMember` uris) . fst) . catFstMaybes . M.toList
+    
+    forM_ (other warns) $ \(uri', msgs) -> do
+        let updateEntry e = e { mseWarningMessages = msgs }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+
+    forM_ (other errors) $ \(uri', msgs) -> do
+        let updateEntry e = e { mseErrorMessages = msgs }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
 -- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int
