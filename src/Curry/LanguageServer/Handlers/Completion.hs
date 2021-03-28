@@ -16,6 +16,7 @@ import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
+import Data.List.Extra (nubOrdOn)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
@@ -84,7 +85,7 @@ data CompletionSymbol = CompletionSymbol
     }
 
 toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
-toCompletionSymbols entry s = do
+toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
     
     if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
