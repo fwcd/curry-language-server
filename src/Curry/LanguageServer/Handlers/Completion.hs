@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
+-- Curry Compiler Libraries + Dependencies
+import qualified Curry.Syntax as CS
+
 import Control.Lens ((^.))
 import Control.Monad (join)
 import Control.Monad.IO.Class (liftIO)
@@ -8,9 +11,11 @@ import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
+import Curry.LanguageServer.Utils.Convert (ppToText)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (maybeToList, fromMaybe)
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.VFS as VFS
@@ -62,7 +67,7 @@ generalCompletions entry store query = do
     -- TODO: Qualified symbols
     -- TODO: Qualified symbols from renamed imports
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions query $ I.storedSymbols store -- TODO: Filter directly at store level
+        symbolCompletions  = toMatchingCompletions query $ flip toCompletionSymbols entry =<< I.storedSymbols store -- TODO: Filter directly at store level
         keywordCompletions = toMatchingCompletions query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
@@ -74,6 +79,41 @@ toMatchingCompletions query = (toCompletionItems query =<<) . filter (matchesCom
 
 newtype Keyword = Keyword T.Text
 
+data CompletionSymbol = CompletionSymbol
+    { cmsSymbol :: I.Symbol
+    , cmsModuleName :: Maybe T.Text -- possibly aliased
+    , cmsImportEdits :: Maybe [J.TextEdit]
+    }
+
+class ToCompletionSymbols a where
+    toCompletionSymbols :: I.Symbol -> a -> [CompletionSymbol]
+
+instance ToCompletionSymbols I.ModuleStoreEntry where
+    toCompletionSymbols s = (toCompletionSymbols s =<<) . maybeToList . I.mseModuleAST
+
+instance ToCompletionSymbols (CS.Module a) where
+    toCompletionSymbols s (CS.Module _ _ _ _ _ imps _) = toCompletionSymbols s =<< imps
+
+instance ToCompletionSymbols CS.ImportDecl where
+    toCompletionSymbols s (CS.ImportDecl _ mid isQual alias spec)
+        | I.sParentIdent s == ppToText mid = cmss
+        | otherwise                        = []
+        where importIdents imp = case imp of
+                  CS.Import _ i            -> [i]
+                  CS.ImportTypeWith _ i is -> i : is
+                  CS.ImportTypeAll _ i     -> [i]
+              isImported = case spec of
+                  Just (CS.Importing _ is) -> flip S.member $ S.fromList $ importIdents =<< is
+                  Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ importIdents =<< is
+                  Nothing                  -> const True
+              moduleNames = (Just $ ppToText $ fromMaybe mid alias) : [Nothing | not isQual]
+              cmss = (\m -> CompletionSymbol
+                  { cmsSymbol = s
+                  , cmsModuleName = m
+                  , cmsImportEdits = Nothing -- TODO
+                  }) <$> moduleNames
+              
+
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
 
@@ -83,19 +123,24 @@ instance CompletionQueryFilter T.Text where
 instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
-instance CompletionQueryFilter I.Symbol where
-    -- TODO: Qualified names
-    matchesCompletionQuery query s = VFS.prefixText query `T.isPrefixOf` I.sIdent s
-
--- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem?
+instance CompletionQueryFilter CompletionSymbol where
+    matchesCompletionQuery query cms = fullPrefix `T.isPrefixOf` fullName
+        where s = cmsSymbol cms
+              moduleName = cmsModuleName cms
+              fullName = maybe (I.sQualIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
+              fullPrefix | T.null (VFS.prefixModule query) = VFS.prefixText query
+                         | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
 
 class ToCompletionItems a where
     toCompletionItems :: VFS.PosPrefixInfo -> a -> [J.CompletionItem]
 
-instance ToCompletionItems I.Symbol where
+instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItems query s = [completionFrom name ciKind detail doc]
-        where fullName = I.sQualIdent s
+    toCompletionItems query cms = [completionFrom name ciKind detail doc edits]
+        where s = cmsSymbol cms
+              moduleName = cmsModuleName cms
+              edits = cmsImportEdits cms
+              fullName = maybe (I.sQualIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case I.sKind s of
                   I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
@@ -115,20 +160,20 @@ instance ToCompletionItems I.Symbol where
 
 instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
-    toCompletionItems _ (Keyword kw) = [completionFrom kw ciKind detail doc]
+    toCompletionItems _ (Keyword kw) = [completionFrom kw ciKind detail doc Nothing]
         where ciKind = J.CiKeyword
               detail = Nothing
               doc = Just "Keyword"
 
 instance ToCompletionItems T.Text where
-    toCompletionItems _ txt = [completionFrom txt ciKind detail doc]
+    toCompletionItems _ txt = [completionFrom txt ciKind detail doc Nothing]
         where ciKind = J.CiText
               detail = Nothing
               doc = Nothing
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
-completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> J.CompletionItem
-completionFrom l k d c = J.CompletionItem label kind tags detail doc deprecated
+completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe [J.TextEdit] -> J.CompletionItem
+completionFrom l k d c es = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
                                           insertTextFormat textEdit additionalTextEdits
                                           commitChars command xdata
@@ -144,7 +189,7 @@ completionFrom l k d c = J.CompletionItem label kind tags detail doc deprecated
         insertText = Nothing
         insertTextFormat = Nothing
         textEdit = Nothing
-        additionalTextEdits = Nothing
+        additionalTextEdits = J.List <$> es
         commitChars = Nothing
         command = Nothing
         xdata = Nothing
