@@ -64,11 +64,8 @@ pragmaCompletions query
 
 generalCompletions :: I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions entry store query = do
-    -- TODO: Filter only imported symbols (and otherwise attach an edit to import them)
-    -- TODO: Qualified symbols
-    -- TODO: Qualified symbols from renamed imports
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions query $ toCompletionSymbols entry =<< I.storedSymbols store -- TODO: Filter directly at store level
+        symbolCompletions  = toMatchingCompletions query $ toCompletionSymbols entry =<< I.storedSymbolsWithPrefix (VFS.prefixText query) store -- TODO: Direct qualified symbol completions?
         keywordCompletions = toMatchingCompletions query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
