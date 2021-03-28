@@ -13,13 +13,15 @@ import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
 import Data.Default (Default (..))
+import qualified Data.Text as T
 
 class ToSymbol s where
     toSymbol :: s -> IO (Maybe Symbol)
     
 instance ToSymbol CEV.ValueInfo where
     toSymbol vinfo = Just <$> case vinfo of
-        CEV.DataConstructor q _ _ t   -> makeValueSymbol ValueConstructor q t
+        CEV.DataConstructor q _ ls t  -> (\s -> s { sConstructors = ppToText <$> ls })
+                                     <$> makeValueSymbol ValueConstructor q t
         CEV.NewtypeConstructor q _ t  -> makeValueSymbol ValueConstructor q t
         CEV.Value q _ _ t             -> makeValueSymbol ValueFunction q t
         CEV.Label q _ t               -> makeValueSymbol ValueFunction q t

@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Index.Symbol (
     SymbolKind (..),
-    Symbol (..)
+    Symbol (..),
+    sParentIdent
 ) where
 
 import Data.Default (Default (..))
@@ -26,6 +27,7 @@ data Symbol = Symbol
     , sIdent :: T.Text
     , sPrintedType :: Maybe T.Text
     , sArrowArity :: Maybe Int
+    , sConstructors :: [T.Text]
     , sLocation :: Maybe J.Location
     }
 
@@ -36,5 +38,9 @@ instance Default Symbol where
         , sIdent = ""
         , sPrintedType = Nothing
         , sArrowArity = Nothing
+        , sConstructors = []
         , sLocation = Nothing
         }
+
+sParentIdent :: Symbol -> T.Text
+sParentIdent = T.intercalate "." . init . T.split (== '.') . sQualIdent
