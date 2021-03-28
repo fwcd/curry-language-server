@@ -40,12 +40,13 @@ fetchCodeLenses entry = do
 class HasCodeLenses s where
     codeLenses :: s -> IO [J.CodeLens]
 
-instance HasCodeLenses (CS.Module CT.PredType) where
+instance HasCodeLenses (CS.Module (Maybe CT.PredType)) where
     codeLenses mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
         let typeHintLenses = do
-                (spi', i, t) <- untypedTopLevelDecls mdl
+                (spi', i, tp) <- untypedTopLevelDecls mdl
+                t <- maybeToList tp
                 range <- maybeToList $ currySpanInfo2Range spi'
                 uri <- maybeToList maybeUri
                 -- TODO: Move the command identifier ('decl.applyTypeHint') to some

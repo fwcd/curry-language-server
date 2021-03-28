@@ -42,7 +42,7 @@ fetchCodeActions range entry = do
 class HasCodeActions s where
     codeActions :: J.Range -> s -> IO [J.CodeAction]
 
-instance HasCodeActions (CS.Module CT.PredType) where
+instance HasCodeActions (CS.Module (Maybe CT.PredType)) where
     codeActions range mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
@@ -50,7 +50,8 @@ instance HasCodeActions (CS.Module CT.PredType) where
         --       quick fixes along with the warning messages?
 
         let typeHintActions = do
-                (spi', i, t) <- untypedTopLevelDecls mdl
+                (spi', i, tp) <- untypedTopLevelDecls mdl
+                t <- maybeToList tp
                 range' <- maybeToList $ currySpanInfo2Range spi'
                 guard $ rangeOverlaps range range'
                 uri <- maybeToList maybeUri

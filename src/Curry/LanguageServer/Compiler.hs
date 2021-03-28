@@ -31,7 +31,6 @@ import qualified Modules as CMD
 import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Applicative ((<|>))
 import Control.Monad (join)
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Maybe (MaybeT (..))
