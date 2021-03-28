@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Compiler (
     CompileState (..),
+    CompileOutput (..),
     FileLoader,
     compileCurryFileWithDeps,
     failedCompilation
@@ -45,26 +46,20 @@ import System.FilePath
 import System.Log.Logger
 
 data CompileState = CompileState
-    { coCompilerEnv :: Maybe CE.CompilerEnv
-    , coModuleASTs :: [(FilePath, ModuleAST)]
-    , coWarnings :: [CM.Message]
-    , coErrors :: [CM.Message]
+    { csWarnings :: [CM.Message]
+    , csErrors :: [CM.Message]
     }
 
 instance Semigroup CompileState where
     x <> y = CompileState
-        { coCompilerEnv = coCompilerEnv x <|> coCompilerEnv y
-        , coModuleASTs = coModuleASTs x ++ coModuleASTs y
-        , coWarnings = coWarnings x ++ coWarnings y
-        , coErrors = coErrors x ++ coErrors y
+        { csWarnings = csWarnings x ++ csWarnings y
+        , csErrors = csErrors x ++ csErrors y
         }
 
 instance Monoid CompileState where
     mempty = CompileState
-        { coCompilerEnv = Nothing
-        , coModuleASTs = []
-        , coWarnings = []
-        , coErrors = []
+        { csWarnings = []
+        , csErrors = []
         }
 
 -- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
@@ -76,14 +71,19 @@ runCM = flip runStateT mempty . runMaybeT
 catchCYIO :: CYIO a -> CM (Maybe a)
 catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
     Left es       -> do
-        modify $ \s -> s { coErrors = coErrors s ++ es }
+        modify $ \s -> s { csErrors = csErrors s ++ es }
         return Nothing
     Right (x, ws) -> do
-        modify $ \s -> s { coWarnings = coWarnings s ++ ws }
+        modify $ \s -> s { csWarnings = csWarnings s ++ ws }
         return $ Just x
 
 liftCYIO :: CYIO a -> CM a
 liftCYIO = MaybeT . (join <$>) . runMaybeT . catchCYIO
+
+data CompileOutput = CompileOutput
+    { coCompilerEnv :: CE.CompilerEnv
+    , coModuleASTs :: [(FilePath, ModuleAST)]
+    }
 
 type FileLoader = FilePath -> IO String
 
@@ -93,7 +93,7 @@ type FileLoader = FilePath -> IO String
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompileState
+compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO (CompileOutput, CompileState)
 compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (snd <$>) $ runCM $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
@@ -103,13 +103,13 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (snd <$>) $ ru
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  }
     -- Resolve dependencies
-    deps <- CD.flatDeps opts filePath
+    deps <- liftCYIO $ CD.flatDeps opts filePath
     liftIO $ debugM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> compileCurryModules opts fl outDirPath deps
+    toCompileOutput <$> compileCurryModules opts fl outDirPath deps
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CM (CE.CompEnv [(FilePath, ModuleAST)])
 compileCurryModules opts fl outDirPath deps = case deps of
     [] -> failMessages [failMessageFrom "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
@@ -128,7 +128,7 @@ compileCurryModules opts fl outDirPath deps = case deps of
               _      -> o
 
 -- | Compiles a single module.
-compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CM (CE.CompEnv ModuleAST)
 compileCurryModule opts fl outDirPath m fp = do
     liftIO $ debugM "cls.compiler" $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
@@ -155,13 +155,14 @@ compileCurryModule opts fl outDirPath m fp = do
 --                    2018        Kai-Oliver Prott
 
 -- | Loads a single module and performs checks.
-loadAndCheckCurryModule :: CO.Options -> FileLoader -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule :: CO.Options -> FileLoader -> CI.ModuleIdent -> FilePath -> CM (CE.CompEnv ModuleAST)
 loadAndCheckCurryModule opts fl m fp = do
     -- Read source file (possibly from VFS)
     src <- liftIO $ fl fp
     -- Load and check module
-    ce <- CMD.checkModule opts =<< loadCurryModule opts m src fp
-    warnMessages $ uncurry (CC.warnCheck opts) ce
+    loaded <- liftCYIO $ loadCurryModule opts m src fp
+    checked <- catchCYIO $ CMD.checkModule opts loaded
+    liftCYIO $ warnMessages $ maybe [] (uncurry (CC.warnCheck opts)) checked
     return ce
 
 -- | Loads a single module.
@@ -214,11 +215,11 @@ parseCurryModule opts _ src fp = do
     -- TODO: Check module/file mismatch?
     return (lexed, ast)
 
-toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompileState
-toCompilationOutput (env, asts) = mempty { coCompilerEnv = Just env, coModuleASTs = asts }
+toCompileOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompileOutput
+toCompileOutput (env, asts) = mempty { coCompilerEnv = env, coModuleASTs = asts }
 
-failedCompilation :: String -> CompileState
-failedCompilation msg = mempty { coErrors = [failMessageFrom msg] }
+failedCompilation :: String -> (CompileOutput, CompileState)
+failedCompilation msg = (CompileOutput { coModuleASTs = [] }, mempty { csErrors = [failMessageFrom msg] })
 
 failMessageFrom :: String -> CM.Message
 failMessageFrom = CM.message . PP.text
