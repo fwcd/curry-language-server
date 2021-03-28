@@ -69,8 +69,8 @@ generalCompletions entry store query = do
     return completions
     where keywords = Keyword . T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
-toMatchingCompletions :: (ToCompletionItem a, CompletionQueryFilter a) => VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
-toMatchingCompletions query = map (toCompletionItem query) . filter (matchesCompletionQuery query)
+toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a) => VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
+toMatchingCompletions query = (toCompletionItems query =<<) . filter (matchesCompletionQuery query)
 
 newtype Keyword = Keyword T.Text
 
@@ -89,12 +89,12 @@ instance CompletionQueryFilter I.Symbol where
 
 -- TODO: Reimplement the following functions in terms of bindingToQualSymbols and a conversion from SymbolInformation to CompletionItem?
 
-class ToCompletionItem a where
-    toCompletionItem :: VFS.PosPrefixInfo -> a -> J.CompletionItem
+class ToCompletionItems a where
+    toCompletionItems :: VFS.PosPrefixInfo -> a -> [J.CompletionItem]
 
-instance ToCompletionItem I.Symbol where
+instance ToCompletionItems I.Symbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItem query s = completionFrom name ciKind detail doc
+    toCompletionItems query s = [completionFrom name ciKind detail doc]
         where fullName = I.sQualIdent s
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case I.sKind s of
@@ -113,15 +113,15 @@ instance ToCompletionItem I.Symbol where
               detail = I.sPrintedType s
               doc = Just $ T.intercalate ", " $ I.sConstructors s
 
-instance ToCompletionItem Keyword where
+instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
-    toCompletionItem _ (Keyword kw) = completionFrom kw ciKind detail doc
+    toCompletionItems _ (Keyword kw) = [completionFrom kw ciKind detail doc]
         where ciKind = J.CiKeyword
               detail = Nothing
               doc = Just "Keyword"
 
-instance ToCompletionItem T.Text where
-    toCompletionItem _ txt = completionFrom txt ciKind detail doc
+instance ToCompletionItems T.Text where
+    toCompletionItems _ txt = [completionFrom txt ciKind detail doc]
         where ciKind = J.CiText
               detail = Nothing
               doc = Nothing
