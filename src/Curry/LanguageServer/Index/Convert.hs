@@ -11,6 +11,7 @@ import qualified Base.Kinds as CK
 import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
+import Control.Applicative ((<|>))
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
@@ -58,12 +59,11 @@ instance ToSymbols CI.ModuleIdent where
                 }
 
 qualifyWithModuleFrom :: CTE.Entity a => a -> CI.QualIdent -> CI.QualIdent
-qualifyWithModuleFrom (CTE.origName -> CI.qidModule -> Just mid) = CI.qualQualify mid
-qualifyWithModuleFrom _                                          = id
+qualifyWithModuleFrom (CTE.origName -> CI.qidModule -> mid) q = q { CI.qidModule = CI.qidModule q <|> mid }
 
 makeValueSymbol :: SymbolKind -> CI.QualIdent -> CT.TypeScheme -> IO Symbol
 makeValueSymbol k q t = do
-    loc <- runMaybeT $ currySpanInfo2Location q
+    loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
         { sKind = k
         , sQualIdent = ppToText q
@@ -75,7 +75,7 @@ makeValueSymbol k q t = do
 
 makeTypeSymbol :: SymbolKind -> CI.QualIdent -> CK.Kind -> IO Symbol
 makeTypeSymbol k q k' = do
-    loc <- runMaybeT $ currySpanInfo2Location q
+    loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
         { sKind = k
         , sQualIdent = ppToText q

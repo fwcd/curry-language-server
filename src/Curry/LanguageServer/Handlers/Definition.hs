@@ -48,7 +48,10 @@ definition :: I.IndexStore -> J.Position -> LM J.LocationLink
 definition store pos = do
     mid <- getModuleIdentifier
     (qid, _) <- liftMaybe =<< findQualIdentAtPos pos
-    let qid' = CI.qualQualify mid qid
+    -- TODO: This is not quite correct yet, since the AST may contain
+    --       unqualified QualIdents that actually refer to some imported
+    --       symbol rather than something from the current module.
+    let qid' = qid { CI.qidModule = Just $ fromMaybe mid $ CI.qidModule qid }
     liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid'
     J.Location destUri destRange <- liftMaybe $ definitionInStore store qid'
     srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid')
