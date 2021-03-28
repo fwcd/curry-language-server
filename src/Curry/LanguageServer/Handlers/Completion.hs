@@ -15,7 +15,6 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Convert (ppToText)
-import Curry.LanguageServer.Utils.Lookup (valueInfoType, typeInfoKind)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.List.Extra (nubOrd, nubOrdOn)
@@ -127,8 +126,7 @@ instance ToCompletionItem (CI.QualIdent, CEV.ValueInfo) where
                                     | otherwise -> J.CiConstant
                       where arity = CTY.arrowArity $ CTY.rawType t
                   CEV.Label _ _ _              -> J.CiFunction -- Arity is always 1 for record labels
-              vtype = valueInfoType vinfo
-              detail = Just $ ppToText vtype
+              detail = Nothing -- FIXME: Show type
               doc = case vinfo of
                   CEV.DataConstructor _ _ recordLabels _ -> Just $ T.intercalate ", " $ ppToText <$> recordLabels
                   _                                      -> Nothing
@@ -144,8 +142,7 @@ instance ToCompletionItem (CI.QualIdent, CETC.TypeInfo) where
                   CETC.AliasType _ _ _ _  -> J.CiInterface
                   CETC.TypeClass _ _ _    -> J.CiInterface
                   CETC.TypeVar _          -> J.CiTypeParameter
-              tkind = typeInfoKind tinfo
-              detail = Just $ ppToText tkind
+              detail = Nothing -- FIXME: Show kind
               doc = case tinfo of
                   CETC.DataType _ _ cs    -> Just $ T.intercalate ", " $ ppToText <$> CTY.constrIdent <$> cs
                   CETC.RenamingType _ _ c -> Just $ ppToText c

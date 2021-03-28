@@ -40,8 +40,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
 fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.LocationLink]
 fetchDefinitions store entry pos = do
     defs <- runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
-                           env <- liftMaybe Nothing -- FIXME
-                           MaybeT $ runLM (definition store pos) env ast
+                           MaybeT $ runLM (definition store pos) ast
     infoM "cls.definition" $ "Found " ++ show defs
     return $ maybeToList defs
 
