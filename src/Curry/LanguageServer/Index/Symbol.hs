@@ -20,6 +20,7 @@ data SymbolKind = ValueFunction
                 | TypeAlias
                 | TypeVar
                 | Other
+    deriving (Show, Eq)
 
 -- | A type or value. If it's a type, the 'printed type' will be the printed kind.
 data Symbol = Symbol
@@ -31,6 +32,7 @@ data Symbol = Symbol
     , sConstructors :: [T.Text]
     , sLocation :: Maybe J.Location
     }
+    deriving (Show, Eq)
 
 instance Default Symbol where
     def = Symbol

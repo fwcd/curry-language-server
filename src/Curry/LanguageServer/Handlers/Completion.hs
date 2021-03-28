@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns, MultiWayIf #-}
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -16,7 +16,6 @@ import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
-import Data.List.Extra (nubOrdOn)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
@@ -79,26 +78,34 @@ toMatchingCompletions query = (toCompletionItems query =<<) . filter (matchesCom
 newtype Keyword = Keyword T.Text
 
 data CompletionSymbol = CompletionSymbol
-    { cmsSymbol :: I.Symbol
-    , cmsModuleName :: Maybe T.Text -- possibly aliased
+    { -- The index symbol
+      cmsSymbol :: I.Symbol
+      -- The, possibly aliased, module name. Nothing means that the symbol is available unqualified.
+    , cmsModuleName :: Maybe T.Text
+      -- Import edits to apply after the completion has been selected. Nothing means that the symbol does not require an import.
     , cmsImportEdits :: Maybe [J.TextEdit]
     }
 
+-- | Turns an index symbol into completion symbols by analyzing the module's imports.
 toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
 toCompletionSymbols entry s = do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
     let pre = "Prelude"
         impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
     
-    if (I.sParentIdent s == pre && pre `S.notMember` impNames) || I.sParentIdent s == ppToText mid
-        then do
+    if | I.sKind s == I.Module -> return CompletionSymbol
+            { cmsSymbol = s
+            , cmsModuleName = Nothing
+            , cmsImportEdits = Nothing
+            }
+       | (I.sParentIdent s == pre && pre `S.notMember` impNames) || I.sParentIdent s == ppToText mid -> do
             m <- [Nothing, Just $ I.sParentIdent s]
             return CompletionSymbol
                 { cmsSymbol = s
                 , cmsModuleName = m
                 , cmsImportEdits = Nothing
                 }
-        else do
+       | otherwise -> do
             CS.ImportDecl _ mid' isQual alias spec <- imps
             guard $ ppToText mid' == I.sParentIdent s
 
@@ -123,6 +130,14 @@ toCompletionSymbols entry s = do
                         _                                                                    -> []
                 }
 
+
+-- | The fully qualified, possibly aliased, name of the completion symbol.
+fullName :: CompletionSymbol -> T.Text
+fullName cms | I.sKind s == I.Module = I.sQualIdent s
+             | otherwise             = maybe "" (<> ".") moduleName <> I.sIdent s
+    where s = cmsSymbol cms
+          moduleName = cmsModuleName cms
+
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
 
@@ -133,11 +148,8 @@ instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter CompletionSymbol where
-    matchesCompletionQuery query cms = fullPrefix `T.isPrefixOf` fullName
-        where s = cmsSymbol cms
-              moduleName = cmsModuleName cms
-              fullName = maybe "" (<> ".") moduleName <> I.sIdent s
-              fullPrefix | T.null (VFS.prefixModule query) = VFS.prefixText query
+    matchesCompletionQuery query cms = fullPrefix `T.isPrefixOf` fullName cms
+        where fullPrefix | T.null (VFS.prefixModule query) = VFS.prefixText query
                          | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
 
 class ToCompletionItems a where
@@ -147,10 +159,8 @@ instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
     toCompletionItems query cms = [completionFrom name ciKind detail doc edits]
         where s = cmsSymbol cms
-              moduleName = cmsModuleName cms
               edits = cmsImportEdits cms
-              fullName = maybe "" (<> ".") moduleName <> I.sIdent s
-              name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
+              name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
               ciKind = case I.sKind s of
                   I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
                                      | otherwise                 -> J.CiFunction
