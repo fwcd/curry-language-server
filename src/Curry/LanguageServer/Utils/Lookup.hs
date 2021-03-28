@@ -32,7 +32,8 @@ findQualIdentAtPos pos = do
     ast <- lift ask
     let qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
         exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
-    return $ qualIdent <|> exprIdent
+        basicIdent = CI.qualify <.$> withSpanInfo <$> elementAt pos (identifiers ast)
+    return $ qualIdent <|> exprIdent <|> basicIdent
 
 -- | Finds the type at the given position.
 findTypeAtPos :: J.Position -> LM (Maybe (TypedSpanInfo CT.PredType))
