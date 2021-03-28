@@ -12,7 +12,10 @@ import qualified Env.Value as CEV
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
+import Curry.LanguageServer.Utils.General (lastSafe)
 import Data.Default (Default (..))
+import Data.Maybe (fromMaybe)
+import qualified Data.Text as T
 
 class ToSymbol s where
     toSymbol :: s -> IO (Maybe Symbol)
@@ -39,7 +42,7 @@ instance ToSymbol CI.ModuleIdent where
         return $ Just def
             { sKind = Module
             , sQualIdent = ppToText mid
-            , sIdent = ppToText mid
+            , sIdent = T.pack $ fromMaybe "" $ lastSafe $ CI.midQualifiers mid
             , sLocation = loc
             }
 

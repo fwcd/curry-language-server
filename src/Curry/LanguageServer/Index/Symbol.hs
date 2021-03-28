@@ -6,6 +6,7 @@ module Curry.LanguageServer.Index.Symbol (
 ) where
 
 import Data.Default (Default (..))
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
@@ -43,4 +44,4 @@ instance Default Symbol where
         }
 
 sParentIdent :: Symbol -> T.Text
-sParentIdent = T.intercalate "." . init . T.split (== '.') . sQualIdent
+sParentIdent s = fromMaybe "" $ T.stripSuffix ("." <> sIdent s) $ sQualIdent s
