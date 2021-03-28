@@ -120,7 +120,7 @@ instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix `T.isPrefixOf` fullName
         where s = cmsSymbol cms
               moduleName = cmsModuleName cms
-              fullName = maybe (I.sQualIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
+              fullName = maybe "" (<> ".") moduleName <> I.sIdent s
               fullPrefix | T.null (VFS.prefixModule query) = VFS.prefixText query
                          | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
 
@@ -133,7 +133,7 @@ instance ToCompletionItems CompletionSymbol where
         where s = cmsSymbol cms
               moduleName = cmsModuleName cms
               edits = cmsImportEdits cms
-              fullName = maybe (I.sIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
+              fullName = maybe "" (<> ".") moduleName <> I.sIdent s
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case I.sKind s of
                   I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
