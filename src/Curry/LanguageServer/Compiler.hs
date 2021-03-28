@@ -1,10 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Compiler (
     CompileState (..),
-    CompilationResult,
     FileLoader,
     compileCurryFileWithDeps,
-    compilationToMaybe,
     failedCompilation
 ) where
 
@@ -33,14 +31,15 @@ import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Applicative ((<|>))
-import Control.Monad.Trans.State (StateT)
-import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad (join)
+import Control.Monad.Trans.State (StateT (..))
+import Control.Monad.Trans.Maybe (MaybeT (..))
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
-import Data.Either.Extra (eitherToMaybe)
 import Data.List (intercalate)
 import System.FilePath
 import System.Log.Logger
@@ -71,11 +70,11 @@ instance Monoid CompileState where
 -- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
 type CM = MaybeT (StateT CompileState IO)
 
-runCM :: CM a -> IO (a, CompileState)
-runCM = runStateT
+runCM :: CM a -> IO (Maybe a, CompileState)
+runCM = flip runStateT mempty . runMaybeT
 
 catchCYIO :: CYIO a -> CM (Maybe a)
-catchCYIO cyio = runCYIO cyio >>= \case
+catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
     Left es       -> do
         modify $ \s -> s { coErrors = coErrors s ++ es }
         return Nothing
@@ -84,7 +83,7 @@ catchCYIO cyio = runCYIO cyio >>= \case
         return $ Just x
 
 liftCYIO :: CYIO a -> CM a
-liftCYIO = MaybeT . catchCYIO
+liftCYIO = MaybeT . (join <$>) . runMaybeT . catchCYIO
 
 type FileLoader = FilePath -> IO String
 
@@ -94,8 +93,8 @@ type FileLoader = FilePath -> IO String
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompileState
+compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (snd <$>) $ runCM $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
         opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
@@ -215,14 +214,11 @@ parseCurryModule opts _ src fp = do
     -- TODO: Check module/file mismatch?
     return (lexed, ast)
 
-compilationToMaybe :: CompilationResult -> Maybe CompileState
-compilationToMaybe = (fst <$>) . eitherToMaybe
-
 toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompileState
-toCompilationOutput (env, asts) = CompileState { coCompilerEnv = env, coModuleASTs = asts }
+toCompilationOutput (env, asts) = mempty { coCompilerEnv = Just env, coModuleASTs = asts }
 
-failedCompilation :: String -> CompilationResult
-failedCompilation msg = Left [failMessageFrom msg]
+failedCompilation :: String -> CompileState
+failedCompilation msg = mempty { coErrors = [failMessageFrom msg] }
 
 failMessageFrom :: String -> CM.Message
 failMessageFrom = CM.message . PP.text
