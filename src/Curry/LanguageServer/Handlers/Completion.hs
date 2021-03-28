@@ -156,7 +156,10 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
               detail = I.sPrintedType s
-              doc = Just $ T.intercalate ", " $ I.sConstructors s
+              doc = Just $ T.intercalate "\n" $ filter (not . T.null)
+                  [ if null edits then "" else "_requires import_"
+                  , T.intercalate ", " $ I.sConstructors s
+                  ]
 
 instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
