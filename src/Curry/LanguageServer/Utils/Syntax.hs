@@ -23,11 +23,11 @@ import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, mapMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
-type ModuleAST = CS.Module CT.PredType
+type ModuleAST = CS.Module (Maybe CT.PredType)
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
@@ -541,6 +541,11 @@ instance HasTypedSpanInfos e a => HasTypedSpanInfos [e] a where
 
 instance HasTypedSpanInfos e a => HasTypedSpanInfos (Maybe e) a where
     typedSpanInfos = typedSpanInfos . maybeToList
+
+instance HasTypedSpanInfos e (Maybe CT.PredType) => HasTypedSpanInfos e CT.PredType where
+    typedSpanInfos = mapMaybe extract . typedSpanInfos
+        where extract (TypedSpanInfo txt (Just t) spi) = Just $ TypedSpanInfo txt t spi
+              extract _                                = Nothing
 
 instance CP.HasPosition (TypedSpanInfo a) where
     getPosition (TypedSpanInfo _ _ spi) = CP.getPosition spi
