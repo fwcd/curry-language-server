@@ -1,5 +1,6 @@
+{-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Compiler (
-    CompilationOutput (..),
+    CompileState (..),
     CompilationResult,
     FileLoader,
     compileCurryFileWithDeps,
@@ -31,7 +32,10 @@ import qualified Modules as CMD
 import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Monad.Reader
+import Control.Applicative ((<|>))
+import Control.Monad.Trans.State (StateT)
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
@@ -41,8 +45,47 @@ import Data.List (intercalate)
 import System.FilePath
 import System.Log.Logger
 
-data CompilationOutput = CompilationOutput { mseCompilerEnv :: CE.CompilerEnv, mseModuleASTs :: [(FilePath, ModuleAST)] }
-type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
+data CompileState = CompileState
+    { coCompilerEnv :: Maybe CE.CompilerEnv
+    , coModuleASTs :: [(FilePath, ModuleAST)]
+    , coWarnings :: [CM.Message]
+    , coErrors :: [CM.Message]
+    }
+
+instance Semigroup CompileState where
+    x <> y = CompileState
+        { coCompilerEnv = coCompilerEnv x <|> coCompilerEnv y
+        , coModuleASTs = coModuleASTs x ++ coModuleASTs y
+        , coWarnings = coWarnings x ++ coWarnings y
+        , coErrors = coErrors x ++ coErrors y
+        }
+
+instance Monoid CompileState where
+    mempty = CompileState
+        { coCompilerEnv = Nothing
+        , coModuleASTs = []
+        , coWarnings = []
+        , coErrors = []
+        }
+
+-- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
+type CM = MaybeT (StateT CompileState IO)
+
+runCM :: CM a -> IO (a, CompileState)
+runCM = runStateT
+
+catchCYIO :: CYIO a -> CM (Maybe a)
+catchCYIO cyio = runCYIO cyio >>= \case
+    Left es       -> do
+        modify $ \s -> s { coErrors = coErrors s ++ es }
+        return Nothing
+    Right (x, ws) -> do
+        modify $ \s -> s { coWarnings = coWarnings s ++ ws }
+        return $ Just x
+
+liftCYIO :: CYIO a -> CM a
+liftCYIO = MaybeT . catchCYIO
+
 type FileLoader = FilePath -> IO String
 
 -- | Compiles a Curry source file with its dependencies
@@ -172,11 +215,11 @@ parseCurryModule opts _ src fp = do
     -- TODO: Check module/file mismatch?
     return (lexed, ast)
 
-compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
+compilationToMaybe :: CompilationResult -> Maybe CompileState
 compilationToMaybe = (fst <$>) . eitherToMaybe
 
-toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
-toCompilationOutput (env, asts) = CompilationOutput { mseCompilerEnv = env, mseModuleASTs = asts }
+toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompileState
+toCompilationOutput (env, asts) = CompileState { coCompilerEnv = env, coModuleASTs = asts }
 
 failedCompilation :: String -> CompilationResult
 failedCompilation msg = Left [failMessageFrom msg]
