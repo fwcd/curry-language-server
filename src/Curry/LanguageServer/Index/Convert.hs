@@ -38,6 +38,7 @@ makeValueSymbol k q t = do
     return def
         { sKind = k
         , sQualIdent = ppToText q
+        , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText t
         , sArrowArity = Just $ CT.arrowArity $ CT.rawType t
         , sLocation = loc
@@ -49,6 +50,7 @@ makeTypeSymbol k q k' = do
     return def
         { sKind = k
         , sQualIdent = ppToText q
+        , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText k'
         , sArrowArity = Just $ CK.kindArity k'
         , sLocation = loc

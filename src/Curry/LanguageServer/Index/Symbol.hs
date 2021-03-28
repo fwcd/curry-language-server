@@ -23,6 +23,7 @@ data SymbolKind = ValueFunction
 data Symbol = Symbol
     { sKind :: SymbolKind
     , sQualIdent :: T.Text
+    , sIdent :: T.Text
     , sPrintedType :: Maybe T.Text
     , sArrowArity :: Maybe Int
     , sLocation :: Maybe J.Location
@@ -32,6 +33,7 @@ instance Default Symbol where
     def = Symbol
         { sKind = Other
         , sQualIdent = ""
+        , sIdent = ""
         , sPrintedType = Nothing
         , sArrowArity = Nothing
         , sLocation = Nothing

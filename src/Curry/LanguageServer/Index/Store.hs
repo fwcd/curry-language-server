@@ -29,7 +29,6 @@ import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
 import Control.Exception (catch, SomeException)
-import Control.Lens ((^.))
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
@@ -37,6 +36,7 @@ import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
 import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
 import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
+import Curry.LanguageServer.Index.Convert
 import Curry.LanguageServer.Index.Symbol
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
@@ -52,7 +52,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
 import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
@@ -122,9 +121,8 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter (qidEq q . sseQualIdent) . storedSymbols name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbols name
     where name = T.pack $ CI.idName $ CI.qidIdent q
-          qidEq = (==) `on` ppToText
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
@@ -253,13 +251,13 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
         -- Update symbol store
-        valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
-        typeSymbols  <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.tyConsEnv env)
+        valueSymbols <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.valueEnv env)
+        typeSymbols  <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.tyConsEnv env)
 
-        let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [Symbol s qid])) <$> (valueSymbols ++ typeSymbols)
+        let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols)
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-        modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta $ idxSymbols s }
+        modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) symbolDelta $ idxSymbols s }
     
     -- Update store with messages from files that were not successfully compiled
 
