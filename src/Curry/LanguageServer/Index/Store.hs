@@ -38,7 +38,7 @@ import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
 import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Index.Symbol
-import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri

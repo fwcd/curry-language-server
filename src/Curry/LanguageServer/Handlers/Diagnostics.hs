@@ -4,7 +4,7 @@ module Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics, fetchDiagnost
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.Index.Store (ModuleStoreEntry (..))
-import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.Uri (normalizedUriToFilePath)
 import Curry.LanguageServer.Monad
 import qualified Data.Map as M

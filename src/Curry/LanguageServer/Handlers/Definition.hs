@@ -11,7 +11,7 @@ import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)

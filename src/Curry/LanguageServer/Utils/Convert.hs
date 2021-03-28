@@ -1,6 +1,6 @@
--- | Conversions between Curry Compiler and language server structures
+-- | Convert between Curry Compiler and language server structures
 {-# LANGUAGE RecordWildCards, ViewPatterns, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
-module Curry.LanguageServer.Utils.Conversions (
+module Curry.LanguageServer.Utils.Convert (
     curryMsg2Diagnostic,
     curryPos2Pos,
     curryPos2Uri,

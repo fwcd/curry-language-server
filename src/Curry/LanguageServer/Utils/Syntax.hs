@@ -21,7 +21,7 @@ import qualified Curry.Base.Position as CP
 import qualified Base.Types as CT
 import qualified Curry.Syntax as CS
 
-import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
 import Data.Maybe (maybeToList, mapMaybe)
 import qualified Data.Text as T

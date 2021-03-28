@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
-import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
 import Curry.LanguageServer.Utils.General (rangeOverlaps)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
