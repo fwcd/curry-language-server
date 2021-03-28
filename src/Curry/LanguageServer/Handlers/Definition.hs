@@ -11,6 +11,7 @@ import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
+import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.Env
 import Curry.LanguageServer.Utils.General (liftMaybe)
@@ -18,7 +19,7 @@ import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.List (find)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe, maybeToList, mapMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
@@ -56,7 +57,7 @@ definition store pos = do
 
 definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
 definitionInStore store qident = find (isCurrySource . (^. J.uri)) locations
-    where locations = (^. J.location) . I.sseSymbol <$> I.storedSymbolsByQualIdent qident store
+    where locations = mapMaybe I.sLocation $ I.storedSymbolsByQualIdent qident store
           isCurrySource uri = ".curry" `T.isSuffixOf` J.getUri uri
 
 definitionInEnvs :: CI.QualIdent -> LM (Maybe J.Location)
