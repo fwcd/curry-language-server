@@ -136,7 +136,7 @@ instance ToCompletionItems CompletionSymbol where
         where s = cmsSymbol cms
               moduleName = cmsModuleName cms
               edits = cmsImportEdits cms
-              fullName = maybe (I.sQualIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
+              fullName = maybe (I.sIdent s) (\m -> m <> "." <> I.sIdent s) moduleName
               name = fromMaybe fullName $ T.stripPrefix (VFS.prefixModule query <> ".") fullName
               ciKind = case I.sKind s of
                   I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
