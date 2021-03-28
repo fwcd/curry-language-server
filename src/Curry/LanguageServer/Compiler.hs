@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Compiler (
     CompileState (..),
-    CompileOutput (..),
+    CompileOutput,
     FileLoader,
     compileCurryFileWithDeps,
     failedCompilation
@@ -81,22 +81,7 @@ catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
 liftCYIO :: CYIO a -> CM a
 liftCYIO = MaybeT . (join <$>) . runMaybeT . catchCYIO
 
-data CompileOutput = CompileOutput
-    { coCompilerEnv :: Maybe CE.CompilerEnv
-    , coModuleASTs :: [(FilePath, ModuleAST)]
-    }
-
-instance Semigroup CompileOutput where
-    x <> y = CompileOutput
-        { coCompilerEnv = coCompilerEnv x <|> coCompilerEnv y
-        , coModuleASTs = coModuleASTs x ++ coModuleASTs y
-        }
-
-instance Monoid CompileOutput where
-    mempty = CompileOutput
-        { coCompilerEnv = Nothing
-        , coModuleASTs = []
-        }
+type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
 
 type FileLoader = FilePath -> IO String
 
@@ -145,7 +130,7 @@ compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> 
 compileCurryModule opts fl outDirPath m fp = do
     liftIO $ debugM "cls.compiler" $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
-    mdl@(env, ast) <- loadAndCheckCurryModule opts fl m fp
+    mdl <- loadAndCheckCurryModule opts fl m fp
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
@@ -153,7 +138,7 @@ compileCurryModule opts fl outDirPath m fp = do
         generated = PP.render $ CS.pPrint interf
     liftIO $ debugM "cls.compiler" $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
-    return $ CompileOutput { coCompilerEnv = Just env, coModuleASTs = [(fp, ast)] }
+    return [(fp, mdl)]
 
 -- The following functions partially reimplement
 -- https://git.ps.informatik.uni-kiel.de/curry/curry-frontend/-/blob/master/src/Modules.hs
