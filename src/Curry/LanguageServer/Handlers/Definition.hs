@@ -46,12 +46,15 @@ fetchDefinitions store entry pos = do
 
 definition :: I.IndexStore -> J.Position -> LM J.LocationLink
 definition store pos = do
-    (qident, _) <- liftMaybe =<< findQualIdentAtPos pos
-    J.Location destUri destRange <- liftMaybe $ definitionInStore store qident
-    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qident)
+    mid <- getModuleIdentifier
+    (qid, _) <- liftMaybe =<< findQualIdentAtPos pos
+    let qid' = CI.qualQualify mid qid
+    liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid'
+    J.Location destUri destRange <- liftMaybe $ definitionInStore store qid'
+    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid')
     return $ J.LocationLink srcRange destUri destRange destRange
 
 definitionInStore :: I.IndexStore -> CI.QualIdent -> Maybe J.Location
-definitionInStore store qident = find (isCurrySource . (^. J.uri)) locations
-    where locations = mapMaybe I.sLocation $ I.storedSymbolsByQualIdent qident store
+definitionInStore store qid = find (isCurrySource . (^. J.uri)) locations
+    where locations = mapMaybe I.sLocation $ I.storedSymbolsByQualIdent qid store
           isCurrySource uri = ".curry" `T.isSuffixOf` J.getUri uri

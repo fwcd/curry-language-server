@@ -19,6 +19,7 @@ module Curry.LanguageServer.Utils.Convert (
     setCurryPosUri,
     setCurrySpanUri,
     setCurrySpanInfoUri,
+    ppToString,
     ppToText,
     ppTypeSchemeToText,
     ppPredTypeToText,
@@ -154,8 +155,11 @@ setCurrySpanInfoUri uri x@(CSPI.getSpanInfo -> spi@CSPI.SpanInfo {..}) = do
     return $ CSPI.setSpanInfo spi { CSPI.srcSpan = spn } x
 setCurrySpanInfoUri _ x = Just x
 
+ppToString :: CPP.Pretty p => p -> String
+ppToString = PP.render . CPP.pPrint
+
 ppToText :: CPP.Pretty p => p -> T.Text
-ppToText = T.pack . PP.render . CPP.pPrint
+ppToText = T.pack . ppToString
 
 ppTypeSchemeToText :: CI.ModuleIdent -> CT.TypeScheme -> T.Text
 ppTypeSchemeToText mid = T.pack . PP.render . CCT.ppTypeScheme mid
