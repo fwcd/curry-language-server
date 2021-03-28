@@ -44,9 +44,10 @@ import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (nubBy, unionBy)
+import Data.List (unionBy)
+import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList, mapMaybe)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -143,7 +144,7 @@ findCurrySourcesInWorkspace :: CFG.Config -> FilePath -> IO [(FilePath, [FilePat
 findCurrySourcesInWorkspace cfg dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
     let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
-    nubBy ((==) `on` fst) <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
+    nubOrdOn fst <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: CFG.Config -> FilePath -> IO [(FilePath, [FilePath])]
@@ -253,8 +254,9 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         -- Update symbol store
         valueSymbols <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.valueEnv env)
         typeSymbols  <- liftIO $ (maybeToList =<<) <$> mapM (toSymbol . snd) (CT.allBindings $ CE.tyConsEnv env)
+        modSymbols   <- liftIO $ (maybeToList =<<) <$> mapM toSymbol (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
 
-        let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols)
+        let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols ++ modSymbols)
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
         modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) symbolDelta $ idxSymbols s }

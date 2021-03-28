@@ -13,7 +13,6 @@ import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
 import Data.Default (Default (..))
-import qualified Data.Text as T
 
 class ToSymbol s where
     toSymbol :: s -> IO (Maybe Symbol)
@@ -33,6 +32,16 @@ instance ToSymbol CETC.TypeInfo where
         CETC.AliasType q k _ _  -> Just <$> makeTypeSymbol TypeAlias q k
         CETC.TypeClass q k _    -> Just <$> makeTypeSymbol TypeClass q k
         CETC.TypeVar _          -> return Nothing
+
+instance ToSymbol CI.ModuleIdent where
+    toSymbol mid = do
+        loc <- runMaybeT $ currySpanInfo2Location mid
+        return $ Just def
+            { sKind = Module
+            , sQualIdent = ppToText mid
+            , sIdent = ppToText mid
+            , sLocation = loc
+            }
 
 makeValueSymbol :: SymbolKind -> CI.QualIdent -> CT.TypeScheme -> IO Symbol
 makeValueSymbol k q t = do
