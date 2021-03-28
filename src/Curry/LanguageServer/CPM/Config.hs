@@ -9,7 +9,7 @@ import Text.Parsec
 type Parser a = Parsec String () a
 
 -- | Finds the dependencies (name-version) in the project with the given path.
-invokeCPMConfig :: FilePath -> FilePath -> CM [(String, String)]
+invokeCPMConfig :: FilePath -> FilePath -> CPMM [(String, String)]
 invokeCPMConfig fp = ((mapMaybe $ rightToMaybe . parse configLine "") . lines <$>) . invokeCPM fp ["config"]
 
 configLine :: Parser (String, String)

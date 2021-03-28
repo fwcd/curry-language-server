@@ -35,7 +35,7 @@ import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
 import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
-import Curry.LanguageServer.CPM.Monad (runCM)
+import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.Conversions
 import Curry.LanguageServer.Utils.General
@@ -165,7 +165,7 @@ findCurrySourcesInProject cfg dirPath = do
             projSources <- walkCurrySourceFiles projSrcFolder
 
             liftIO $ infoM "cls.indexStore" "Invoking CPM to fetch project configuration and dependencies..."
-            result <- runCM $ do
+            result <- runCPMM $ do
                 config <- invokeCPMConfig dirPath cpmPath
                 deps   <- invokeCPMDeps   dirPath cpmPath
                 return (config, deps)

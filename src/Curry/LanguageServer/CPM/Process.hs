@@ -15,11 +15,11 @@ import System.Process
 import System.Timeout (timeout)
 
 -- | Invokes the Curry Package Manager executable with the specified args.
-invokeCPM :: FilePath -> [String] -> FilePath -> CM String
-invokeCPM dir args cpmPath = cm $ fmap (join . mapLeft errMessage) $ (try :: IO a -> IO (Either IOException a)) $ runCM $ do
+invokeCPM :: FilePath -> [String] -> FilePath -> CPMM String
+invokeCPM dir args cpmPath = cpmm $ fmap (join . mapLeft errMessage) $ (try :: IO a -> IO (Either IOException a)) $ runCPMM $ do
     let action = readCreateProcessWithExitCode procOpts ""
 
-    (exitCode, out, err) <- cm $ maybeToEither "CPM timed out!" <$> timeout microsecs action
+    (exitCode, out, err) <- cpmm $ maybeToEither "CPM timed out!" <$> timeout microsecs action
     when (exitCode /= ExitSuccess) $ fail err
 
     return out
