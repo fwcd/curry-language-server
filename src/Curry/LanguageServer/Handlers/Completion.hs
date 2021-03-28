@@ -85,7 +85,7 @@ data CompletionSymbol = CompletionSymbol
     }
 
 toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
-toCompletionSymbols entry s = nubOrdOn (I.sQualIdent . cmsSymbol) $ do
+toCompletionSymbols entry s = do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
     
     if I.sParentIdent s == "Prelude" || I.sParentIdent s == ppToText mid
