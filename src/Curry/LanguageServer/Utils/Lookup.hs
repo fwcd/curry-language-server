@@ -14,12 +14,14 @@ import qualified Curry.Syntax as CS
 
 import Control.Applicative
 import Control.Monad.State (State, when, execState, gets, modify)
-import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, ppToString)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
 import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Sema
 import qualified Data.Map as M
 import qualified Language.LSP.Types as J
+
+import Debug.Trace
 
 -- | A collectScope of bound identifiers.
 type Scope a = M.Map CI.Ident (Maybe a)
@@ -37,9 +39,9 @@ findTypeAtPos ast pos = elementAt pos $ typedSpanInfos ast
 
 -- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
 findScopeAtPos :: CS.Module a -> J.Position -> Scope a
-findScopeAtPos ast pos = flattenScopes $ sstMatchingEnv $ execState (collectScope ast) $ ScopeState
+findScopeAtPos ast pos = sstMatchingEnv $ execState (collectScope ast) $ ScopeState
     { sstCurrentEnv = [M.empty]
-    , sstMatchingEnv = [M.empty]
+    , sstMatchingEnv = M.empty
     , sstPosition = pos
     }
 
@@ -61,7 +63,7 @@ flattenScopes = foldr M.union M.empty
 -- | Stores nested scopes and a cursor position. The head of the list is always the innermost collectScope.
 data ScopeState a = ScopeState
     { sstCurrentEnv :: [Scope a]
-    , sstMatchingEnv :: [Scope a]
+    , sstMatchingEnv :: Scope a
     , sstPosition :: J.Position
     }
 
@@ -78,16 +80,16 @@ withScope x = beginScope >> x >> endScope
 
 bind :: CI.Ident -> Maybe a -> ScopeM a ()
 bind i t = do
+    trace ("Binding " ++ ppToString i) $ return ()
     modify $ \s -> s { sstCurrentEnv = bindInScopes i t $ sstCurrentEnv s }
 
 updateEnvs :: CSPI.HasSpanInfo e => e -> ScopeM a ()
 updateEnvs (CSPI.getSpanInfo -> spi) = do
-    -- Overwrite the matching env if the position matches. Since we are
-    -- pre-order traversing the AST, the innermost env containing the position
-    -- will be stored last.
     pos <- gets sstPosition
-    when (spi `containsPos` pos) $
-        modify $ \s -> s { sstMatchingEnv = sstCurrentEnv s }
+    when (spi `containsPos` pos) $ do
+        current <- gets sstCurrentEnv
+        trace ("Assigning env " ++ show ((ppToString . fst <$>) . M.toList <$> current)) $ return ()
+        modify $ \s -> s { sstMatchingEnv = M.union (flattenScopes $ sstCurrentEnv s) $ sstMatchingEnv s }
 
 class CollectScope e a where
     collectScope :: e -> ScopeM a ()
