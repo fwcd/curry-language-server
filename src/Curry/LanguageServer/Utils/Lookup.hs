@@ -43,6 +43,12 @@ withName i = (ppToText $ CI.unRenameIdent i, i)
 containsPos :: CSPI.HasSpanInfo a => a -> J.Position -> Bool
 containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
+-- TODO: Rewrite in a monadic way using NestEnvs since e.g.
+--       do-scopes are currently not handled correctly (i.e. the
+--       scope of a bound variable should be the variable and
+--       all statements below, not just the bind itself).
+-- TODO: Attach (printed) type information for use by completions.
+
 class HasIdentifiersInScope a where
     -- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
     identifiersInScope :: J.Position -> a -> ConstMap T.Text CI.Ident
