@@ -55,9 +55,11 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
 fetchCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 fetchCompletions opts entry store query
     | isPragma  = pragmaCompletions opts query
+    | isImport  = importCompletions opts store query
     | otherwise = generalCompletions opts entry store query
     where line = VFS.fullLine query
           isPragma = "{-#" `T.isPrefixOf` line
+          isImport = "import " `T.isPrefixOf` line
 
 pragmaCompletions :: CompletionOptions -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 pragmaCompletions opts query
@@ -71,6 +73,14 @@ pragmaCompletions opts query
           isOptionPragma = any (`T.isInfixOf` line) optionPragmas
           pragmaKinds = languagePragma : optionPragmas
           knownExtensions = ["AnonFreeVars", "CPP", "FunctionalPatterns", "NegativeLiterals", "NoImplicitPrelude" :: T.Text]
+
+importCompletions :: CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+importCompletions opts store query = do
+    let symbols     = nubOrdOn I.sQualIdent (I.storedSymbolsWithPrefix (VFS.prefixText query) store)
+        modules     = filter ((== I.Module) . I.sKind) symbols
+        completions = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
+    infoM "cls.completions" $ "Found " ++ show (length completions) ++ " import completions"
+    return completions
 
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
