@@ -2,7 +2,6 @@
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Curry.Base.Ident as CI
 import qualified Curry.Syntax as CS
 
 import Control.Lens ((^.))
@@ -13,11 +12,12 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
-import Curry.LanguageServer.Utils.General (ConstMap (..), filterF)
+import Curry.LanguageServer.Utils.General (filterF)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
-import Curry.LanguageServer.Utils.Lookup (HasIdentifiersInScope (..))
+import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
+import Data.Bifunctor (bimap)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
@@ -41,7 +41,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
-        
+
         let opts = CompletionOptions
                 { cmoUseSnippets = fromMaybe False $ do
                     docCapabilities <- capabilities ^. J.textDocument
@@ -89,15 +89,15 @@ importCompletions opts store query = do
 
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
-    let ast                = I.mseModuleAST entry
-        localIdentifiers   = ctmMap $ identifiersInScope (VFS.cursorPos query) ast
-        localCompletions   = toMatchingCompletions opts query $ Local <$> localIdentifiers
-        symbols            = filter (flip M.notMember localIdentifiers . I.sIdent) $ nubOrdOn I.sQualIdent
+    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) (I.mseModuleAST entry)
+        localIdentifiers'  = M.fromList $ map (bimap ppToText (maybe "" ppToText)) $ M.toList localIdentifiers
+        localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
+        symbols            = filter (flip M.notMember localIdentifiers' . I.sIdent) $ nubOrdOn I.sQualIdent
                                                                                    $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
         symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< symbols
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
-    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys localIdentifiers)
+    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys localIdentifiers')
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completion(s) with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
@@ -107,7 +107,7 @@ toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filterF 
 
 newtype Keyword = Keyword T.Text
 
-newtype Local = Local CI.Ident
+data Local = Local T.Text T.Text
 
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
@@ -128,7 +128,7 @@ toCompletionSymbols entry s = do
     CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
     let pre = "Prelude"
         impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
-    
+
     if | I.sKind s == I.Module -> return CompletionSymbol
             { cmsSymbol = s
             , cmsModuleName = Nothing
@@ -150,7 +150,7 @@ toCompletionSymbols entry s = do
                     Just (CS.Hiding _ is)    -> flip S.notMember $ S.fromList $ ppToText <$> (identifiers =<< is)
                     Nothing                  -> const True
                 moduleNames = (Just $ ppToText $ fromMaybe mid' alias) : [Nothing | not isQual]
-            
+
             m <- moduleNames
             return CompletionSymbol
                 { cmsSymbol = s
@@ -189,7 +189,7 @@ instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter Local where
-    matchesCompletionQuery query (Local i) = VFS.prefixText query `T.isPrefixOf` ppToText i
+    matchesCompletionQuery query (Local i _) = VFS.prefixText query `T.isPrefixOf` i
 
 instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
@@ -239,10 +239,10 @@ instance ToCompletionItems Keyword where
 
 instance ToCompletionItems Local where
     -- | Creates a completion item from a local variable.
-    toCompletionItems _ _ (Local i) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
-        where label = ppToText $ CI.unRenameIdent i
+    toCompletionItems _ _ (Local i t) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
+        where label = i
               ciKind = J.CiVariable
-              detail = Nothing
+              detail = Just t
               doc = Just "Local"
               insertText = Just label
               insertTextFormat = Just J.PlainText

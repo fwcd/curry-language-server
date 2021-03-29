@@ -4,8 +4,7 @@ module Curry.LanguageServer.Utils.Lookup (
     findQualIdentAtPos,
     findTypeAtPos,
     findScopeAtPos,
-    Scope,
-    CollectScope (..)
+    Scope
 ) where
 
 -- Curry Compiler Libraries + Dependencies
