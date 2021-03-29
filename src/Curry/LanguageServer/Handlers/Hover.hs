@@ -10,8 +10,9 @@ import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
-import Curry.LanguageServer.Index.Lookup
+import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
+import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
 import Curry.LanguageServer.Utils.Syntax (ModuleAST, moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
