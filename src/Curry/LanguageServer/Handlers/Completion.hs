@@ -2,6 +2,7 @@
 module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Base.Ident as CI
 import qualified Curry.Syntax as CS
 
 import Control.Lens ((^.))
@@ -12,7 +13,7 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
-import Curry.LanguageServer.Utils.General (ConstMap (..))
+import Curry.LanguageServer.Utils.General (ConstMap (..), filterF)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (HasIdentifiersInScope (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -89,20 +90,24 @@ importCompletions opts store query = do
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
     let ast                = I.mseModuleAST entry
-        localIdentifiers   = identifiersInScope (VFS.cursorPos query) ast
-        localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< nubOrdOn I.sQualIdent (I.storedSymbolsWithPrefix (VFS.prefixText query) store)
+        localIdentifiers   = ctmMap $ identifiersInScope (VFS.cursorPos query) ast
+        localCompletions   = toMatchingCompletions opts query $ Local <$> localIdentifiers
+        symbols            = filter (flip M.notMember localIdentifiers . I.sIdent) $ nubOrdOn I.sQualIdent
+                                                                                   $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
+        symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< symbols
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
-    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys $ ctmMap localIdentifiers)
+    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys localIdentifiers)
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completion(s) with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
-toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a) => CompletionOptions -> VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
-toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filter (matchesCompletionQuery query)
+toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a, Foldable t) => CompletionOptions -> VFS.PosPrefixInfo -> t a -> [J.CompletionItem]
+toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filterF (matchesCompletionQuery query)
 
 newtype Keyword = Keyword T.Text
+
+newtype Local = Local CI.Ident
 
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
@@ -183,6 +188,9 @@ instance CompletionQueryFilter T.Text where
 instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
+instance CompletionQueryFilter Local where
+    matchesCompletionQuery query (Local i) = VFS.prefixText query `T.isPrefixOf` ppToText i
+
 instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
 
@@ -226,6 +234,17 @@ instance ToCompletionItems Keyword where
               detail = Nothing
               doc = Just "Keyword"
               insertText = Just kw
+              insertTextFormat = Just J.PlainText
+              edits = Nothing
+
+instance ToCompletionItems Local where
+    -- | Creates a completion item from a local variable.
+    toCompletionItems _ _ (Local i) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
+        where label = ppToText i
+              ciKind = J.CiVariable
+              detail = Nothing
+              doc = Just "Local"
+              insertText = Just $ ppToText i
               insertTextFormat = Just J.PlainText
               edits = Nothing
 

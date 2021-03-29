@@ -26,7 +26,8 @@ module Curry.LanguageServer.Utils.General (
     groupIntoMapBy,
     groupIntoMapByM,
     fst3, snd3, thd3,
-    tripleToPair
+    tripleToPair,
+    filterF
 ) where
 
 import Control.Monad (join)
@@ -255,3 +256,7 @@ thd3 (_, _, z) = z
 
 tripleToPair :: (a, b, c) -> (a, b)
 tripleToPair (x, y, _) = (x, y)
+
+-- | Filter over a foldable value. For [a], filterF = filter.
+filterF :: Foldable t => (a -> Bool) -> t a -> [a]
+filterF f = foldr (\x xs -> if f x then x : xs else xs) []
