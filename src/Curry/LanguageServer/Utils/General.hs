@@ -20,7 +20,6 @@ module Curry.LanguageServer.Utils.General (
     nothingIfNull,
     replaceString,
     Insertable (..),
-    insertAll,
     insertIntoTrieWith,
     insertAllIntoTrieWith,
     groupIntoMapBy,
@@ -179,7 +178,13 @@ replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 class Insertable m a | m -> a where
+    -- | Inserts a single entry.
     insert :: a -> m -> m
+    insert x = insertAll [x]
+
+    -- | Inserts multiple entries.
+    insertAll :: Foldable t => t a -> m -> m
+    insertAll = flip $ foldr insert
 
 instance Insertable (Maybe a) a where
     insert = const . Just
@@ -195,10 +200,6 @@ instance Ord a => Insertable (S.Set a) a where
 
 instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
-
--- | Inserts all entries into the given Insertable. Useful for maps.
-insertAll :: (Foldable t, Insertable m a) => t a -> m -> m
-insertAll = flip $ foldr insert
 
 -- | Inserts the given element into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
