@@ -270,7 +270,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-        let combiner = unionBy ((==) `on` (\s' -> (sQualIdent s', sIsFromCurrySource s')))
+        let combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))
         modify $ \s -> s
             { idxSymbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) $ idxSymbols s
             , idxModuleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) $ idxModuleSymbols s
