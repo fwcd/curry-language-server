@@ -34,10 +34,12 @@ import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
+import qualified Data.List as L
 import Data.Foldable (foldrM)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Language.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -179,8 +181,20 @@ replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 class Insertable m a where
     insert :: a -> m -> m
 
+instance Insertable a a where
+    insert = const
+
+instance Insertable (Maybe a) a where
+    insert = const . Just
+
+instance Ord a => Insertable [a] a where
+    insert = L.insert
+
 instance Ord k => Insertable (M.Map k v) (k, v) where
     insert = uncurry M.insert
+
+instance Ord a => Insertable (S.Set a) a where
+    insert = S.insert
 
 instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
