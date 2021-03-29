@@ -1,16 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.Definition (definitionHandler) where
 
--- Curry Compiler Libraries + Dependencies
-import qualified Curry.Base.Ident as CI
-import qualified Curry.Syntax as CS
-
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Index.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
