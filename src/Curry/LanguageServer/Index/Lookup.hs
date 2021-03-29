@@ -18,6 +18,7 @@ import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax
+import Curry.LanguageServer.Utils.Sema
 import qualified Language.LSP.Types as J
 
 -- | Finds identifier and (occurrence) span info at a given position.

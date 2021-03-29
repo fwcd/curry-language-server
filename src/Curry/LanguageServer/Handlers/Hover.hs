@@ -12,7 +12,8 @@ import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Index.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
-import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..), ModuleAST, moduleIdentifier)
+import Curry.LanguageServer.Utils.Syntax (ModuleAST, moduleIdentifier)
+import Curry.LanguageServer.Utils.Sema (TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (listToMaybe)
