@@ -12,6 +12,7 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
+import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
@@ -30,30 +31,39 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
     let uri = req ^. J.params . J.textDocument . J.uri
         pos = req ^. J.params . J.position
     normUri <- liftIO $ normalizeUriWithPath uri
+    capabilities <- S.getClientCapabilities
     completions <- fmap (join . maybeToList) $ runMaybeT $ do
         store <- get
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
-        liftIO $ fetchCompletions entry store query
+        
+        let opts = CompletionOptions
+                { cmoUseSnippets = fromMaybe False $ do
+                    docCapabilities <- capabilities ^. J.textDocument
+                    cmCapabilities <- docCapabilities ^. J.completion
+                    ciCapabilities <- cmCapabilities ^. J.completionItem
+                    ciCapabilities ^. J.snippetSupport
+                }
+        liftIO $ fetchCompletions opts entry store query
     let maxCompletions = 25
         items = take maxCompletions completions
         incomplete = length completions > maxCompletions
         result = J.CompletionList incomplete $ J.List items
     responder $ Right $ J.InR result
 
-fetchCompletions :: I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
-fetchCompletions entry store query
-    | isPragma  = pragmaCompletions query
-    | otherwise = generalCompletions entry store query
+fetchCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+fetchCompletions opts entry store query
+    | isPragma  = pragmaCompletions opts query
+    | otherwise = generalCompletions opts entry store query
     where line = VFS.fullLine query
           isPragma = "{-#" `T.isPrefixOf` line
 
-pragmaCompletions :: VFS.PosPrefixInfo -> IO [J.CompletionItem]
-pragmaCompletions query
-    | isLanguagePragma = return $ toMatchingCompletions query $ Keyword <$> knownExtensions
+pragmaCompletions :: CompletionOptions -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+pragmaCompletions opts query
+    | isLanguagePragma = return $ toMatchingCompletions opts query $ Keyword <$> knownExtensions
     | isOptionPragma   = return []
-    | otherwise        = return $ toMatchingCompletions query $ Keyword <$> pragmaKinds
+    | otherwise        = return $ toMatchingCompletions opts query $ Keyword <$> pragmaKinds
     where line = VFS.fullLine query
           languagePragma = "LANGUAGE"
           optionPragmas = ("OPTIONS_" <>) <$> ["KICS2", "PAKCS", "CYMAKE", "FRONTEND" :: T.Text]
@@ -62,18 +72,18 @@ pragmaCompletions query
           pragmaKinds = languagePragma : optionPragmas
           knownExtensions = ["AnonFreeVars", "CPP", "FunctionalPatterns", "NegativeLiterals", "NoImplicitPrelude" :: T.Text]
 
-generalCompletions :: I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
-generalCompletions entry store query = do
+generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+generalCompletions opts entry store query = do
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions query $ toCompletionSymbols entry =<< I.storedSymbolsWithPrefix (VFS.prefixText query) store -- TODO: Direct qualified symbol completions?
-        keywordCompletions = toMatchingCompletions query keywords
+        symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< I.storedSymbolsWithPrefix (VFS.prefixText query) store -- TODO: Direct qualified symbol completions?
+        keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = Keyword . T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
-toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a) => VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
-toMatchingCompletions query = (toCompletionItems query =<<) . filter (matchesCompletionQuery query)
+toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a) => CompletionOptions -> VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
+toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filter (matchesCompletionQuery query)
 
 newtype Keyword = Keyword T.Text
 
@@ -84,6 +94,10 @@ data CompletionSymbol = CompletionSymbol
     , cmsModuleName :: Maybe T.Text
       -- Import edits to apply after the completion has been selected. Nothing means that the symbol does not require an import.
     , cmsImportEdits :: Maybe [J.TextEdit]
+    }
+
+newtype CompletionOptions = CompletionOptions
+    { cmoUseSnippets :: Bool
     }
 
 -- | Turns an index symbol into completion symbols by analyzing the module's imports.
@@ -153,11 +167,11 @@ instance CompletionQueryFilter CompletionSymbol where
                          | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
 
 class ToCompletionItems a where
-    toCompletionItems :: VFS.PosPrefixInfo -> a -> [J.CompletionItem]
+    toCompletionItems :: CompletionOptions -> VFS.PosPrefixInfo -> a -> [J.CompletionItem]
 
 instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItems query cms = [completionFrom name ciKind detail doc edits]
+    toCompletionItems opts query cms = [completionFrom name ciKind detail doc insertText edits]
         where s = cmsSymbol cms
               edits = cmsImportEdits cms
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
@@ -174,6 +188,8 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeClass                                    -> J.CiInterface
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
+              insertText | cmoUseSnippets opts = Just name -- TODO
+                         | otherwise           = Just name
               detail = I.sPrintedType s
               doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
@@ -182,20 +198,26 @@ instance ToCompletionItems CompletionSymbol where
 
 instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
-    toCompletionItems _ (Keyword kw) = [completionFrom kw ciKind detail doc Nothing]
-        where ciKind = J.CiKeyword
+    toCompletionItems _ _ (Keyword kw) = [completionFrom label ciKind detail doc insertText edits]
+        where label = kw
+              ciKind = J.CiKeyword
               detail = Nothing
               doc = Just "Keyword"
+              insertText = Just kw
+              edits = Nothing
 
 instance ToCompletionItems T.Text where
-    toCompletionItems _ txt = [completionFrom txt ciKind detail doc Nothing]
-        where ciKind = J.CiText
+    toCompletionItems _ _ txt = [completionFrom label ciKind detail doc insertText edits]
+        where label = txt
+              ciKind = J.CiText
               detail = Nothing
               doc = Nothing
+              insertText = Just txt
+              edits = Nothing
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
-completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe [J.TextEdit] -> J.CompletionItem
-completionFrom l k d c es = J.CompletionItem label kind tags detail doc deprecated
+completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe [J.TextEdit] -> J.CompletionItem
+completionFrom l k d c it es = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
                                           insertTextFormat textEdit additionalTextEdits
                                           commitChars command xdata
@@ -208,7 +230,7 @@ completionFrom l k d c es = J.CompletionItem label kind tags detail doc deprecat
         preselect = Nothing
         sortText = Nothing
         filterText = Nothing
-        insertText = Nothing
+        insertText = it
         insertTextFormat = Nothing
         textEdit = Nothing
         additionalTextEdits = J.List <$> es
