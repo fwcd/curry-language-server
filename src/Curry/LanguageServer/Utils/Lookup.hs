@@ -95,15 +95,21 @@ class CollectScope e a where
     collectScope :: e -> ScopeM a ()
 
 instance CollectScope (CS.Module a) a where
-    collectScope (CS.Module _ _ _ _ _ _ decls) = collectScope decls
+    collectScope (CS.Module _ _ _ _ _ _ decls) = collectScope $ TopDecl <$> decls
 
-instance CollectScope (CS.Decl a) a where
-    collectScope decl = (>> updateEnvs decl) $ withScope $ case decl of
-        -- TODO: Collect type variables
+-- TopDecls introduce a new scope, LocalDecls don't
+newtype TopDecl a = TopDecl (CS.Decl a)
+newtype LocalDecl a = LocalDecl (CS.Decl a)
+
+instance CollectScope (TopDecl a) a where
+    collectScope (TopDecl decl) = (>> updateEnvs decl) $ withScope $ collectScope $ LocalDecl decl
+
+instance CollectScope (LocalDecl a) a where
+    collectScope (LocalDecl decl) = (>> updateEnvs decl) $ case decl of
         CS.FunctionDecl _ t i eqs    -> bind i (Just t) >> collectScope eqs
         CS.PatternDecl _ p rhs       -> collectScope p >> collectScope rhs
-        CS.InstanceDecl _ _ _ _ _ ds -> collectScope ds
-        CS.ClassDecl _ _ _ _ _ ds    -> collectScope ds
+        CS.InstanceDecl _ _ _ _ _ ds -> collectScope $ TopDecl <$> ds
+        CS.ClassDecl _ _ _ _ _ ds    -> collectScope $ TopDecl <$> ds
         _                            -> return ()
 
 instance CollectScope (CS.Pattern a) a where
@@ -134,8 +140,8 @@ instance CollectScope (CS.Lhs a) a where
 
 instance CollectScope (CS.Rhs a) a where
     collectScope rhs = (>> updateEnvs rhs) $ case rhs of
-        CS.SimpleRhs _ _ e ds   -> collectScope e >> collectScope ds
-        CS.GuardedRhs _ _ cs ds -> collectScope cs >> collectScope ds
+        CS.SimpleRhs _ _ e ds   -> collectScope e >> collectScope (LocalDecl <$> ds)
+        CS.GuardedRhs _ _ cs ds -> collectScope cs >> collectScope (LocalDecl <$> ds)
 
 instance CollectScope (CS.CondExpr a) a where
     collectScope c@(CS.CondExpr _ e1 e2) = collectScope e1 >> collectScope e2 >> updateEnvs c
@@ -159,7 +165,10 @@ instance CollectScope (CS.Expression a) a where
         CS.LeftSection _ e _         -> collectScope e
         CS.RightSection _ _ e        -> collectScope e
         CS.Lambda _ ps e             -> withScope $ collectScope ps >> collectScope e
-        CS.Let _ _ ds e              -> withScope $ collectScope ds >> collectScope e
+                                        -- We collect the scope twice to ensure that variables can
+                                        -- be used before their declaration.
+        CS.Let _ _ ds e              -> withScope $ collectScope ds' >> collectScope ds' >> collectScope e
+            where ds' = LocalDecl <$> ds
         CS.Do _ _ stmts e            -> withScope $ collectScope stmts >> collectScope e
         CS.IfThenElse _ e1 e2 e3     -> collectScope e1 >> collectScope e2 >> collectScope e3
         CS.Case _ _ _ e as           -> collectScope e >> collectScope as
@@ -171,7 +180,7 @@ instance CollectScope e a => CollectScope (CS.Field e) a where
 instance CollectScope (CS.Statement a) a where
     collectScope stmt = (>> updateEnvs stmt) $ case stmt of
         CS.StmtExpr _ e    -> collectScope e
-        CS.StmtDecl _ _ ds -> collectScope ds
+        CS.StmtDecl _ _ ds -> collectScope $ LocalDecl <$> ds
         CS.StmtBind _ p e  -> collectScope e >> collectScope p
 
 instance CollectScope (CS.Alt a) a where
