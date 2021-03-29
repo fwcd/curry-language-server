@@ -3,16 +3,19 @@ module Curry.LanguageServer.Handlers.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 
+import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Index.Store as I
+import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Index.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..), ModuleAST, moduleIdentifier)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
+import Data.Maybe (listToMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -25,17 +28,27 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
     let J.HoverParams doc pos _ = req ^. J.params
         uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
+    store <- getStore
     hover <- runMaybeT $ do
         entry <- I.getModule normUri
-        liftMaybe =<< liftIO (fetchHover entry pos)
+        liftMaybe =<< liftIO (fetchHover store entry pos)
     responder $ Right hover
 
-fetchHover :: I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
-fetchHover entry pos = runMaybeT $ do
+fetchHover :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
+fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
-    hover <- liftMaybe $ typedSpanInfoHover ast pos
+    hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
     liftIO $ infoM "cls.hover" $ "Found " ++ show hover
     return hover
+
+qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover
+qualIdentHover store ast pos = do
+    (symbols, range) <- resolveQualIdentAtPos store ast pos
+    s <- listToMaybe symbols
+
+    let contents = J.HoverContents $ J.markedUpContent "curry" $ I.sQualIdent s <> maybe "" (" :: " <>) (I.sPrintedType s)
+
+    return $ J.Hover contents $ Just range
 
 typedSpanInfoHover :: ModuleAST -> J.Position -> Maybe J.Hover
 typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
