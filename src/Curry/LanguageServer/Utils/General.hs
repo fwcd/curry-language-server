@@ -201,6 +201,27 @@ instance Ord a => Insertable (S.Set a) a where
 instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
 
+-- | A map that 'pins' a key to a value once inserted.
+newtype ConstMap k v = ConstMap (M.Map k v)
+
+instance Functor (ConstMap k) where
+    fmap f (ConstMap m) = ConstMap $ fmap f m
+
+instance Foldable (ConstMap k) where
+    foldr f x (ConstMap m) = foldr f x m
+
+instance Traversable (ConstMap k) where
+    traverse f (ConstMap m) = ConstMap <$> traverse f m
+
+instance Ord k => Insertable (ConstMap k v) (k, v) where
+    insert (k, v) (ConstMap m) = ConstMap $ M.insertWith (const id) k v m
+
+instance Ord k => Semigroup (ConstMap k v) where
+    ConstMap m <> ConstMap m' = ConstMap $ m <> m'
+
+instance Ord k => Monoid (ConstMap k v) where
+    mempty = ConstMap M.empty
+
 -- | Inserts the given element into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
 insertIntoTrieWith :: (a -> a -> a) -> B.ByteString -> a -> TR.Trie a -> TR.Trie a
