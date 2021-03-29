@@ -197,9 +197,8 @@ instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
 
 -- | Inserts all entries into the given Insertable. Useful for maps.
-insertAll :: Insertable m a => [a] -> m -> m
-insertAll [] = id
-insertAll (x:xs) = insertAll xs . insert x
+insertAll :: (Foldable t, Insertable m a) => t a -> m -> m
+insertAll = flip $ foldr insert
 
 -- | Inserts the given element into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
@@ -209,16 +208,15 @@ insertIntoTrieWith f s x t | TR.member s t = TR.adjust (f x) s t
 
 -- | Inserts the given elements into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
-insertAllIntoTrieWith :: (a -> a -> a) -> [(B.ByteString, a)] -> TR.Trie a -> TR.Trie a
-insertAllIntoTrieWith _ [] = id
-insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . insertIntoTrieWith f s x
+insertAllIntoTrieWith :: Foldable t => (a -> a -> a) -> t (B.ByteString, a) -> TR.Trie a -> TR.Trie a
+insertAllIntoTrieWith f = flip $ foldr (uncurry $ insertIntoTrieWith f)
 
 -- | Groups by key into a map.
-groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
+groupIntoMapBy :: (Foldable t, Ord k) => (a -> k) -> t a -> M.Map k [a]
 groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty
 
 -- | Groups by key into a map monadically.
-groupIntoMapByM :: (Ord k, Monad m) => (a -> m k) -> [a] -> m (M.Map k [a])
+groupIntoMapByM :: (Foldable t, Ord k, Monad m) => (a -> m k) -> t a -> m (M.Map k [a])
 groupIntoMapByM f = foldrM (\x m -> (\y -> M.insertWith (++) y [x] m) <$> f x) M.empty
 
 fst3 :: (a, b, c) -> a
