@@ -290,8 +290,11 @@ instance HasIdentifiers (CS.Decl a) where
         CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
         CS.FreeDecl _ vs              -> identifiers vs
         CS.DefaultDecl _ ts           -> identifiers ts
-        CS.ClassDecl _ _ _ i1 i2 ds   -> i1 : i2 : identifiers ds
-        CS.InstanceDecl _ _ _ _ _ ds  -> identifiers ds
+        CS.ClassDecl _ _ c i1 i2 ds   -> identifiers c ++ i1 : i2 : identifiers ds
+        CS.InstanceDecl _ _ c _ _ ds  -> identifiers c ++ identifiers ds
+
+instance HasIdentifiers CS.Constraint where
+    identifiers (CS.Constraint _ _ t) = identifiers t
 
 instance HasIdentifiers (CS.Equation a) where
     identifiers (CS.Equation _ lhs rhs) = identifiers lhs ++ identifiers rhs
@@ -390,7 +393,7 @@ instance HasIdentifiers CS.TypeExpr where
         _                    -> []
 
 instance HasIdentifiers CS.QualTypeExpr where
-    identifiers (CS.QualTypeExpr _ _ t) = identifiers t
+    identifiers (CS.QualTypeExpr _ c t) = identifiers c ++ identifiers t
 
 instance HasIdentifiers a => HasIdentifiers [a] where
     identifiers = (identifiers =<<)
