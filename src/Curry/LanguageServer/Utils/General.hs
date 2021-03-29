@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
@@ -178,11 +178,8 @@ nothingIfNull xs = Just xs
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
-class Insertable m a where
+class Insertable m a | m -> a where
     insert :: a -> m -> m
-
-instance Insertable a a where
-    insert = const
 
 instance Insertable (Maybe a) a where
     insert = const . Just
