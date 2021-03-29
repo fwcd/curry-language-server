@@ -4,7 +4,6 @@
 module Curry.LanguageServer.Index.Store (
     ModuleStoreEntry (..),
     IndexStore (..),
-    emptyStore,
     storedModuleCount,
     storedSymbolCount,
     storedModule,
@@ -90,9 +89,8 @@ instance Default ModuleStoreEntry where
                            , mseImportPaths = []
                            }
 
--- | Fetches an empty index store.
-emptyStore :: IndexStore
-emptyStore = IndexStore { idxModules = M.empty, idxSymbols = TR.empty, idxModuleSymbols = TR.empty }
+instance Default IndexStore where
+    def = IndexStore { idxModules = M.empty, idxSymbols = TR.empty, idxModuleSymbols = TR.empty }
 
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int

@@ -27,7 +27,7 @@ data LSState = LSState { lssIndexStore :: I.IndexStore
                        }
 
 instance Default LSState where
-  def = LSState { lssIndexStore = I.emptyStore, lssDebouncers = M.empty }
+  def = LSState { lssIndexStore = def, lssDebouncers = M.empty }
 
 newLSStateVar :: IO (MVar LSState)
 newLSStateVar = newMVar def
