@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, LambdaCase #-}
 -- | Position lookup in the AST.
 module Curry.LanguageServer.Utils.Lookup (
     findQualIdentAtPos,
@@ -38,7 +38,7 @@ withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
 
 withName :: CI.Ident -> (T.Text, CI.Ident)
-withName i = (ppToText i, i)
+withName i = (ppToText $ CI.unRenameIdent i, i)
 
 containsPos :: CSPI.HasSpanInfo a => a -> J.Position -> Bool
 containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
@@ -98,7 +98,11 @@ instance HasIdentifiersInScope (CS.Expression a) where
             CS.LeftSection _ e _         -> identifiersInScope pos e
             CS.RightSection _ _ e        -> identifiersInScope pos e
             CS.Lambda _ ps e             -> insertAll (withName <$> identifiers ps) $ identifiersInScope pos e
-            CS.Let _ _ ds e              -> identifiersInScope pos ds <> identifiersInScope pos e
+            CS.Let _ _ ds e              -> insertAll (withName <$> boundIdentifiers) $ identifiersInScope pos ds <> identifiersInScope pos e
+                where boundIdentifiers = ds >>= \case
+                        CS.PatternDecl _ p _    -> identifiers p
+                        CS.FunctionDecl _ _ i _ -> [i]
+                        _                       -> []
             CS.Do _ _ stmts e            -> identifiersInScope pos stmts <> identifiersInScope pos e
             CS.IfThenElse _ e1 e2 e3     -> identifiersInScope pos e1 <> identifiersInScope pos e2 <> identifiersInScope pos e3
             CS.Case _ _ _ e as           -> identifiersInScope pos e <> identifiersInScope pos as
