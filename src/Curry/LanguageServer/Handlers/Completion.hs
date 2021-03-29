@@ -12,10 +12,10 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
-import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
+import Data.List.Extra (nubOrdOn)
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -75,7 +75,7 @@ pragmaCompletions opts query
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
     let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
-        symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< I.storedSymbolsWithPrefix (VFS.prefixText query) store -- TODO: Direct qualified symbol completions?
+        symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< nubOrdOn I.sQualIdent (I.storedSymbolsWithPrefix (VFS.prefixText query) store)
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
