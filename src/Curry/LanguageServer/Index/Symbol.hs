@@ -31,6 +31,7 @@ data Symbol = Symbol
     , sQualIdent :: T.Text
     , sIdent :: T.Text
     , sPrintedType :: Maybe T.Text
+    , sPrintedArgumentTypes :: [T.Text]
     , sArrowArity :: Maybe Int
     , sConstructors :: [T.Text]
     , sLocation :: Maybe J.Location
@@ -43,6 +44,7 @@ instance Default Symbol where
         , sQualIdent = ""
         , sIdent = ""
         , sPrintedType = Nothing
+        , sPrintedArgumentTypes = []
         , sArrowArity = Nothing
         , sConstructors = []
         , sLocation = Nothing

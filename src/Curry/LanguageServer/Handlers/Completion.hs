@@ -171,7 +171,7 @@ class ToCompletionItems a where
 
 instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItems opts query cms = [completionFrom name ciKind detail doc insertText edits]
+    toCompletionItems opts query cms = [completionFrom name ciKind detail doc insertText insertTextFormat edits]
         where s = cmsSymbol cms
               edits = cmsImportEdits cms
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
@@ -188,8 +188,10 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeClass                                    -> J.CiInterface
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
-              insertText | cmoUseSnippets opts = Just name -- TODO
+              insertText | cmoUseSnippets opts = Just $ T.intercalate " " $ name : ((\(i, t) -> "${" <> T.pack (show (i :: Int)) <> ":" <> t <> "}") <$> zip [1..] (I.sPrintedArgumentTypes s))
                          | otherwise           = Just name
+              insertTextFormat | cmoUseSnippets opts = Just J.Snippet
+                               | otherwise           = Just J.PlainText
               detail = I.sPrintedType s
               doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
@@ -198,26 +200,28 @@ instance ToCompletionItems CompletionSymbol where
 
 instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
-    toCompletionItems _ _ (Keyword kw) = [completionFrom label ciKind detail doc insertText edits]
+    toCompletionItems _ _ (Keyword kw) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
         where label = kw
               ciKind = J.CiKeyword
               detail = Nothing
               doc = Just "Keyword"
               insertText = Just kw
+              insertTextFormat = Just J.PlainText
               edits = Nothing
 
 instance ToCompletionItems T.Text where
-    toCompletionItems _ _ txt = [completionFrom label ciKind detail doc insertText edits]
+    toCompletionItems _ _ txt = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
         where label = txt
               ciKind = J.CiText
               detail = Nothing
               doc = Nothing
               insertText = Just txt
+              insertTextFormat = Just J.PlainText
               edits = Nothing
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
-completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe [J.TextEdit] -> J.CompletionItem
-completionFrom l k d c it es = J.CompletionItem label kind tags detail doc deprecated
+completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe J.InsertTextFormat -> Maybe [J.TextEdit] -> J.CompletionItem
+completionFrom l k d c it itf es = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
                                           insertTextFormat textEdit additionalTextEdits
                                           commitChars command xdata
@@ -231,7 +235,7 @@ completionFrom l k d c it es = J.CompletionItem label kind tags detail doc depre
         sortText = Nothing
         filterText = Nothing
         insertText = it
-        insertTextFormat = Nothing
+        insertTextFormat = itf
         textEdit = Nothing
         additionalTextEdits = J.List <$> es
         commitChars = Nothing

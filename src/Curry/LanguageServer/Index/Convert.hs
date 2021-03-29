@@ -69,6 +69,7 @@ makeValueSymbol k q t = do
         , sQualIdent = ppToText q
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText t
+        , sPrintedArgumentTypes = ppToText <$> CT.arrowArgs (CT.rawType t)
         , sArrowArity = Just $ CT.arrowArity $ CT.rawType t
         , sLocation = loc
         }
@@ -81,6 +82,7 @@ makeTypeSymbol k q k' = do
         , sQualIdent = ppToText q
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText k'
+        , sPrintedArgumentTypes = ppToText <$> CK.kindArgs k'
         , sArrowArity = Just $ CK.kindArity k'
         , sLocation = loc
         }
