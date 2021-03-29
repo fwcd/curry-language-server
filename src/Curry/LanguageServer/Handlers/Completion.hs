@@ -3,6 +3,7 @@ module Curry.LanguageServer.Handlers.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
+import qualified Base.Types as CT
 
 import Control.Lens ((^.))
 import Control.Monad (join, guard)
@@ -17,7 +18,7 @@ import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (first)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
@@ -90,7 +91,7 @@ importCompletions opts store query = do
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
     let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) (I.mseModuleAST entry)
-        localIdentifiers'  = M.fromList $ map (bimap ppToText (maybe "" ppToText)) $ M.toList localIdentifiers
+        localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
         localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
         symbols            = filter (flip M.notMember localIdentifiers' . I.sIdent) $ nubOrdOn I.sQualIdent
                                                                                    $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
@@ -107,7 +108,7 @@ toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filterF 
 
 newtype Keyword = Keyword T.Text
 
-data Local = Local T.Text T.Text
+data Local = Local T.Text (Maybe CT.PredType)
 
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
@@ -199,7 +200,7 @@ class ToCompletionItems a where
 
 instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
-    toCompletionItems opts query cms = [completionFrom name ciKind detail doc insertText insertTextFormat edits]
+    toCompletionItems opts query cms = [makeCompletion name ciKind detail doc insertText insertTextFormat edits]
         where s = cmsSymbol cms
               edits = cmsImportEdits cms
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
@@ -216,7 +217,7 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeClass                                    -> J.CiInterface
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
-              insertText | cmoUseSnippets opts = Just $ T.intercalate " " $ name : ((\(i, t) -> "${" <> T.pack (show (i :: Int)) <> ":" <> t <> "}") <$> zip [1..] (I.sPrintedArgumentTypes s))
+              insertText | cmoUseSnippets opts = Just $ makeSnippet name $ I.sPrintedArgumentTypes s
                          | otherwise           = Just name
               insertTextFormat | cmoUseSnippets opts = Just J.Snippet
                                | otherwise           = Just J.PlainText
@@ -228,7 +229,7 @@ instance ToCompletionItems CompletionSymbol where
 
 instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
-    toCompletionItems _ _ (Keyword kw) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
+    toCompletionItems _ _ (Keyword kw) = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = kw
               ciKind = J.CiKeyword
               detail = Nothing
@@ -239,17 +240,20 @@ instance ToCompletionItems Keyword where
 
 instance ToCompletionItems Local where
     -- | Creates a completion item from a local variable.
-    toCompletionItems _ _ (Local i t) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
+    toCompletionItems opts _ (Local i t) = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = i
               ciKind = J.CiVariable
-              detail = Just t
+              detail = ppToText <$> t
               doc = Just "Local"
-              insertText = Just label
-              insertTextFormat = Just J.PlainText
+              argTypes = (ppToText <$>) $ CT.arrowArgs . CT.unpredType =<< maybeToList t
+              insertText | cmoUseSnippets opts = Just $ makeSnippet i argTypes
+                         | otherwise           = Just i
+              insertTextFormat | cmoUseSnippets opts = Just J.Snippet
+                               | otherwise           = Just J.PlainText
               edits = Nothing
 
 instance ToCompletionItems T.Text where
-    toCompletionItems _ _ txt = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
+    toCompletionItems _ _ txt = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = txt
               ciKind = J.CiText
               detail = Nothing
@@ -258,9 +262,13 @@ instance ToCompletionItems T.Text where
               insertTextFormat = Just J.PlainText
               edits = Nothing
 
+-- | Creates a snippet with VSCode-style syntax.
+makeSnippet :: T.Text -> [T.Text] -> T.Text
+makeSnippet name ts = T.intercalate " " $ name : ((\(i, t) -> "${" <> T.pack (show (i :: Int)) <> ":" <> t <> "}") <$> zip [1..] ts)
+
 -- | Creates a completion item using the given label, kind, a detail and doc.
-completionFrom :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe J.InsertTextFormat -> Maybe [J.TextEdit] -> J.CompletionItem
-completionFrom l k d c it itf es = J.CompletionItem label kind tags detail doc deprecated
+makeCompletion :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe J.InsertTextFormat -> Maybe [J.TextEdit] -> J.CompletionItem
+makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
                                           insertTextFormat textEdit additionalTextEdits
                                           commitChars command xdata
