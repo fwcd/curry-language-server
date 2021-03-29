@@ -10,7 +10,7 @@ module Curry.LanguageServer.Utils.Lookup (
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Base.NestEnv as CNE
 
 import Control.Applicative
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, ppToText)
@@ -22,17 +22,19 @@ import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
 -- | Finds identifier and (occurrence) span info at a given position.
-findQualIdentAtPos :: ModuleAST -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
+findQualIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
 findQualIdentAtPos ast pos = qualIdent <|> exprIdent <|> basicIdent
     where qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
           exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
           basicIdent = CI.qualify <.$> withSpanInfo <$> elementAt pos (identifiers ast)
 
-
-
 -- | Finds the type at the given position.
-findTypeAtPos :: ModuleAST -> J.Position -> Maybe (TypedSpanInfo CT.PredType)
+findTypeAtPos :: CS.Module a -> J.Position -> Maybe (TypedSpanInfo a)
 findTypeAtPos ast pos = elementAt pos $ typedSpanInfos ast
+
+-- -- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
+-- findIdentsInScope :: CS.Module a -> J.Position -> CNE.NestEnv a
+-- findIdentsInScope ast pos = identifiers
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
@@ -43,20 +45,7 @@ withName i = (ppToText $ CI.unRenameIdent i, i)
 containsPos :: CSPI.HasSpanInfo a => a -> J.Position -> Bool
 containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
--- TODO: The current approach only works for scopes that are nested
---       directly (i.e. parent SpanInfo contains child SpanInfo).
---       This works for simple constructs, like function declarations,
---       let-bindings, etc., but fails for do-sequences, list comprehensions,
---       where-bindings etc.
--- 
---       Rewrite in a monadic way using NestEnvs since e.g.
---       do-scopes are currently not handled correctly (i.e. the
---       scope of a bound variable should be the variable and
---       all statements below, not just the bind itself).
--- TODO: Attach (printed) type information for use by completions.
-
 class HasIdentifiersInScope a where
-    -- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
     identifiersInScope :: J.Position -> a -> ConstMap T.Text CI.Ident
 
 instance HasIdentifiersInScope (CS.Module a) where

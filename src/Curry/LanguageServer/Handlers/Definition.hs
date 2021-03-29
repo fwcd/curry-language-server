@@ -10,7 +10,7 @@ import Curry.LanguageServer.Index.Resolve
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Curry.LanguageServer.Utils.Syntax (ModuleAST)
+import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T

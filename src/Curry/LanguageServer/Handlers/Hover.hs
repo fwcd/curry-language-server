@@ -13,8 +13,8 @@ import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range
 import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
-import Curry.LanguageServer.Utils.Syntax (ModuleAST, moduleIdentifier)
-import Curry.LanguageServer.Utils.Sema (TypedSpanInfo (..))
+import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
+import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (listToMaybe)
@@ -57,7 +57,7 @@ typedSpanInfoHover :: ModuleAST -> J.Position -> Maybe J.Hover
 typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     TypedSpanInfo txt t spi <- findTypeAtPos ast pos
 
-    let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppPredTypeToText mid t
+    let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> maybe "?" (ppPredTypeToText mid) t
         range = currySpanInfo2Range spi
 
     return $ J.Hover contents range

@@ -41,7 +41,7 @@ import Curry.LanguageServer.Index.Convert
 import Curry.LanguageServer.Index.Symbol
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Syntax (ModuleAST)
+import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)

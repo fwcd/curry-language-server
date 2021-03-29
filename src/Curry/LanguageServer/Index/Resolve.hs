@@ -11,7 +11,7 @@ import qualified Curry.Syntax as CS
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
-import Curry.LanguageServer.Utils.Syntax (ModuleAST)
+import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Lookup (findQualIdentAtPos)
 import qualified Language.LSP.Types as J
 

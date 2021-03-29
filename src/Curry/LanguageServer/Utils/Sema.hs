@@ -3,6 +3,7 @@
 module Curry.LanguageServer.Utils.Sema (
     HasTypedSpanInfos (..),
     TypedSpanInfo (..),
+    ModuleAST,
     untypedTopLevelDecls
 ) where
 
@@ -14,9 +15,11 @@ import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
 import Curry.LanguageServer.Utils.Convert (ppToText)
-import Data.Maybe (maybeToList, mapMaybe)
+import Data.Maybe (maybeToList)
 import qualified Data.Set as S
 import qualified Data.Text as T
+
+type ModuleAST = CS.Module (Maybe CT.PredType)
 
 -- | Finds top-level function declarations in the module without an explicit type signature.
 untypedTopLevelDecls :: CS.Module a -> [(CSPI.SpanInfo, CI.Ident, a)]
@@ -132,11 +135,6 @@ instance HasTypedSpanInfos e a => HasTypedSpanInfos [e] a where
 
 instance HasTypedSpanInfos e a => HasTypedSpanInfos (Maybe e) a where
     typedSpanInfos = typedSpanInfos . maybeToList
-
-instance HasTypedSpanInfos e (Maybe CT.PredType) => HasTypedSpanInfos e CT.PredType where
-    typedSpanInfos = mapMaybe extract . typedSpanInfos
-        where extract (TypedSpanInfo txt (Just t) spi) = Just $ TypedSpanInfo txt t spi
-              extract _                                = Nothing
 
 instance CP.HasPosition (TypedSpanInfo a) where
     getPosition (TypedSpanInfo _ _ spi) = CP.getPosition spi

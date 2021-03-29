@@ -38,7 +38,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Syntax (ModuleAST)
+import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)

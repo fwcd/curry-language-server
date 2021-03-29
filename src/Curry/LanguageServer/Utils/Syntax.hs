@@ -7,7 +7,6 @@ module Curry.LanguageServer.Utils.Syntax (
     HasIdentifiers (..),
     HasQualIdentifier (..),
     HasIdentifier (..),
-    ModuleAST,
     elementAt,
     moduleIdentifier
 ) where
@@ -15,15 +14,12 @@ module Curry.LanguageServer.Utils.Syntax (
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
-import qualified Base.Types as CT
 import qualified Curry.Syntax as CS
 
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
 import Data.Maybe (maybeToList)
 import qualified Language.LSP.Types as J
-
-type ModuleAST = CS.Module (Maybe CT.PredType)
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
