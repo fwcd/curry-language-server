@@ -1,14 +1,16 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.Hover (hoverHandler) where
 
+-- Curry Compiler Libraries + Dependencies
+
 import Control.Lens ((^.))
-import Control.Monad.Trans (liftIO, lift)
+import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Utils.Convert
+import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Utils.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
-import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..))
+import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..), ModuleAST, moduleIdentifier)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import qualified Language.LSP.Server as S
@@ -31,17 +33,13 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
 fetchHover :: I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
 fetchHover entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
-    hover <- MaybeT $ runLM (hoverAt pos) ast
+    hover <- liftMaybe $ typedSpanInfoHover ast pos
     liftIO $ infoM "cls.hover" $ "Found " ++ show hover
     return hover
 
-hoverAt :: J.Position -> LM J.Hover
-hoverAt pos = typedSpanInfoHover pos >>= liftMaybe
-
-typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
-typedSpanInfoHover pos = runMaybeT $ do
-    TypedSpanInfo txt t spi <- MaybeT $ findTypeAtPos pos
-    mid <- lift getModuleIdentifier
+typedSpanInfoHover :: ModuleAST -> J.Position -> Maybe J.Hover
+typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
+    TypedSpanInfo txt t spi <- findTypeAtPos ast pos
 
     let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppPredTypeToText mid t
         range = currySpanInfo2Range spi

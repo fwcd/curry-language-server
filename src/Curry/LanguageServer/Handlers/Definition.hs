@@ -8,7 +8,6 @@ import qualified Curry.Syntax as CS
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
-import Control.Monad.Reader.Class (ask)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert
@@ -16,10 +15,9 @@ import Curry.LanguageServer.Utils.Lookup
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
-import Data.List (find, sortOn)
+import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, maybeToList, mapMaybe, listToMaybe)
-import qualified Data.Text as T
+import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -41,19 +39,19 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
 
 fetchDefinitions :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO [J.LocationLink]
 fetchDefinitions store entry pos = do
-    defs <- (fromMaybe [] <$>) $ runMaybeT $ do ast <- liftMaybe $ I.mseModuleAST entry
-                                                MaybeT $ runLM (definitions store pos) ast
+    defs <- (fromMaybe [] <$>) $ runMaybeT $ do
+        ast <- liftMaybe $ I.mseModuleAST entry
+        definitions store ast pos
     infoM "cls.definition" $ "Found " ++ show defs
     return defs
 
-definitions :: I.IndexStore -> J.Position -> LM [J.LocationLink]
-definitions store pos = do
+definitions :: I.IndexStore -> ModuleAST -> J.Position -> MaybeT IO [J.LocationLink]
+definitions store ast@(CS.Module _ _ _ mid _ imps _) pos = do
     -- Find qualified identifier under cursor
-    (qid, _) <- liftMaybe =<< findQualIdentAtPos pos
+    (qid, _) <- liftMaybe $ findQualIdentAtPos ast pos
     liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid
     -- Resolve the qualified identifier using imports
     -- TODO: Deal with aliases correctly
-    CS.Module _ _ _ mid _ imps _ <- ask
     let qids = qid : (flip CI.qualQualify qid <$>
                ([mid, CI.mkMIdent ["Prelude"]] ++ [mid' | CS.ImportDecl _ mid' _ _ _ <- imps]))
     -- Perform lookup
