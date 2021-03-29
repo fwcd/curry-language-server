@@ -43,7 +43,9 @@ withName i = (ppToText $ CI.unRenameIdent i, i)
 containsPos :: CSPI.HasSpanInfo a => a -> J.Position -> Bool
 containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
--- TODO: Rewrite in a monadic way using NestEnvs since e.g.
+-- TODO: The current approach only works for scopes that are nested
+--       directly (i.e. parent SpanInfo contains child SpanInfo).
+--       Rewrite in a monadic way using NestEnvs since e.g.
 --       do-scopes are currently not handled correctly (i.e. the
 --       scope of a bound variable should be the variable and
 --       all statements below, not just the bind itself).
@@ -59,12 +61,14 @@ instance HasIdentifiersInScope (CS.Module a) where
 instance HasIdentifiersInScope (CS.Decl a) where
     identifiersInScope pos decl
         | decl `containsPos` pos = case decl of
-            CS.DataDecl _ _ vs _ _    -> insertAll (withName <$> vs) mempty
-            CS.NewtypeDecl _ _ vs _ _ -> insertAll (withName <$> vs) mempty
-            CS.TypeDecl _ _ vs _      -> insertAll (withName <$> vs) mempty
-            CS.FunctionDecl _ _ i eqs -> insert (withName i) $ identifiersInScope pos eqs
-            CS.PatternDecl _ p rhs    -> insertAll (withName <$> identifiers p) $ identifiersInScope pos rhs
-            _                         -> mempty -- TODO: Class/instance decls
+            CS.DataDecl _ _ vs _ _       -> insertAll (withName <$> vs) mempty
+            CS.NewtypeDecl _ _ vs _ _    -> insertAll (withName <$> vs) mempty
+            CS.TypeDecl _ _ vs _         -> insertAll (withName <$> vs) mempty
+            CS.FunctionDecl _ _ i eqs    -> insert (withName i) $ identifiersInScope pos eqs
+            CS.PatternDecl _ p rhs       -> insertAll (withName <$> identifiers p) $ identifiersInScope pos rhs
+            CS.InstanceDecl _ _ c _ _ ds -> insertAll (withName <$> identifiers c) $ identifiersInScope pos ds
+            CS.ClassDecl _ _ c _ _ ds    -> insertAll (withName <$> identifiers c) $ identifiersInScope pos ds
+            _                            -> mempty
         | otherwise              = mempty
 
 instance HasIdentifiersInScope (CS.Equation a) where
