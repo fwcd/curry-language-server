@@ -240,11 +240,11 @@ instance ToCompletionItems Keyword where
 instance ToCompletionItems Local where
     -- | Creates a completion item from a local variable.
     toCompletionItems _ _ (Local i) = [completionFrom label ciKind detail doc insertText insertTextFormat edits]
-        where label = ppToText i
+        where label = ppToText $ CI.unRenameIdent i
               ciKind = J.CiVariable
               detail = Nothing
               doc = Just "Local"
-              insertText = Just $ ppToText i
+              insertText = Just label
               insertTextFormat = Just J.PlainText
               edits = Nothing
 
