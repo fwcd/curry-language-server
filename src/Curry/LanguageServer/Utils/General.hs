@@ -20,6 +20,7 @@ module Curry.LanguageServer.Utils.General (
     nothingIfNull,
     replaceString,
     Insertable (..),
+    ConstMap (..),
     insertIntoTrieWith,
     insertAllIntoTrieWith,
     groupIntoMapBy,
@@ -217,7 +218,9 @@ instance Ord k => Insertable (ConstMap k v) (k, v) where
     insert (k, v) (ConstMap m) = ConstMap $ M.insertWith (const id) k v m
 
 instance Ord k => Semigroup (ConstMap k v) where
-    ConstMap m <> ConstMap m' = ConstMap $ m <> m'
+    -- Note how ConstMap uses a 'flipped' (<>). This is analogous to how
+    -- the insertion combiner also corresponds to a 'flipped' const.
+    ConstMap m <> ConstMap m' = ConstMap $ M.union m' m
 
 instance Ord k => Monoid (ConstMap k v) where
     mempty = ConstMap M.empty
