@@ -12,10 +12,13 @@ import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
+import Curry.LanguageServer.Utils.General (ConstMap (..))
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
+import Curry.LanguageServer.Utils.Lookup (HasIdentifiersInScope (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.List.Extra (nubOrdOn)
+import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -85,10 +88,13 @@ importCompletions opts store query = do
 
 generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 generalCompletions opts entry store query = do
-    let localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
+    let ast                = I.mseModuleAST entry
+        localIdentifiers   = identifiersInScope (VFS.cursorPos query) ast
+        localCompletions   = [] -- TODO: Context-awareness (through nested envs?)
         symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< nubOrdOn I.sQualIdent (I.storedSymbolsWithPrefix (VFS.prefixText query) store)
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
+    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys $ ctmMap localIdentifiers)
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completion(s) with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
     where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]

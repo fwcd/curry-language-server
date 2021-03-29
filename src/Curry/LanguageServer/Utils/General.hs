@@ -203,7 +203,7 @@ instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
 
 -- | A map that 'pins' a key to a value once inserted.
-newtype ConstMap k v = ConstMap (M.Map k v)
+newtype ConstMap k v = ConstMap { ctmMap :: M.Map k v }
 
 instance Functor (ConstMap k) where
     fmap f (ConstMap m) = ConstMap $ fmap f m
