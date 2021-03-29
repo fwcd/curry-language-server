@@ -45,6 +45,10 @@ containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
 -- TODO: The current approach only works for scopes that are nested
 --       directly (i.e. parent SpanInfo contains child SpanInfo).
+--       This works for simple constructs, like function declarations,
+--       let-bindings, etc., but fails for do-sequences, list comprehensions,
+--       where-bindings etc.
+-- 
 --       Rewrite in a monadic way using NestEnvs since e.g.
 --       do-scopes are currently not handled correctly (i.e. the
 --       scope of a bound variable should be the variable and
