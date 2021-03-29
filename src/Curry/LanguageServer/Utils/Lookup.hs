@@ -14,14 +14,12 @@ import qualified Curry.Syntax as CS
 
 import Control.Applicative
 import Control.Monad.State (State, when, execState, gets, modify)
-import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, ppToString)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
 import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Sema
 import qualified Data.Map as M
 import qualified Language.LSP.Types as J
-
-import Debug.Trace
 
 -- | A collectScope of bound identifiers.
 type Scope a = M.Map CI.Ident (Maybe a)
@@ -80,15 +78,12 @@ withScope x = beginScope >> x >> endScope
 
 bind :: CI.Ident -> Maybe a -> ScopeM a ()
 bind i t = do
-    trace ("Binding " ++ ppToString i) $ return ()
     modify $ \s -> s { sstCurrentEnv = bindInScopes i t $ sstCurrentEnv s }
 
 updateEnvs :: CSPI.HasSpanInfo e => e -> ScopeM a ()
 updateEnvs (CSPI.getSpanInfo -> spi) = do
     pos <- gets sstPosition
-    when (spi `containsPos` pos) $ do
-        current <- gets sstCurrentEnv
-        trace ("Assigning env " ++ show ((ppToString . fst <$>) . M.toList <$> current)) $ return ()
+    when (spi `containsPos` pos) $
         modify $ \s -> s { sstMatchingEnv = M.union (flattenScopes $ sstCurrentEnv s) $ sstMatchingEnv s }
 
 class CollectScope e a where
