@@ -13,6 +13,7 @@ import Curry.LanguageServer.Monad
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -27,7 +28,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
     normUri <- liftIO $ normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do
-        liftIO $ debugM "cls.definition" $ "Looking up " ++ show normUri ++ " in " ++ show (M.keys $ I.idxModules store)
+        liftIO $ debugM "cls.definition" $ "Looking up " ++ T.unpack (J.getUri $ J.fromNormalizedUri normUri) ++ " in " ++ show (M.keys $ I.idxModules store)
         entry <- I.getModule normUri
         liftIO $ fetchDefinitions store entry pos
     responder $ Right $ J.InR $ J.InR $ J.List $ fromMaybe [] defs
@@ -37,7 +38,7 @@ fetchDefinitions store entry pos = do
     defs <- (fromMaybe [] <$>) $ runMaybeT $ do
         ast <- liftMaybe $ I.mseModuleAST entry
         definitions store ast pos
-    infoM "cls.definition" $ "Found " ++ show defs
+    infoM "cls.definition" $ "Found " ++ show (length defs) ++ " definition(s)"
     return defs
 
 definitions :: I.IndexStore -> ModuleAST -> J.Position -> MaybeT IO [J.LocationLink]

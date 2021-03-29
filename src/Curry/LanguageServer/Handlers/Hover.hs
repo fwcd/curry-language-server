@@ -16,6 +16,7 @@ import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..), ModuleAST, moduleI
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Maybe (listToMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -38,7 +39,7 @@ fetchHover :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Ho
 fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    liftIO $ infoM "cls.hover" $ "Found " ++ show hover
+    liftIO $ infoM "cls.hover" $ "Found " ++ T.unpack (previewHover hover)
     return hover
 
 qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover
@@ -58,3 +59,7 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
         range = currySpanInfo2Range spi
 
     return $ J.Hover contents range
+
+previewHover :: J.Hover -> T.Text
+previewHover ((^. J.contents) -> J.HoverContents (J.MarkupContent _ t)) = t
+previewHover _                                                          = "?"

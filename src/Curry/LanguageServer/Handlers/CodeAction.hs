@@ -36,7 +36,7 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
 fetchCodeActions :: J.Range -> I.ModuleStoreEntry -> IO [J.CodeAction]
 fetchCodeActions range entry = do
     actions <- maybe (pure []) (codeActions range) $ I.mseModuleAST entry
-    debugM "cls.codeAction" $ "Found " ++ show (length actions) ++ " code actions"
+    debugM "cls.codeAction" $ "Found " ++ show (length actions) ++ " code action(s)"
     return actions
 
 class HasCodeActions s where
