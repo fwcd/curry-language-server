@@ -8,9 +8,9 @@ import qualified Base.Types as CT
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
-import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Range, currySpanInfo2Uri, ppToText)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, currySpanInfo2Uri, ppToText)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Aeson as A
@@ -34,18 +34,19 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
 fetchCodeLenses :: I.ModuleStoreEntry -> IO [J.CodeLens]
 fetchCodeLenses entry = do
     lenses <- maybe (pure []) codeLenses $ I.mseModuleAST entry
-    debugM "cls.codeLens" $ "Found " ++ show (length lenses) ++ " code lenses"
+    infoM "cls.codeLens" $ "Found " ++ show (length lenses) ++ " code lens(es)"
     return lenses
 
 class HasCodeLenses s where
     codeLenses :: s -> IO [J.CodeLens]
 
-instance HasCodeLenses (CS.Module CT.PredType) where
+instance HasCodeLenses (CS.Module (Maybe CT.PredType)) where
     codeLenses mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
         let typeHintLenses = do
-                (spi', i, t) <- untypedTopLevelDecls mdl
+                (spi', i, tp) <- untypedTopLevelDecls mdl
+                t <- maybeToList tp
                 range <- maybeToList $ currySpanInfo2Range spi'
                 uri <- maybeToList maybeUri
                 -- TODO: Move the command identifier ('decl.applyTypeHint') to some

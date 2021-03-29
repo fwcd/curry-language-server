@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General (
     lastSafe,
@@ -20,13 +20,14 @@ module Curry.LanguageServer.Utils.General (
     nothingIfNull,
     replaceString,
     Insertable (..),
-    insertAll,
+    ConstMap (..),
     insertIntoTrieWith,
     insertAllIntoTrieWith,
     groupIntoMapBy,
     groupIntoMapByM,
     fst3, snd3, thd3,
-    tripleToPair
+    tripleToPair,
+    filterF
 ) where
 
 import Control.Monad (join)
@@ -34,10 +35,12 @@ import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
+import qualified Data.List as L
 import Data.Foldable (foldrM)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Language.LSP.Types as J
 import System.FilePath
 import System.Directory
@@ -176,19 +179,52 @@ nothingIfNull xs = Just xs
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
-class Insertable m a where
+class Insertable m a | m -> a where
+    -- | Inserts a single entry.
     insert :: a -> m -> m
+    insert x = insertAll [x]
+
+    -- | Inserts multiple entries.
+    insertAll :: Foldable t => t a -> m -> m
+    insertAll = flip $ foldr insert
+
+instance Insertable (Maybe a) a where
+    insert = const . Just
+
+instance Ord a => Insertable [a] a where
+    insert = L.insert
 
 instance Ord k => Insertable (M.Map k v) (k, v) where
     insert = uncurry M.insert
 
+instance Ord a => Insertable (S.Set a) a where
+    insert = S.insert
+
 instance Insertable (TR.Trie a) (B.ByteString, a) where
     insert = uncurry TR.insert
 
--- | Inserts all entries into the given Insertable. Useful for maps.
-insertAll :: Insertable m a => [a] -> m -> m
-insertAll [] = id
-insertAll (x:xs) = insertAll xs . insert x
+-- | A map that 'pins' a key to a value once inserted.
+newtype ConstMap k v = ConstMap { ctmMap :: M.Map k v }
+
+instance Functor (ConstMap k) where
+    fmap f (ConstMap m) = ConstMap $ fmap f m
+
+instance Foldable (ConstMap k) where
+    foldr f x (ConstMap m) = foldr f x m
+
+instance Traversable (ConstMap k) where
+    traverse f (ConstMap m) = ConstMap <$> traverse f m
+
+instance Ord k => Insertable (ConstMap k v) (k, v) where
+    insert (k, v) (ConstMap m) = ConstMap $ M.insertWith (const id) k v m
+
+instance Ord k => Semigroup (ConstMap k v) where
+    -- Note how ConstMap uses a 'flipped' (<>). This is analogous to how
+    -- the insertion combiner also corresponds to a 'flipped' const.
+    ConstMap m <> ConstMap m' = ConstMap $ M.union m' m
+
+instance Ord k => Monoid (ConstMap k v) where
+    mempty = ConstMap M.empty
 
 -- | Inserts the given element into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
@@ -198,16 +234,15 @@ insertIntoTrieWith f s x t | TR.member s t = TR.adjust (f x) s t
 
 -- | Inserts the given elements into the trie using the combination function.
 -- The combination function takes the new value on the left and the old one on the right.
-insertAllIntoTrieWith :: (a -> a -> a) -> [(B.ByteString, a)] -> TR.Trie a -> TR.Trie a
-insertAllIntoTrieWith _ [] = id
-insertAllIntoTrieWith f ((s, x):sxs) = insertAllIntoTrieWith f sxs . insertIntoTrieWith f s x
+insertAllIntoTrieWith :: Foldable t => (a -> a -> a) -> t (B.ByteString, a) -> TR.Trie a -> TR.Trie a
+insertAllIntoTrieWith f = flip $ foldr (uncurry $ insertIntoTrieWith f)
 
 -- | Groups by key into a map.
-groupIntoMapBy :: Ord k => (a -> k) -> [a] -> M.Map k [a]
+groupIntoMapBy :: (Foldable t, Ord k) => (a -> k) -> t a -> M.Map k [a]
 groupIntoMapBy f = foldr (\x -> M.insertWith (++) (f x) [x]) M.empty
 
 -- | Groups by key into a map monadically.
-groupIntoMapByM :: (Ord k, Monad m) => (a -> m k) -> [a] -> m (M.Map k [a])
+groupIntoMapByM :: (Foldable t, Ord k, Monad m) => (a -> m k) -> t a -> m (M.Map k [a])
 groupIntoMapByM f = foldrM (\x m -> (\y -> M.insertWith (++) y [x] m) <$> f x) M.empty
 
 fst3 :: (a, b, c) -> a
@@ -221,3 +256,7 @@ thd3 (_, _, z) = z
 
 tripleToPair :: (a, b, c) -> (a, b)
 tripleToPair (x, y, _) = (x, y)
+
+-- | Filter over a foldable value. For [a], filterF = filter.
+filterF :: Foldable t => (a -> Bool) -> t a -> [a]
+filterF f = foldr (\x xs -> if f x then x : xs else xs) []

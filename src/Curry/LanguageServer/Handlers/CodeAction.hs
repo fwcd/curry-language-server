@@ -9,9 +9,9 @@ import Control.Lens ((^.))
 import Control.Monad (guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
-import qualified Curry.LanguageServer.IndexStore as I
+import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
-import Curry.LanguageServer.Utils.Conversions (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
 import Curry.LanguageServer.Utils.General (rangeOverlaps)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -36,13 +36,13 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
 fetchCodeActions :: J.Range -> I.ModuleStoreEntry -> IO [J.CodeAction]
 fetchCodeActions range entry = do
     actions <- maybe (pure []) (codeActions range) $ I.mseModuleAST entry
-    debugM "cls.codeAction" $ "Found " ++ show (length actions) ++ " code actions"
+    debugM "cls.codeAction" $ "Found " ++ show (length actions) ++ " code action(s)"
     return actions
 
 class HasCodeActions s where
     codeActions :: J.Range -> s -> IO [J.CodeAction]
 
-instance HasCodeActions (CS.Module CT.PredType) where
+instance HasCodeActions (CS.Module (Maybe CT.PredType)) where
     codeActions range mdl@(CS.Module spi _ _ _ _ _ _) = do
         maybeUri <- liftIO $ runMaybeT (currySpanInfo2Uri spi)
 
@@ -50,7 +50,8 @@ instance HasCodeActions (CS.Module CT.PredType) where
         --       quick fixes along with the warning messages?
 
         let typeHintActions = do
-                (spi', i, t) <- untypedTopLevelDecls mdl
+                (spi', i, tp) <- untypedTopLevelDecls mdl
+                t <- maybeToList tp
                 range' <- maybeToList $ currySpanInfo2Range spi'
                 guard $ rangeOverlaps range range'
                 uri <- maybeToList maybeUri

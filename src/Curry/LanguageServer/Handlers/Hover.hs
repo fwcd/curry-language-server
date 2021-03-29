@@ -1,20 +1,24 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
-import qualified Base.TopEnv as CT
 
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
-import Control.Monad.Trans (liftIO, lift)
+import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe
-import qualified Curry.LanguageServer.IndexStore as I
-import Curry.LanguageServer.Utils.Conversions
-import Curry.LanguageServer.Utils.Env
+import qualified Curry.LanguageServer.Index.Store as I
+import qualified Curry.LanguageServer.Index.Symbol as I
+import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
+import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
-import Curry.LanguageServer.Utils.Syntax (TypedSpanInfo (..))
+import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
+import Curry.LanguageServer.Utils.Syntax (ModuleAST, moduleIdentifier)
+import Curry.LanguageServer.Utils.Sema (TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
+import Data.Maybe (listToMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -27,45 +31,42 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
     let J.HoverParams doc pos _ = req ^. J.params
         uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
+    store <- getStore
     hover <- runMaybeT $ do
         entry <- I.getModule normUri
-        liftMaybe =<< liftIO (fetchHover entry pos)
+        liftMaybe =<< liftIO (fetchHover store entry pos)
     responder $ Right hover
 
-fetchHover :: I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
-fetchHover entry pos = runMaybeT $ do
+fetchHover :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
+fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
-    env <- liftMaybe $ I.mseCompilerEnv entry
-    hover <- MaybeT $ runLM (hoverAt pos) env ast
-    liftIO $ infoM "cls.hover" $ "Found " ++ show hover
+    hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
+    liftIO $ infoM "cls.hover" $ "Found hover: " ++ T.unpack (previewHover hover)
     return hover
 
-hoverAt :: J.Position -> LM J.Hover
-hoverAt pos = ((<|>) <$> qualIdentHover pos <*> typedSpanInfoHover pos) >>= liftMaybe
+qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover
+qualIdentHover store ast pos = do
+    (symbols, range) <- resolveQualIdentAtPos store ast pos
+    s <- listToMaybe symbols
 
-qualIdentHover :: J.Position -> LM (Maybe J.Hover)
-qualIdentHover pos = runMaybeT $ do
-    (ident, spi) <- MaybeT $ findQualIdentAtPos pos
-    valueInfo <- lift $ lookupValueInfo ident
-    typeInfo <- lift $ lookupTypeInfo ident
-    mid <- lift getModuleIdentifier
+    let contents = J.HoverContents $ J.markedUpContent "curry" $ I.sQualIdent s <> maybe "" (" :: " <>) (I.sPrintedType s)
 
-    let valueMsg = (\v -> ppToText (CT.origName v) <> " :: " <> ppTypeSchemeToText mid (valueInfoType v)) <$> valueInfo
-        typeMsg  = (\t -> ppToText (CT.origName t) <> " :: " <> ppToText               (typeInfoKind t))  <$> typeInfo
+    return $ J.Hover contents $ Just range
 
-    msg <- liftMaybe $ valueMsg <|> typeMsg
-
-    let contents = J.HoverContents $ J.markedUpContent "curry" msg
-        range = currySpanInfo2Range spi
-
-    return $ J.Hover contents range
-
-typedSpanInfoHover :: J.Position -> LM (Maybe J.Hover)
-typedSpanInfoHover pos = runMaybeT $ do
-    TypedSpanInfo txt t spi <- MaybeT $ findTypeAtPos pos
-    mid <- lift getModuleIdentifier
+typedSpanInfoHover :: ModuleAST -> J.Position -> Maybe J.Hover
+typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
+    TypedSpanInfo txt t spi <- findTypeAtPos ast pos
 
     let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> ppPredTypeToText mid t
         range = currySpanInfo2Range spi
 
     return $ J.Hover contents range
+
+previewHover :: J.Hover -> T.Text
+previewHover ((^. J.contents) -> J.HoverContents (J.MarkupContent k t)) = case k of J.MkMarkdown  -> markdownToPlain t
+                                                                                    J.MkPlainText -> t
+previewHover _                                                          = "?"
+
+markdownToPlain :: T.Text -> T.Text
+markdownToPlain t = T.intercalate ", " $ filter includeLine $ T.lines t
+    where includeLine l = not ("```" `T.isPrefixOf` l || T.null l)

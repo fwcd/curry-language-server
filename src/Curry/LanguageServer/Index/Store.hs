@@ -1,18 +1,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
-module Curry.LanguageServer.IndexStore (
+{-# LANGUAGE OverloadedStrings #-}
+module Curry.LanguageServer.Index.Store (
     ModuleStoreEntry (..),
-    SymbolStoreEntry (..),
     IndexStore (..),
-    emptyStore,
     storedModuleCount,
     storedSymbolCount,
     storedModule,
     storedModuleByIdent,
     storedModules,
     storedSymbols,
+    storedSymbolsByIdent,
     storedSymbolsWithPrefix,
     storedSymbolsByQualIdent,
+    storedModuleSymbolsWithPrefix,
     addWorkspaceDir,
     recompileModule,
     getModuleCount,
@@ -29,7 +30,6 @@ import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
 import Control.Exception (catch, SomeException)
-import Control.Lens ((^.))
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
@@ -37,20 +37,23 @@ import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
 import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
 import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
-import Curry.LanguageServer.Utils.Conversions
+import Curry.LanguageServer.Index.Convert
+import Curry.LanguageServer.Index.Symbol
+import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (nubBy, unionBy)
+import Data.List (unionBy)
+import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList)
+import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList, mapMaybe)
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
 import System.Directory (doesFileExist)
 import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
@@ -60,38 +63,35 @@ import System.Process (readProcessWithExitCode)
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
 data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
-                                         , mseCompilerEnv :: Maybe CE.CompilerEnv
                                          , mseErrorMessages :: [CM.Message]
                                          , mseWarningMessages :: [CM.Message]
                                          , mseWorkspaceDir :: Maybe FilePath
                                          , mseImportPaths :: [FilePath]
                                          }
 
--- | An index store entry containing a symbol.
-data SymbolStoreEntry = SymbolStoreEntry { sseSymbol :: J.SymbolInformation
-                                         , sseQualIdent :: CI.QualIdent
-                                         }
+
 
 -- | An in-memory map of URIs to parsed modules and
 -- unqualified symbol names to actual symbols/symbol information.
 -- Since (unqualified) symbol names can be ambiguous, a trie leaf
 -- holds a list of symbol entries rather than just a single one.
 data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEntry
-                             , idxSymbols :: TR.Trie [SymbolStoreEntry]
+                               -- Symbols keyed by unqualified name
+                             , idxSymbols :: TR.Trie [Symbol]
+                               -- Module symbols keyed by qualified name
+                             , idxModuleSymbols :: TR.Trie [Symbol]
                              }
 
 instance Default ModuleStoreEntry where
     def = ModuleStoreEntry { mseModuleAST = Nothing
-                           , mseCompilerEnv = Nothing
                            , mseWarningMessages = []
                            , mseErrorMessages = []
                            , mseWorkspaceDir = Nothing
                            , mseImportPaths = []
                            }
 
--- | Fetches an empty index store.
-emptyStore :: IndexStore
-emptyStore = IndexStore { idxModules = M.empty, idxSymbols = TR.empty }
+instance Default IndexStore where
+    def = IndexStore { idxModules = M.empty, idxSymbols = TR.empty, idxModuleSymbols = TR.empty }
 
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int
@@ -115,19 +115,26 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
 storedModules = M.toList . idxModules
 
+-- | Fetches all symbols.
+storedSymbols :: IndexStore -> [Symbol]
+storedSymbols = join . TR.toListBy (const id) . idxSymbols
+
 -- | Fetches the given (unqualified) symbol names in the store.
-storedSymbols :: T.Text -> IndexStore -> [SymbolStoreEntry]
-storedSymbols t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
+storedSymbolsByIdent :: T.Text -> IndexStore -> [Symbol]
+storedSymbolsByIdent t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
-storedSymbolsWithPrefix :: T.Text -> IndexStore -> [SymbolStoreEntry]
+storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
 storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxSymbols
 
 -- | Fetches stored symbols by qualified identifier.
-storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [SymbolStoreEntry]
-storedSymbolsByQualIdent q = filter (qidEq q . sseQualIdent) . storedSymbols name
+storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
+storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByIdent name
     where name = T.pack $ CI.idName $ CI.qidIdent q
-          qidEq = (==) `on` ppToText
+
+-- | Fetches stored module symbols starting with the given prefix.
+storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
+storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxModuleSymbols
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
@@ -148,7 +155,7 @@ findCurrySourcesInWorkspace :: CFG.Config -> FilePath -> IO [(FilePath, [FilePat
 findCurrySourcesInWorkspace cfg dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
     let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
-    nubBy ((==) `on` fst) <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
+    nubOrdOn fst <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: CFG.Config -> FilePath -> IO [(FilePath, [FilePath])]
@@ -218,47 +225,69 @@ recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> CFG.Confi
 recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     liftIO $ infoM "cls.indexStore" $ "[" ++ show i ++ " of " ++ show total ++ "] (Re)compiling file " ++ takeFileName filePath
 
-    ms <- gets idxModules
-    ss <- gets idxSymbols
     uri <- liftIO $ filePathToNormalizedUri filePath
+    ms <- gets idxModules
 
-    let previous :: J.NormalizedUri -> ModuleStoreEntry
-        previous = flip (M.findWithDefault $ def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }) ms
+    let defEntry = def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }
         outDirPath = CFN.defaultOutDir </> "language-server"
-        importPaths' = outDirPath : mseImportPaths (previous uri)
+        importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
 
-    result <- liftIO $ catch
+    (co, cs) <- liftIO $ catch
         (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
     
-    case result of
-        Left errs -> modify $ \s -> s { idxModules = M.insert uri ((previous uri) { mseErrorMessages = errs, mseWarningMessages = [] }) ms }
-        Right (o, warns) -> do liftIO $ debugM "cls.indexStore" $ "Recompiled module paths: " ++ show (fst <$> asts)
-                               ws <- liftIO $ groupIntoMapByM msgNormUri warns
-                               moduleDelta <- liftIO
-                                            $ sequence
-                                            $ (\(fp, ast) -> do u <- filePathToNormalizedUri fp
-                                                                return (u, (previous u) { mseModuleAST = Just ast
-                                                                                        , mseCompilerEnv = Just env
-                                                                                        , mseErrorMessages = []
-                                                                                        , mseWarningMessages = M.findWithDefault [] (Just u) ws
-                                                                                        }))
-                                            <$> asts
+    let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
+            uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
+            liftIO $ normalizeUriWithPath uri'
 
-                               valueSymbols <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.valueEnv env)
-                               typeSymbols  <- liftIO $ join <$> mapM bindingToQualSymbols (CT.allBindings $ CE.tyConsEnv env)
+    -- Ignore parses from interface files, only consider source files for now
+    asts <- liftIO $ mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
 
-                               let symbolDelta = (\(qid, s) -> (TE.encodeUtf8 $ s ^. J.name, [SymbolStoreEntry s qid])) <$> (valueSymbols ++ typeSymbols)
-                               liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
+    warns  <- liftIO $ groupIntoMapByM msgNormUri $ C.csWarnings cs
+    errors <- liftIO $ groupIntoMapByM msgNormUri $ C.csErrors cs
 
-                               modify $ \s -> s { idxModules = insertAll moduleDelta ms
-                                                , idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sseQualIdent)) symbolDelta ss
-                                                }
-            where env = C.mseCompilerEnv o
-                  asts = C.mseModuleASTs o
-                  msgNormUri msg = runMaybeT $ do
-                      uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
-                      liftIO $ normalizeUriWithPath uri'
+    liftIO $ debugM "cls.indexStore" $ "Recompiled module paths: " ++ show (fst <$> asts)
+
+    -- Update store with compiled modules
+
+    let modifyEntry f uri' ms' = M.alter (Just . f . fromMaybe defEntry) uri' ms'
+
+    forM_ asts $ \(uri', (env, ast)) -> do
+        -- Update module store
+        let updateEntry e = e
+                { mseWarningMessages = M.findWithDefault [] uri' warns
+                , mseErrorMessages = M.findWithDefault [] uri' errors
+                , mseModuleAST = Just ast
+                -- , mseCompilerEnv = Just env
+                }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+
+        -- Update symbol store
+        valueSymbols <- liftIO $ join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
+        typeSymbols  <- liftIO $ join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
+        modSymbols   <- liftIO $ join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
+
+        let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
+        liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
+
+        let combiner = unionBy ((==) `on` (\s' -> (sQualIdent s', sIsFromCurrySource s')))
+        modify $ \s -> s
+            { idxSymbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) $ idxSymbols s
+            , idxModuleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) $ idxModuleSymbols s
+            }
+    
+    -- Update store with messages from files that were not successfully compiled
+
+    let uris = S.fromList $ fst <$> asts
+        other = filter ((`S.notMember` uris) . fst) . M.toList
+    
+    forM_ (other warns) $ \(uri', msgs) -> do
+        let updateEntry e = e { mseWarningMessages = msgs }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+
+    forM_ (other errors) $ \(uri', msgs) -> do
+        let updateEntry e = e { mseErrorMessages = msgs }
+        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
 -- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int

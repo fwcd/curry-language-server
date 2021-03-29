@@ -1,9 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
 module Curry.LanguageServer.Compiler (
-    CompilationOutput (..),
-    CompilationResult,
+    CompileState (..),
+    CompileOutput,
     FileLoader,
     compileCurryFileWithDeps,
-    compilationToMaybe,
     failedCompilation
 ) where
 
@@ -31,18 +31,57 @@ import qualified Modules as CMD
 import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Monad.Reader
+import Control.Monad (join)
+import Control.Monad.Trans.State (StateT (..))
+import Control.Monad.Trans.Maybe (MaybeT (..))
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Syntax (ModuleAST)
-import qualified Data.Map as M
-import Data.Either.Extra (eitherToMaybe)
 import Data.List (intercalate)
+import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
 import System.FilePath
 import System.Log.Logger
 
-data CompilationOutput = CompilationOutput { mseCompilerEnv :: CE.CompilerEnv, mseModuleASTs :: [(FilePath, ModuleAST)] }
-type CompilationResult = Either [CM.Message] (CompilationOutput, [CM.Message])
+data CompileState = CompileState
+    { csWarnings :: [CM.Message]
+    , csErrors :: [CM.Message]
+    }
+
+instance Semigroup CompileState where
+    x <> y = CompileState
+        { csWarnings = csWarnings x ++ csWarnings y
+        , csErrors = csErrors x ++ csErrors y
+        }
+
+instance Monoid CompileState where
+    mempty = CompileState
+        { csWarnings = []
+        , csErrors = []
+        }
+
+-- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
+type CM = MaybeT (StateT CompileState IO)
+
+runCM :: CM a -> IO (Maybe a, CompileState)
+runCM = flip runStateT mempty . runMaybeT
+
+catchCYIO :: CYIO a -> CM (Maybe a)
+catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
+    Left es       -> do
+        modify $ \s -> s { csErrors = csErrors s ++ es }
+        return Nothing
+    Right (x, ws) -> do
+        modify $ \s -> s { csWarnings = csWarnings s ++ ws }
+        return $ Just x
+
+liftCYIO :: CYIO a -> CM a
+liftCYIO = MaybeT . (join <$>) . runMaybeT . catchCYIO
+
+type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
+
 type FileLoader = FilePath -> IO String
 
 -- | Compiles a Curry source file with its dependencies
@@ -51,8 +90,8 @@ type FileLoader = FilePath -> IO String
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO CompilationResult
-compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
+compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO (CompileOutput, CompileState)
+compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ runCM $ do
     let cppOpts = CO.optCppOpts CO.defaultOptions
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
         opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
@@ -61,22 +100,22 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = runCYIO $ do
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  }
     -- Resolve dependencies
-    deps <- CD.flatDeps opts filePath
+    deps <- liftCYIO $ CD.flatDeps opts filePath
     liftIO $ debugM "cls.compiler" $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
     -- Compile the module and its dependencies in topological order
-    toCompilationOutput <$> compileCurryModules opts fl outDirPath deps
+    compileCurryModules opts fl outDirPath deps
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CYIO (CE.CompEnv [(FilePath, ModuleAST)])
+compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CM CompileOutput
 compileCurryModules opts fl outDirPath deps = case deps of
-    [] -> failMessages [failMessageFrom "Language Server: No module found"]
+    [] -> liftCYIO $ failMessages [failMessageFrom "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
         liftIO $ debugM "cls.compiler" $ "Actually compiling " ++ fp
         let opts' = processPragmas opts ps
-        (env, ast) <- compileCurryModule opts' fl outDirPath m fp
+        output <- compileCurryModule opts' fl outDirPath m fp
         if null ds
-            then return (env, [(fp, ast)])
-            else ((fp, ast) :) <$.> compileCurryModules opts fl outDirPath ds
+            then return output
+            else (output <>) <$> compileCurryModules opts fl outDirPath ds
     (_:ds) -> compileCurryModules opts fl outDirPath ds
     where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
           processPragmas o ps = foldl processLanguagePragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
@@ -86,7 +125,7 @@ compileCurryModules opts fl outDirPath deps = case deps of
               _      -> o
 
 -- | Compiles a single module.
-compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+compileCurryModule :: CO.Options -> FileLoader -> FilePath -> CI.ModuleIdent -> FilePath -> CM CompileOutput
 compileCurryModule opts fl outDirPath m fp = do
     liftIO $ debugM "cls.compiler" $ "Compiling module " ++ takeFileName fp
     -- Parse and check the module
@@ -98,7 +137,7 @@ compileCurryModule opts fl outDirPath m fp = do
         generated = PP.render $ CS.pPrint interf
     liftIO $ debugM "cls.compiler" $ "Writing interface file to " ++ interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
-    return mdl
+    return [(fp, mdl)]
 
 -- The following functions partially reimplement
 -- https://git.ps.informatik.uni-kiel.de/curry/curry-frontend/-/blob/master/src/Modules.hs
@@ -113,14 +152,17 @@ compileCurryModule opts fl outDirPath m fp = do
 --                    2018        Kai-Oliver Prott
 
 -- | Loads a single module and performs checks.
-loadAndCheckCurryModule :: CO.Options -> FileLoader -> CI.ModuleIdent -> FilePath -> CYIO (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule :: CO.Options -> FileLoader -> CI.ModuleIdent -> FilePath -> CM (CE.CompEnv ModuleAST)
 loadAndCheckCurryModule opts fl m fp = do
     -- Read source file (possibly from VFS)
     src <- liftIO $ fl fp
     -- Load and check module
-    ce <- CMD.checkModule opts =<< loadCurryModule opts m src fp
-    warnMessages $ uncurry (CC.warnCheck opts) ce
-    return ce
+    loaded <- liftCYIO $ loadCurryModule opts m src fp
+    checked <- catchCYIO $ CMD.checkModule opts loaded
+    liftCYIO $ warnMessages $ maybe [] (uncurry (CC.warnCheck opts)) checked
+    let ast = maybe (Nothing <$ snd loaded) ((Just <$>) . snd) checked
+        env = maybe (fst loaded) fst checked
+    return (env, ast)
 
 -- | Loads a single module.
 loadCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO (CE.CompEnv (CS.Module()))
@@ -172,14 +214,8 @@ parseCurryModule opts _ src fp = do
     -- TODO: Check module/file mismatch?
     return (lexed, ast)
 
-compilationToMaybe :: CompilationResult -> Maybe CompilationOutput
-compilationToMaybe = (fst <$>) . eitherToMaybe
-
-toCompilationOutput :: CE.CompEnv [(FilePath, ModuleAST)] -> CompilationOutput
-toCompilationOutput (env, asts) = CompilationOutput { mseCompilerEnv = env, mseModuleASTs = asts }
-
-failedCompilation :: String -> CompilationResult
-failedCompilation msg = Left [failMessageFrom msg]
+failedCompilation :: String -> (CompileOutput, CompileState)
+failedCompilation msg = (mempty, mempty { csErrors = [failMessageFrom msg] })
 
 failMessageFrom :: String -> CM.Message
 failMessageFrom = CM.message . PP.text
