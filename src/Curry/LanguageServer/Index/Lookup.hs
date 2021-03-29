@@ -1,5 +1,5 @@
 -- | (Value) environments and position lookup in the AST.
-module Curry.LanguageServer.Utils.Lookup (
+module Curry.LanguageServer.Index.Lookup (
     findQualIdentAtPos,
     findTypeAtPos
 ) where
