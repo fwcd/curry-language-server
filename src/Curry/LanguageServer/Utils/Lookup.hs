@@ -1,25 +1,29 @@
-{-# LANGUAGE FlexibleInstances, LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ViewPatterns #-}
 -- | Position lookup in the AST.
 module Curry.LanguageServer.Utils.Lookup (
     findQualIdentAtPos,
     findTypeAtPos,
-    HasIdentifiersInScope (..)
+    findScopeAtPos,
+    Scope,
+    CollectScope (..)
 ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.NestEnv as CNE
 
 import Control.Applicative
-import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, ppToText)
-import Curry.LanguageServer.Utils.General (rangeElem, Insertable (..), ConstMap (..), joinFst, (<.$>))
+import Control.Monad.State (State, when, execState, gets, modify)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
+import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
 import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Sema
-import Data.Foldable (fold)
-import qualified Data.Text as T
+import qualified Data.Map as M
 import qualified Language.LSP.Types as J
+
+-- | A collectScope of bound identifiers.
+type Scope a = M.Map CI.Ident (Maybe a)
 
 -- | Finds identifier and (occurrence) span info at a given position.
 findQualIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
@@ -32,115 +36,145 @@ findQualIdentAtPos ast pos = qualIdent <|> exprIdent <|> basicIdent
 findTypeAtPos :: CS.Module a -> J.Position -> Maybe (TypedSpanInfo a)
 findTypeAtPos ast pos = elementAt pos $ typedSpanInfos ast
 
--- -- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
--- findIdentsInScope :: CS.Module a -> J.Position -> CNE.NestEnv a
--- findIdentsInScope ast pos = identifiers
+-- | Finds all accessible identifiers at the given position, using the innermost shadowed one.
+findScopeAtPos :: CS.Module a -> J.Position -> Scope a
+findScopeAtPos ast pos = flattenScopes $ sstMatchingEnv $ execState (collectScope ast) $ ScopeState
+    { sstCurrentEnv = [M.empty]
+    , sstMatchingEnv = [M.empty]
+    , sstPosition = pos
+    }
 
 withSpanInfo :: CSPI.HasSpanInfo a => a -> (a, CSPI.SpanInfo)
 withSpanInfo x = (x, CSPI.getSpanInfo x)
 
-withName :: CI.Ident -> (T.Text, CI.Ident)
-withName i = (ppToText $ CI.unRenameIdent i, i)
-
 containsPos :: CSPI.HasSpanInfo a => a -> J.Position -> Bool
 containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
-class HasIdentifiersInScope a where
-    identifiersInScope :: J.Position -> a -> ConstMap T.Text CI.Ident
+-- | Binds an identifier in the innermost scope.
+bindInScopes :: CI.Ident -> Maybe a -> [Scope a] -> [Scope a]
+bindInScopes i t (sc:scs) = M.insert (CI.unRenameIdent i) t sc : scs
+bindInScopes _ _ _        = error "Cannot bind without a scope!"
 
-instance HasIdentifiersInScope (CS.Module a) where
-    identifiersInScope pos (CS.Module _ _ _ _ _ _ decls) = identifiersInScope pos decls
+-- | Flattens the given scopes, preferring earlier binds.
+flattenScopes :: [Scope a] -> Scope a
+flattenScopes = foldr M.union M.empty
 
-instance HasIdentifiersInScope (CS.Decl a) where
-    identifiersInScope pos decl
-        | decl `containsPos` pos = case decl of
-            CS.DataDecl _ _ vs _ _       -> insertAll (withName <$> vs) mempty
-            CS.NewtypeDecl _ _ vs _ _    -> insertAll (withName <$> vs) mempty
-            CS.TypeDecl _ _ vs _         -> insertAll (withName <$> vs) mempty
-            CS.FunctionDecl _ _ i eqs    -> insert (withName i) $ identifiersInScope pos eqs
-            CS.PatternDecl _ p rhs       -> insertAll (withName <$> identifiers p) $ identifiersInScope pos rhs
-            CS.InstanceDecl _ _ c _ _ ds -> insertAll (withName <$> identifiers c) $ identifiersInScope pos ds
-            CS.ClassDecl _ _ c _ _ ds    -> insertAll (withName <$> identifiers c) $ identifiersInScope pos ds
-            _                            -> mempty
-        | otherwise              = mempty
+-- | Stores nested scopes and a cursor position. The head of the list is always the innermost collectScope.
+data ScopeState a = ScopeState
+    { sstCurrentEnv :: [Scope a]
+    , sstMatchingEnv :: [Scope a]
+    , sstPosition :: J.Position
+    }
 
-instance HasIdentifiersInScope (CS.Equation a) where
-    identifiersInScope pos eqn@(CS.Equation _ lhs rhs)
-        | eqn `containsPos` pos = insertAll (withName <$> identifiers lhs) $ identifiersInScope pos rhs
-        | otherwise             = mempty
+type ScopeM a = State (ScopeState a)
 
-instance HasIdentifiersInScope (CS.Rhs a) where
-    identifiersInScope pos rhs
-        | rhs `containsPos` pos = case rhs of
-            CS.SimpleRhs _ _ e ds   -> identifiersInScope pos e <> identifiersInScope pos ds
-            CS.GuardedRhs _ _ cs ds -> identifiersInScope pos cs <> identifiersInScope pos ds
-        | otherwise             = mempty
+beginScope :: ScopeM a ()
+beginScope = modify $ \s -> s { sstCurrentEnv = M.empty : sstCurrentEnv s }
 
-instance HasIdentifiersInScope (CS.CondExpr a) where
-    identifiersInScope pos c@(CS.CondExpr _ e1 e2)
-        | c `containsPos` pos = identifiersInScope pos e1 <> identifiersInScope pos e2
-        | otherwise           = mempty
+endScope :: ScopeM a ()
+endScope = modify $ \s -> s { sstCurrentEnv = let e = tail $ sstCurrentEnv s in if null e then error "Cannot end top-level scope!" else e }
 
-instance HasIdentifiersInScope (CS.Expression a) where
-    identifiersInScope pos expr
-        | expr `containsPos` pos = case expr of
-            CS.Paren _ e                 -> identifiersInScope pos e
-            CS.Typed _ e _               -> identifiersInScope pos e
-            CS.Record _ _ _ fs           -> identifiersInScope pos fs
-            CS.RecordUpdate _ e fs       -> identifiersInScope pos e <> identifiersInScope pos fs
-            CS.Tuple _ es                -> identifiersInScope pos es
-            CS.List _ _ es               -> identifiersInScope pos es
-            CS.ListCompr _ e stmts       -> identifiersInScope pos e <> identifiersInScope pos stmts
-            CS.EnumFrom _ e              -> identifiersInScope pos e
-            CS.EnumFromThen _ e1 e2      -> identifiersInScope pos e1 <> identifiersInScope pos e2
-            CS.EnumFromTo _ e1 e2        -> identifiersInScope pos e1 <> identifiersInScope pos e2
-            CS.EnumFromThenTo _ e1 e2 e3 -> identifiersInScope pos e1 <> identifiersInScope pos e2 <> identifiersInScope pos e3
-            CS.UnaryMinus _ e            -> identifiersInScope pos e
-            CS.Apply _ e1 e2             -> identifiersInScope pos e1 <> identifiersInScope pos e2
-            CS.InfixApply _ e1 _ e2      -> identifiersInScope pos e1 <> identifiersInScope pos e2
-            CS.LeftSection _ e _         -> identifiersInScope pos e
-            CS.RightSection _ _ e        -> identifiersInScope pos e
-            CS.Lambda _ ps e             -> insertAll (withName <$> identifiers ps) $ identifiersInScope pos e
-            CS.Let _ _ ds e              -> insertAll (withName <$> boundIdentifiers) $ identifiersInScope pos ds <> identifiersInScope pos e
-                where boundIdentifiers = ds >>= \case
-                        CS.PatternDecl _ p _    -> identifiers p
-                        CS.FunctionDecl _ _ i _ -> [i]
-                        _                       -> []
-            CS.Do _ _ stmts e            -> identifiersInScope pos stmts <> identifiersInScope pos e
-            CS.IfThenElse _ e1 e2 e3     -> identifiersInScope pos e1 <> identifiersInScope pos e2 <> identifiersInScope pos e3
-            CS.Case _ _ _ e as           -> identifiersInScope pos e <> identifiersInScope pos as
-            _                            -> mempty
-        | otherwise              = mempty
+withScope :: ScopeM a () -> ScopeM a ()
+withScope x = beginScope >> x >> endScope
 
-instance HasIdentifiersInScope a => HasIdentifiersInScope (CS.Field a) where
-    identifiersInScope pos f@(CS.Field _ _ e)
-        | f `containsPos` pos = identifiersInScope pos e
-        | otherwise           = mempty
+bind :: CI.Ident -> Maybe a -> ScopeM a ()
+bind i t = do
+    modify $ \s -> s { sstCurrentEnv = bindInScopes i t $ sstCurrentEnv s }
 
-instance HasIdentifiersInScope (CS.Statement a) where
-    identifiersInScope pos stmt
-        | stmt `containsPos` pos = case stmt of
-            CS.StmtExpr _ e    -> identifiersInScope pos e
-            CS.StmtDecl _ _ ds -> identifiersInScope pos ds
-            -- TODO: This exposes more variables than actually in scope, as bound
-            --       variables are not accessible from within the expression (as
-            --       opposed to e.g. let-bindings which allow recursion). However,
-            --       shadowing should still work properly, e.g.
-            --
-            --           e <- let e = 3 in show e
-            --                                  ^
-            --       ...should cause the rightmost e to be referring to the let-bound
-            --       e (rather than the statement-bound e).
-            CS.StmtBind _ p e  -> insertAll (withName <$> identifiers p) $ identifiersInScope pos e
-        | otherwise              = mempty
+updateEnvs :: CSPI.HasSpanInfo e => e -> ScopeM a ()
+updateEnvs (CSPI.getSpanInfo -> spi) = do
+    -- Overwrite the matching env if the position matches. Since we are
+    -- pre-order traversing the AST, the innermost env containing the position
+    -- will be stored last.
+    pos <- gets sstPosition
+    when (spi `containsPos` pos) $
+        modify $ \s -> s { sstMatchingEnv = sstCurrentEnv s }
 
-instance HasIdentifiersInScope (CS.Alt a) where
-    identifiersInScope pos alt@(CS.Alt _ p rhs)
-        | alt `containsPos` pos = insertAll (withName <$> identifiers p) $ identifiersInScope pos rhs
-        | otherwise             = mempty
+class CollectScope e a where
+    collectScope :: e -> ScopeM a ()
 
-instance {-# OVERLAPPABLE #-} (Foldable f, Functor f, HasIdentifiersInScope a) => HasIdentifiersInScope (f a) where
-    -- Later occurrences of variables in the Foldable are preferred
-    -- due to (<>) being 'flipped'/right-biased in ConstMap compared
-    -- to Data.Map's semigroup instance (which is left-biased).
-    identifiersInScope pos = fold . (identifiersInScope pos <$>)
+instance CollectScope (CS.Module a) a where
+    collectScope (CS.Module _ _ _ _ _ _ decls) = collectScope decls
+
+instance CollectScope (CS.Decl a) a where
+    collectScope decl = (>> updateEnvs decl) $ withScope $ case decl of
+        -- TODO: Collect type variables
+        CS.FunctionDecl _ t i eqs    -> bind i (Just t) >> collectScope eqs
+        CS.PatternDecl _ p rhs       -> collectScope p >> collectScope rhs
+        CS.InstanceDecl _ _ _ _ _ ds -> collectScope ds
+        CS.ClassDecl _ _ _ _ _ ds    -> collectScope ds
+        _                            -> return ()
+
+instance CollectScope (CS.Pattern a) a where
+    collectScope pat = (>> updateEnvs pat) $ case pat of
+        CS.VariablePattern _ t i        -> bind i $ Just t
+        CS.ConstructorPattern _ _ _ ps  -> collectScope ps
+        CS.InfixPattern _ _ p1 _ p2     -> collectScope p1 >> collectScope p2
+        CS.ParenPattern _ p             -> collectScope p
+        CS.RecordPattern _ _ _ fs       -> collectScope fs
+        CS.TuplePattern _ ps            -> collectScope ps
+        CS.ListPattern _ _ ps           -> collectScope ps
+        CS.AsPattern _ i p              -> bind i Nothing >> collectScope p
+        CS.LazyPattern _ p              -> collectScope p
+        CS.FunctionPattern _ _ _ ps     -> collectScope ps
+        CS.InfixFuncPattern _ _ p1 _ p2 -> collectScope p1 >> collectScope p2
+        _                               -> return ()
+
+
+instance CollectScope (CS.Equation a) a where
+    collectScope eqn@(CS.Equation _ lhs rhs) = withScope $ collectScope lhs >> collectScope rhs >> updateEnvs eqn
+
+instance CollectScope (CS.Lhs a) a where
+    collectScope lhs = (>> updateEnvs lhs) $ case lhs of
+        -- We don't need to collect the identifier since it's already bound in the FunctionDecl.
+        CS.FunLhs _ _ ps   -> collectScope ps
+        CS.OpLhs _ p1 _ p2 -> collectScope p1 >> collectScope p2
+        CS.ApLhs _ l ps    -> collectScope l >> collectScope ps
+
+instance CollectScope (CS.Rhs a) a where
+    collectScope rhs = (>> updateEnvs rhs) $ case rhs of
+        CS.SimpleRhs _ _ e ds   -> collectScope e >> collectScope ds
+        CS.GuardedRhs _ _ cs ds -> collectScope cs >> collectScope ds
+
+instance CollectScope (CS.CondExpr a) a where
+    collectScope c@(CS.CondExpr _ e1 e2) = collectScope e1 >> collectScope e2 >> updateEnvs c
+
+instance CollectScope (CS.Expression a) a where
+    collectScope expr = (>> updateEnvs expr) $ case expr of
+        CS.Paren _ e                 -> collectScope e
+        CS.Typed _ e _               -> collectScope e
+        CS.Record _ _ _ fs           -> collectScope fs
+        CS.RecordUpdate _ e fs       -> collectScope e >> collectScope fs
+        CS.Tuple _ es                -> collectScope es
+        CS.List _ _ es               -> collectScope es
+        CS.ListCompr _ e stmts       -> collectScope e >> collectScope stmts
+        CS.EnumFrom _ e              -> collectScope e
+        CS.EnumFromThen _ e1 e2      -> collectScope e1 >> collectScope e2
+        CS.EnumFromTo _ e1 e2        -> collectScope e1 >> collectScope e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> collectScope e1 >> collectScope e2 >> collectScope e3
+        CS.UnaryMinus _ e            -> collectScope e
+        CS.Apply _ e1 e2             -> collectScope e1 >> collectScope e2
+        CS.InfixApply _ e1 _ e2      -> collectScope e1 >> collectScope e2
+        CS.LeftSection _ e _         -> collectScope e
+        CS.RightSection _ _ e        -> collectScope e
+        CS.Lambda _ ps e             -> withScope $ collectScope ps >> collectScope e
+        CS.Let _ _ ds e              -> withScope $ collectScope ds >> collectScope e
+        CS.Do _ _ stmts e            -> withScope $ collectScope stmts >> collectScope e
+        CS.IfThenElse _ e1 e2 e3     -> collectScope e1 >> collectScope e2 >> collectScope e3
+        CS.Case _ _ _ e as           -> collectScope e >> collectScope as
+        _                            -> return ()
+
+instance CollectScope e a => CollectScope (CS.Field e) a where
+    collectScope f@(CS.Field _ _ e) = collectScope e >> updateEnvs f
+
+instance CollectScope (CS.Statement a) a where
+    collectScope stmt = (>> updateEnvs stmt) $ case stmt of
+        CS.StmtExpr _ e    -> collectScope e
+        CS.StmtDecl _ _ ds -> collectScope ds
+        CS.StmtBind _ p e  -> collectScope e >> collectScope p
+
+instance CollectScope (CS.Alt a) a where
+    collectScope alt@(CS.Alt _ p rhs) = withScope $ collectScope p >> collectScope rhs >> updateEnvs alt
+
+instance {-# OVERLAPPABLE #-} (Foldable t, CollectScope e a) => CollectScope (t e) a where
+    collectScope = mapM_ collectScope
