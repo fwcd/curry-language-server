@@ -76,7 +76,10 @@ data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
 -- Since (unqualified) symbol names can be ambiguous, a trie leaf
 -- holds a list of symbol entries rather than just a single one.
 data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEntry
+                               -- Symbols keyed by unqualified name
                              , idxSymbols :: TR.Trie [Symbol]
+                               -- Module symbols keyed by qualified name
+                             , idxModuleSymbols :: TR.Trie [Symbol]
                              }
 
 instance Default ModuleStoreEntry where
@@ -89,7 +92,7 @@ instance Default ModuleStoreEntry where
 
 -- | Fetches an empty index store.
 emptyStore :: IndexStore
-emptyStore = IndexStore { idxModules = M.empty, idxSymbols = TR.empty }
+emptyStore = IndexStore { idxModules = M.empty, idxSymbols = TR.empty, idxModuleSymbols = TR.empty }
 
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int
@@ -261,10 +264,14 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         typeSymbols  <- liftIO $ join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
         modSymbols   <- liftIO $ join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
 
-        let symbolDelta = (\s -> (TE.encodeUtf8 $ sIdent s, [s])) <$> (valueSymbols ++ typeSymbols ++ modSymbols)
+        let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
         liftIO $ debugM "cls.indexStore" $ "Inserting " ++ show (length symbolDelta) ++ " symbol(s)"
 
-        modify $ \s -> s { idxSymbols = insertAllIntoTrieWith (unionBy ((==) `on` (\s' -> (sQualIdent s', sIsFromCurrySource s')))) symbolDelta $ idxSymbols s }
+        let combiner = unionBy ((==) `on` (\s' -> (sQualIdent s', sIsFromCurrySource s')))
+        modify $ \s -> s
+            { idxSymbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) $ idxSymbols s
+            , idxModuleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) $ idxModuleSymbols s
+            }
     
     -- Update store with messages from files that were not successfully compiled
 
