@@ -13,6 +13,7 @@ module Curry.LanguageServer.Index.Store (
     storedSymbolsByIdent,
     storedSymbolsWithPrefix,
     storedSymbolsByQualIdent,
+    storedModuleSymbolsWithPrefix,
     addWorkspaceDir,
     recompileModule,
     getModuleCount,
@@ -130,6 +131,10 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
 storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByIdent name
     where name = T.pack $ CI.idName $ CI.qidIdent q
+
+-- | Fetches stored module symbols starting with the given prefix.
+storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
+storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxModuleSymbols
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()

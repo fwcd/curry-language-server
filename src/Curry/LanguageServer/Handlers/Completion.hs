@@ -76,9 +76,10 @@ pragmaCompletions opts query
 
 importCompletions :: CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 importCompletions opts store query = do
-    let symbols     = nubOrdOn I.sQualIdent (I.storedSymbolsWithPrefix (VFS.prefixText query) store)
-        modules     = filter ((== I.Module) . I.sKind) symbols
-        completions = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
+    let modules            = nubOrdOn I.sQualIdent $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
+        moduleCompletions  = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
+        keywordCompletions = toMatchingCompletions opts query $ Keyword <$> ["qualified", "as", "hiding"]
+        completions        = moduleCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " import completions"
     return completions
 
@@ -90,7 +91,7 @@ generalCompletions opts entry store query = do
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completions with prefix '" ++ show (VFS.prefixText query) ++ "'"
     return completions
-    where keywords = Keyword . T.pack <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
+    where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
 toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a) => CompletionOptions -> VFS.PosPrefixInfo -> [a] -> [J.CompletionItem]
 toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filter (matchesCompletionQuery query)
@@ -162,6 +163,11 @@ fullName cms | I.sKind s == I.Module = I.sQualIdent s
     where s = cmsSymbol cms
           moduleName = cmsModuleName cms
 
+-- | The fully qualified prefix of the completion query.
+fullPrefix :: VFS.PosPrefixInfo -> T.Text
+fullPrefix query | T.null (VFS.prefixModule query) = VFS.prefixText query
+                 | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
+
 class CompletionQueryFilter a where
     matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
 
@@ -172,9 +178,7 @@ instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter CompletionSymbol where
-    matchesCompletionQuery query cms = fullPrefix `T.isPrefixOf` fullName cms
-        where fullPrefix | T.null (VFS.prefixModule query) = VFS.prefixText query
-                         | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
+    matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
 
 class ToCompletionItems a where
     toCompletionItems :: CompletionOptions -> VFS.PosPrefixInfo -> a -> [J.CompletionItem]
