@@ -176,15 +176,15 @@ ppPatternToName pat = case pat of
     CS.InfixFuncPattern _ _ _ ident _ -> ppToText ident
     _ -> "?"
 
-documentSymbolFrom :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
-documentSymbolFrom n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
+makeDocumentSymbol :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
+makeDocumentSymbol n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
     where r' = fromMaybe emptyRange r
 
 class HasDocumentSymbols s where
     documentSymbols :: s -> [J.DocumentSymbol]
 
 instance HasDocumentSymbols (CS.Module a) where
-    documentSymbols (CS.Module spi _ _ ident _ _ decls) = [documentSymbolFrom name symKind range $ Just childs]
+    documentSymbols (CS.Module spi _ _ ident _ _ decls) = [makeDocumentSymbol name symKind range $ Just childs]
         where name = ppToText ident
               symKind = J.SkModule
               range = currySpanInfo2Range spi
@@ -192,41 +192,41 @@ instance HasDocumentSymbols (CS.Module a) where
 
 instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
-        CS.InfixDecl _ _ _ idents -> [documentSymbolFrom name symKind range Nothing]
+        CS.InfixDecl _ _ _ idents -> [makeDocumentSymbol name symKind range Nothing]
             where name = maybe "<infix operator>" ppToText $ listToMaybe idents
                   symKind = J.SkOperator
-        CS.DataDecl _ ident _ cs _ -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.DataDecl _ ident _ cs _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = if length cs > 1 then J.SkEnum
                                              else J.SkStruct
                   childs = documentSymbols =<< cs
-        CS.NewtypeDecl _ ident _ c _ -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.NewtypeDecl _ ident _ c _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkStruct
                   childs = documentSymbols c
-        CS.ExternalDataDecl _ ident _ -> [documentSymbolFrom name symKind range Nothing]
+        CS.ExternalDataDecl _ ident _ -> [makeDocumentSymbol name symKind range Nothing]
             where name = ppToText ident
                   symKind = J.SkStruct
-        CS.FunctionDecl _ _ ident eqs -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.FunctionDecl _ _ ident eqs -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = if eqsArity eqs > 0 then J.SkFunction
                                                 else J.SkConstant
                   childs = documentSymbols =<< eqs
-        CS.TypeDecl _ ident _ _ -> [documentSymbolFrom name symKind range Nothing]
+        CS.TypeDecl _ ident _ _ -> [makeDocumentSymbol name symKind range Nothing]
             where name = ppToText ident
                   symKind = J.SkInterface
         CS.ExternalDecl _ vars -> documentSymbols =<< vars
         CS.FreeDecl _ vars -> documentSymbols =<< vars
-        CS.PatternDecl _ pat rhs -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.PatternDecl _ pat rhs -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppPatternToName pat
                   symKind = if patArity pat > 0 then J.SkFunction
                                                 else J.SkConstant
                   childs = documentSymbols rhs
-        CS.ClassDecl _ _ _ ident _ decls -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.ClassDecl _ _ _ ident _ decls -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SkInterface
                   childs = documentSymbols =<< decls
-        CS.InstanceDecl _ _ _ qident t decls -> [documentSymbolFrom name symKind range $ Just childs]
+        CS.InstanceDecl _ _ _ qident t decls -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText qident <> " (" <> (T.pack $ PP.render $ CPP.pPrintPrec 2 t) <> ")"
                   symKind = J.SkNamespace
                   childs = documentSymbols =<< decls
@@ -245,14 +245,14 @@ instance HasDocumentSymbols (CS.Decl a) where
               range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Var a) where
-    documentSymbols (CS.Var _ ident) = [documentSymbolFrom (ppToText ident) J.SkVariable range Nothing]
+    documentSymbols (CS.Var _ ident) = [makeDocumentSymbol (ppToText ident) J.SkVariable range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo ident
 
 instance HasDocumentSymbols CS.ConstrDecl where
     documentSymbols decl = case decl of
-        CS.ConstrDecl _ ident _  -> [documentSymbolFrom (ppToText ident) J.SkEnumMember range Nothing]
-        CS.ConOpDecl _ _ ident _ -> [documentSymbolFrom (ppToText ident) J.SkOperator range Nothing]
-        CS.RecordDecl _ ident _  -> [documentSymbolFrom (ppToText ident) J.SkEnumMember range Nothing]
+        CS.ConstrDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SkEnumMember range Nothing]
+        CS.ConOpDecl _ _ ident _ -> [makeDocumentSymbol (ppToText ident) J.SkOperator range Nothing]
+        CS.RecordDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SkEnumMember range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Equation a) where
@@ -302,8 +302,8 @@ instance HasDocumentSymbols (CS.Alt a) where
 
 instance HasDocumentSymbols CS.NewConstrDecl where
     documentSymbols decl = case decl of
-        CS.NewConstrDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
-        CS.NewRecordDecl spi ident _ -> [documentSymbolFrom (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
+        CS.NewConstrDecl spi ident _ -> [makeDocumentSymbol (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
+        CS.NewRecordDecl spi ident _ -> [makeDocumentSymbol (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
         where symKind = J.SkEnumMember
 
 class HasWorkspaceSymbols s where

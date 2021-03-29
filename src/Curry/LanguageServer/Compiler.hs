@@ -108,7 +108,7 @@ compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (fromMaybe mem
 -- | Compiles the given list of modules in order.
 compileCurryModules :: CO.Options -> FileLoader -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CM CompileOutput
 compileCurryModules opts fl outDirPath deps = case deps of
-    [] -> liftCYIO $ failMessages [failMessageFrom "Language Server: No module found"]
+    [] -> liftCYIO $ failMessages [makeFailMessage "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
         liftIO $ debugM "cls.compiler" $ "Actually compiling " ++ fp
         let opts' = processPragmas opts ps
@@ -215,7 +215,7 @@ parseCurryModule opts _ src fp = do
     return (lexed, ast)
 
 failedCompilation :: String -> (CompileOutput, CompileState)
-failedCompilation msg = (mempty, mempty { csErrors = [failMessageFrom msg] })
+failedCompilation msg = (mempty, mempty { csErrors = [makeFailMessage msg] })
 
-failMessageFrom :: String -> CM.Message
-failMessageFrom = CM.message . PP.text
+makeFailMessage :: String -> CM.Message
+makeFailMessage = CM.message . PP.text
