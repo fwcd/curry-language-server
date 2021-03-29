@@ -46,21 +46,8 @@ fetchDefinitions store entry pos = do
     return defs
 
 definitions :: I.IndexStore -> ModuleAST -> J.Position -> MaybeT IO [J.LocationLink]
-definitions store ast@(CS.Module _ _ _ mid _ imps _) pos = do
-    -- Find qualified identifier under cursor
-    (qid, _) <- liftMaybe $ findQualIdentAtPos ast pos
-    liftIO $ infoM "cls.definition" $ "Looking for " ++ ppToString qid
-    -- Resolve the qualified identifier using imports
-    -- TODO: Deal with aliases correctly
-    let qids = qid : (flip CI.qualQualify qid <$>
-               ([mid, CI.mkMIdent ["Prelude"]] ++ [mid' | CS.ImportDecl _ mid' _ _ _ <- imps]))
-    -- Perform lookup
-    let locs = definitionsInStore store =<< qids
-    srcRange <- ((^. J.range) <$>) <$> (liftIO $ runMaybeT $ currySpanInfo2Location qid)
-    return [J.LocationLink srcRange destUri destRange destRange | J.Location destUri destRange <- locs]
-
-definitionsInStore :: I.IndexStore -> CI.QualIdent -> [J.Location]
-definitionsInStore store qid = mapMaybe I.sLocation symbols'
-    where symbols = I.storedSymbolsByQualIdent qid store
-          symbols' | any I.sIsFromCurrySource symbols = filter I.sIsFromCurrySource symbols
-                   | otherwise                        = symbols
+definitions store ast pos = do
+    -- Look up qualified identifier under cursor
+    (symbols, srcRange) <- liftMaybe $ resolveQualIdentAtPos store ast pos
+    let locations = mapMaybe I.sLocation symbols
+    return [J.LocationLink (Just srcRange) destUri destRange destRange | J.Location destUri destRange <- locations]
