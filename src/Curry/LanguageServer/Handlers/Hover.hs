@@ -39,7 +39,7 @@ fetchHover :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Ho
 fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    liftIO $ infoM "cls.hover" $ "Found " ++ T.unpack (previewHover hover)
+    liftIO $ infoM "cls.hover" $ "Found hover: " ++ T.unpack (previewHover hover)
     return hover
 
 qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover
@@ -61,5 +61,10 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     return $ J.Hover contents range
 
 previewHover :: J.Hover -> T.Text
-previewHover ((^. J.contents) -> J.HoverContents (J.MarkupContent _ t)) = t
+previewHover ((^. J.contents) -> J.HoverContents (J.MarkupContent k t)) = case k of J.MkMarkdown  -> markdownToPlain t
+                                                                                    J.MkPlainText -> t
 previewHover _                                                          = "?"
+
+markdownToPlain :: T.Text -> T.Text
+markdownToPlain t = T.intercalate ", " $ filter includeLine $ T.lines t
+    where includeLine l = not ("```" `T.isPrefixOf` l || T.null l)
