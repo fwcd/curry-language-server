@@ -10,6 +10,7 @@ import Control.Monad (join, guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Control.Monad.State.Class (get)
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
@@ -19,6 +20,7 @@ import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Bifunctor (first)
+import Data.Default (Default (..))
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
@@ -37,6 +39,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         pos = req ^. J.params . J.position
     normUri <- liftIO $ normalizeUriWithPath uri
     capabilities <- S.getClientCapabilities
+    cfg <- fromMaybe def <$> S.getConfig
     completions <- fmap (join . maybeToList) $ runMaybeT $ do
         store <- get
         entry <- I.getModule normUri
@@ -44,11 +47,11 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
 
         let opts = CompletionOptions
-                { cmoUseSnippets = fromMaybe False $ do
+                { cmoUseSnippets = CFG.cfgUseSnippetCompletions cfg && fromMaybe False (do
                     docCapabilities <- capabilities ^. J.textDocument
                     cmCapabilities <- docCapabilities ^. J.completion
                     ciCapabilities <- cmCapabilities ^. J.completionItem
-                    ciCapabilities ^. J.snippetSupport
+                    ciCapabilities ^. J.snippetSupport)
                 }
         liftIO $ fetchCompletions opts entry store query
     let maxCompletions = 25
