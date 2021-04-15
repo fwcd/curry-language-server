@@ -177,7 +177,7 @@ ppPatternToName pat = case pat of
     _ -> "?"
 
 makeDocumentSymbol :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
-makeDocumentSymbol n k r cs = J.DocumentSymbol n Nothing k Nothing r' r' $ J.List <$> cs
+makeDocumentSymbol n k r cs = J.DocumentSymbol n Nothing k Nothing Nothing r' r' $ J.List <$> cs
     where r' = fromMaybe emptyRange r
 
 class HasDocumentSymbols s where
@@ -313,7 +313,7 @@ instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s whe
     workspaceSymbols s = do
         loc <- runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo s
         let documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
-            documentSymbolToInformations (J.DocumentSymbol n _ k d _ _ cs) = ((\l -> J.SymbolInformation n k d l Nothing) <$> loc) `maybeCons` cis
+            documentSymbolToInformations (J.DocumentSymbol n _ k ts d _ _ cs) = ((\l -> J.SymbolInformation n k ts d l Nothing) <$> loc) `maybeCons` cis
                 where cs' = maybe [] (\(J.List cs'') -> cs'') cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s

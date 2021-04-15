@@ -16,9 +16,8 @@ import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad
 import Curry.LanguageServer.Utils.Concurrent (debounceConst)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Data.Default (def)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Maybe (fromJust)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J

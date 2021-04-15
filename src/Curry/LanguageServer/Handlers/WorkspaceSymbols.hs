@@ -29,7 +29,7 @@ fetchWorkspaceSymbols store query = do
     return symbols
 
 toWorkspaceSymbol :: I.Symbol -> Maybe J.SymbolInformation
-toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind deprecated loc containerName) <$> I.sLocation s
+toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind tags deprecated loc containerName) <$> I.sLocation s
     where name = I.sIdent s
           kind = case I.sKind s of
               I.ValueFunction    | I.sArrowArity s == Just 0 -> J.SkConstant
@@ -44,5 +44,6 @@ toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind deprecated loc cont
               I.TypeClass                                    -> J.SkInterface
               I.TypeVar                                      -> J.SkVariable
               I.Other                                        -> J.SkNamespace
-          deprecated = Just False
+          tags = Nothing
+          deprecated = Nothing
           containerName = Just $ I.sParentIdent s
