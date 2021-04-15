@@ -62,7 +62,7 @@ instance HasCodeActions (CS.Module (Maybe CT.PredType)) where
                     command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
                     caKind = J.CodeActionQuickFix
                     isPreferred = True
-                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing (Just isPreferred) Nothing $ Just command
+                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing (Just isPreferred) Nothing Nothing $ Just command
                 return lens
 
         return typeHintActions

@@ -40,7 +40,7 @@ commands =
                     textEdit = J.TextEdit range $ text <> "\n"
                     docEdit = J.TextDocumentEdit doc $ J.List [textEdit]
                     docEdits = [docEdit]
-                    workspaceEdit = J.WorkspaceEdit Nothing $ Just $ J.List docEdits
+                    workspaceEdit = J.WorkspaceEdit Nothing $ Just $ J.List $ J.InL <$> docEdits
                     params = J.ApplyWorkspaceEditParams (Just "Apply Type Hint") workspaceEdit
                 void $ S.sendRequest J.SWorkspaceApplyEdit params (const $ pure ())
                 return $ Right A.Null

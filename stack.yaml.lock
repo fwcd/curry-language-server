@@ -19,19 +19,31 @@ packages:
   original:
     hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
 - completed:
-    hackage: lsp-1.0.0.1@sha256:e220e68e91640fc406dff21d411ba54a8dde7972fe7a275448cacc95840dec59,5557
+    subdir: .
+    name: lsp
+    version: 1.1.1.0
+    git: https://github.com/haskell/lsp.git
     pantry-tree:
-      size: 1397
-      sha256: 97ad91757f81865181063fa704b7bd1ead7d763ff22816fde8f80c6658904cbd
+      size: 9812
+      sha256: ad841e49937a9a959e6dbd022cf019c93577fd6d0f59b60fda2f8b7914c2fe0b
+    commit: cd5708bc5431da81f4826a271382b12752fe90dd
   original:
-    hackage: lsp-1.0.0.1@sha256:e220e68e91640fc406dff21d411ba54a8dde7972fe7a275448cacc95840dec59
+    subdir: .
+    git: https://github.com/haskell/lsp.git
+    commit: cd5708bc5431da81f4826a271382b12752fe90dd
 - completed:
-    hackage: lsp-types-1.0.0.1@sha256:429697f3d03f5f134e9e9b191844bbc060ad3f2cc2951db40d74f61740c99876,4200
+    subdir: lsp-types
+    name: lsp-types
+    version: 1.1.0.0
+    git: https://github.com/haskell/lsp.git
     pantry-tree:
-      size: 3953
-      sha256: 1fcabaff1b2c9c955e6da950f4cd6bd85c3bca0bf1927f60dc425288981bc3e2
+      size: 4080
+      sha256: 7ce2ca26f1e8dea250d1ec962b3eecd80ad92346409b1359341bc17847f55abd
+    commit: cd5708bc5431da81f4826a271382b12752fe90dd
   original:
-    hackage: lsp-types-1.0.0.1@sha256:429697f3d03f5f134e9e9b191844bbc060ad3f2cc2951db40d74f61740c99876
+    subdir: lsp-types
+    git: https://github.com/haskell/lsp.git
+    commit: cd5708bc5431da81f4826a271382b12752fe90dd
 - completed:
     hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
     pantry-tree:

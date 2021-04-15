@@ -20,7 +20,6 @@ import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad
 import Data.Bifunctor (first)
-import Data.Default (Default (..))
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
@@ -39,7 +38,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         pos = req ^. J.params . J.position
     normUri <- liftIO $ normalizeUriWithPath uri
     capabilities <- S.getClientCapabilities
-    cfg <- fromMaybe def <$> S.getConfig
+    cfg <- S.getConfig
     completions <- fmap (join . maybeToList) $ runMaybeT $ do
         store <- get
         entry <- I.getModule normUri
@@ -273,8 +272,8 @@ makeSnippet name ts = T.intercalate " " $ name : ((\(i, t) -> "${" <> T.pack (sh
 makeCompletion :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe J.InsertTextFormat -> Maybe [J.TextEdit] -> J.CompletionItem
 makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc deprecated
                                           preselect sortText filterText insertText
-                                          insertTextFormat textEdit additionalTextEdits
-                                          commitChars command xdata
+                                          insertTextFormat insertTextMode textEdit
+                                          additionalTextEdits commitChars command xdata
   where label = l
         kind = Just k
         tags = Nothing
@@ -286,6 +285,7 @@ makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc d
         filterText = Nothing
         insertText = it
         insertTextFormat = itf
+        insertTextMode = Nothing
         textEdit = Nothing
         additionalTextEdits = J.List <$> es
         commitChars = Nothing
