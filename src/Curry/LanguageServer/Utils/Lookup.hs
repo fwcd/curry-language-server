@@ -1,11 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ViewPatterns #-}
 -- | Position lookup in the AST.
-module Curry.LanguageServer.Utils.Lookup (
-    findQualIdentAtPos,
-    findTypeAtPos,
-    findScopeAtPos,
-    Scope
-) where
+module Curry.LanguageServer.Utils.Lookup
+    ( findQualIdentAtPos
+    , findTypeAtPos
+    , findScopeAtPos
+    , Scope
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

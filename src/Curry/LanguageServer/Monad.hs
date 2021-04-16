@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
-module Curry.LanguageServer.Monad (
-    LSState (..),
-    newLSStateVar,
-    LSM,
-    getLSState, putLSState, modifyLSState,
-    getStore, putStore, modifyStore,
-    getDebouncers, putDebouncers, modifyDebouncers,
-    runLSM
-) where
+module Curry.LanguageServer.Monad
+    ( LSState (..)
+    , newLSStateVar
+    , LSM
+    , getLSState, putLSState, modifyLSState
+    , getStore, putStore, modifyStore
+    , getDebouncers, putDebouncers, modifyDebouncers
+    , runLSM
+    ) where
 
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I

@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns #-}
-module Curry.LanguageServer.Index.Convert (
-    ToSymbols (..)
-) where
+module Curry.LanguageServer.Index.Convert
+    ( ToSymbols (..)
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

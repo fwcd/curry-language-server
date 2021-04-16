@@ -1,11 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
 -- | Utilities for extracting semantic information from the AST.
-module Curry.LanguageServer.Utils.Sema (
-    HasTypedSpanInfos (..),
-    TypedSpanInfo (..),
-    ModuleAST,
-    untypedTopLevelDecls
-) where
+module Curry.LanguageServer.Utils.Sema
+    ( HasTypedSpanInfos (..)
+    , TypedSpanInfo (..)
+    , ModuleAST
+    , untypedTopLevelDecls
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

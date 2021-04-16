@@ -1,11 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
-module Curry.LanguageServer.Compiler (
-    CompileState (..),
-    CompileOutput,
-    FileLoader,
-    compileCurryFileWithDeps,
-    failedCompilation
-) where
+module Curry.LanguageServer.Compiler
+    ( CompileState (..)
+    , CompileOutput
+    , FileLoader
+    , compileCurryFileWithDeps
+    , failedCompilation
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Files.Filenames as CFN

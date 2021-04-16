@@ -1,11 +1,11 @@
 -- | Accurate (canonicalized) mappings between URIs and file paths.
-module Curry.LanguageServer.Utils.Uri (
-    filePathToUri,
-    uriToFilePath,
-    filePathToNormalizedUri,
-    normalizedUriToFilePath,
-    normalizeUriWithPath
-) where
+module Curry.LanguageServer.Utils.Uri
+    ( filePathToUri
+    , uriToFilePath
+    , filePathToNormalizedUri
+    , normalizedUriToFilePath
+    , normalizeUriWithPath
+    ) where
 
 import qualified Language.LSP.Types as J
 import System.Directory

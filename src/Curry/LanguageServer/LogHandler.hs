@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleInstances, RankNTypes, KindSignatures, DataKinds #-}
-module Curry.LanguageServer.LogHandler (
-    setupLogging,
-    parseLogLevel,
-    updateLogLevel,
-    removeAllLogHandlers
-) where
+module Curry.LanguageServer.LogHandler
+    ( setupLogging
+    , parseLogLevel
+    , updateLogLevel
+    , removeAllLogHandlers
+    ) where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.IO.Unlift (askRunInIO)

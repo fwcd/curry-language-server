@@ -1,31 +1,31 @@
 -- | Convert between Curry Compiler and language server structures
 {-# LANGUAGE RecordWildCards, ViewPatterns, OverloadedStrings, FlexibleInstances, UndecidableInstances #-}
-module Curry.LanguageServer.Utils.Convert (
-    curryMsg2Diagnostic,
-    curryPos2Pos,
-    curryPos2Uri,
-    curryPos2Location,
-    curryPos2LocationLink,
-    currySpan2Range,
-    currySpan2Uri,
-    currySpan2Location,
-    currySpan2LocationLink,
-    currySpans2LocationLink,
-    currySpanInfo2Range,
-    currySpanInfo2Uri,
-    currySpanInfo2Location,
-    currySpanInfo2LocationLink,
-    currySpanInfos2LocationLink,
-    setCurryPosUri,
-    setCurrySpanUri,
-    setCurrySpanInfoUri,
-    ppToString,
-    ppToText,
-    ppTypeSchemeToText,
-    ppPredTypeToText,
-    HasDocumentSymbols (..),
-    HasWorkspaceSymbols (..)
-) where
+module Curry.LanguageServer.Utils.Convert
+    ( curryMsg2Diagnostic
+    , curryPos2Pos
+    , curryPos2Uri
+    , curryPos2Location
+    , curryPos2LocationLink
+    , currySpan2Range
+    , currySpan2Uri
+    , currySpan2Location
+    , currySpan2LocationLink
+    , currySpans2LocationLink
+    , currySpanInfo2Range
+    , currySpanInfo2Uri
+    , currySpanInfo2Location
+    , currySpanInfo2LocationLink
+    , currySpanInfos2LocationLink
+    , setCurryPosUri
+    , setCurrySpanUri
+    , setCurrySpanInfoUri
+    , ppToString
+    , ppToText
+    , ppTypeSchemeToText
+    , ppPredTypeToText
+    , HasDocumentSymbols (..)
+    , HasWorkspaceSymbols (..)
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

@@ -1,34 +1,34 @@
 {-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances #-}
 -- | General utilities.
-module Curry.LanguageServer.Utils.General (
-    lastSafe,
-    rangeElem, rangeOverlaps,
-    nth,
-    pair,
-    dup,
-    wordAtIndex, wordAtPos,
-    wordsWithSpaceCount,
-    pointRange, emptyRange,
-    maybeCons,
-    walkFiles,
-    walkFilesIgnoring,
-    liftMaybe,
-    slipr3, slipr4,
-    (<.$>), (<$.>),
-    joinFst, joinSnd,
-    removeSingle,
-    nothingIfNull,
-    replaceString,
-    Insertable (..),
-    ConstMap (..),
-    insertIntoTrieWith,
-    insertAllIntoTrieWith,
-    groupIntoMapBy,
-    groupIntoMapByM,
-    fst3, snd3, thd3,
-    tripleToPair,
-    filterF
-) where
+module Curry.LanguageServer.Utils.General
+    ( lastSafe
+    , rangeElem, rangeOverlaps
+    , nth
+    , pair
+    , dup
+    , wordAtIndex, wordAtPos
+    , wordsWithSpaceCount
+    , pointRange, emptyRange
+    , maybeCons
+    , walkFiles
+    , walkFilesIgnoring
+    , liftMaybe
+    , slipr3, slipr4
+    , (<.$>), (<$.>)
+    , joinFst, joinSnd
+    , removeSingle
+    , nothingIfNull
+    , replaceString
+    , Insertable (..)
+    , ConstMap (..)
+    , insertIntoTrieWith
+    , insertAllIntoTrieWith
+    , groupIntoMapBy
+    , groupIntoMapByM
+    , fst3, snd3, thd3
+    , tripleToPair
+    , filterF
+    ) where
 
 import Control.Monad (join)
 import Control.Monad.Trans.Maybe

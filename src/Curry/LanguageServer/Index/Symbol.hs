@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Index.Symbol (
-    SymbolKind (..),
-    Symbol (..),
-    sParentIdent,
-    sIsFromCurrySource
-) where
+module Curry.LanguageServer.Index.Symbol
+    ( SymbolKind (..)
+    , Symbol (..)
+    , sParentIdent
+    , sIsFromCurrySource
+    ) where
 
 import Control.Lens ((^.))
 import Data.Default (Default (..))

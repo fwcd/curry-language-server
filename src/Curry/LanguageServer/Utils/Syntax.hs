@@ -1,15 +1,15 @@
 {-# LANGUAGE FunctionalDependencies, FlexibleInstances, UndecidableInstances #-}
 -- | AST utilities and typeclasses.
-module Curry.LanguageServer.Utils.Syntax (
-    HasExpressions (..),
-    HasDeclarations (..),
-    HasQualIdentifiers (..),
-    HasIdentifiers (..),
-    HasQualIdentifier (..),
-    HasIdentifier (..),
-    elementAt,
-    moduleIdentifier
-) where
+module Curry.LanguageServer.Utils.Syntax
+    ( HasExpressions (..)
+    , HasDeclarations (..)
+    , HasQualIdentifiers (..)
+    , HasIdentifiers (..)
+    , HasQualIdentifier (..)
+    , HasIdentifier (..)
+    , elementAt
+    , moduleIdentifier
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

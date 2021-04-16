@@ -1,26 +1,26 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Index.Store (
-    ModuleStoreEntry (..),
-    IndexStore (..),
-    storedModuleCount,
-    storedSymbolCount,
-    storedModule,
-    storedModuleByIdent,
-    storedModules,
-    storedSymbols,
-    storedSymbolsByIdent,
-    storedSymbolsWithPrefix,
-    storedSymbolsByQualIdent,
-    storedModuleSymbolsWithPrefix,
-    addWorkspaceDir,
-    recompileModule,
-    getModuleCount,
-    getModule,
-    getModuleList,
-    getModuleAST
-) where
+module Curry.LanguageServer.Index.Store
+    ( ModuleStoreEntry (..)
+    , IndexStore (..)
+    , storedModuleCount
+    , storedSymbolCount
+    , storedModule
+    , storedModuleByIdent
+    , storedModules
+    , storedSymbols
+    , storedSymbolsByIdent
+    , storedSymbolsWithPrefix
+    , storedSymbolsByQualIdent
+    , storedModuleSymbolsWithPrefix
+    , addWorkspaceDir
+    , recompileModule
+    , getModuleCount
+    , getModule
+    , getModuleList
+    , getModuleAST
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

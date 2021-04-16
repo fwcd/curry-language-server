@@ -1,8 +1,8 @@
 -- | Lookup and resolution with the index.
-module Curry.LanguageServer.Index.Resolve (
-    resolveQualIdentAtPos,
-    resolveInStore
-) where
+module Curry.LanguageServer.Index.Resolve
+    ( resolveQualIdentAtPos
+    , resolveInStore
+    ) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI

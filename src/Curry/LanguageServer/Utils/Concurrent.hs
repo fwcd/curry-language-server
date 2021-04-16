@@ -1,10 +1,10 @@
 {-# LANGUAGE LambdaCase #-}
-module Curry.LanguageServer.Utils.Concurrent (
-    Debouncer,
-    ConstDebouncer,
-    debounce,
-    debounceConst
-) where
+module Curry.LanguageServer.Utils.Concurrent
+    ( Debouncer
+    , ConstDebouncer
+    , debounce
+    , debounceConst
+    ) where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async, race, cancel)
