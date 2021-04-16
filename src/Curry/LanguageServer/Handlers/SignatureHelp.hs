@@ -54,9 +54,12 @@ fetchSignatureHelp store entry pos = runMaybeT $ do
         return (sym, args)
     let activeParam = maybe 0 fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
+        labelStart = I.sQualIdent sym <> " :: "
+        paramSep = " -> "
         paramLabels = I.sPrintedArgumentTypes sym
-        params = flip J.ParameterInformation Nothing . J.ParameterLabelString <$> paramLabels
-        label = T.intercalate " -> " paramLabels
+        paramOffsets = reverse $ snd $ foldl (\(n, offs) l -> let n' = n + T.length l in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
+        params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset <$> paramOffsets
+        label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList (I.sPrintedResultType sym))
         sig = J.SignatureInformation label Nothing (Just $ J.List params) (Just activeParam)
         sigs = [sig]
     return $ J.SignatureHelp (J.List sigs) (Just activeSig) (Just activeParam)

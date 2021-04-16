@@ -11,7 +11,7 @@ module Curry.LanguageServer.Utils.Syntax
     , elementsAt
     , elementContains
     , moduleIdentifier
-    , appHead
+    , appBase
     , appFull
     ) where
 
@@ -42,8 +42,8 @@ moduleIdentifier :: CS.Module a -> CI.ModuleIdent
 moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
 
 -- | Finds the base expression that others have been applied to.
-appHead :: CS.Expression a -> CS.Expression a
-appHead = head . appFull
+appBase :: CS.Expression a -> CS.Expression a
+appBase = head . appFull
 
 -- | Finds the full expression application (i.e. the head and the args).
 appFull :: CS.Expression a -> [CS.Expression a]
