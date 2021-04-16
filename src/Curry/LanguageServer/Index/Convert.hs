@@ -70,6 +70,7 @@ makeValueSymbol k q t = do
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText t
         , sPrintedArgumentTypes = ppToText <$> CT.arrowArgs (CT.rawType t)
+        , sPrintedResultType = Just $ ppToText $ CT.arrowBase (CT.rawType t)
         , sArrowArity = Just $ CT.arrowArity $ CT.rawType t
         , sLocation = loc
         }
@@ -83,6 +84,9 @@ makeTypeSymbol k q k' = do
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText k'
         , sPrintedArgumentTypes = ppToText <$> CK.kindArgs k'
+        , sPrintedResultType = Just $ ppToText $ kindBase k'
         , sArrowArity = Just $ CK.kindArity k'
         , sLocation = loc
         }
+    where kindBase (CK.KindArrow _ k'') = kindBase k''
+          kindBase k''                  = k''
