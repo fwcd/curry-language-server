@@ -13,6 +13,8 @@ module Curry.LanguageServer.Utils.Syntax
     , moduleIdentifier
     , appBase
     , appFull
+    , typeAppBase
+    , typeAppFull
     ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -50,6 +52,16 @@ appFull :: CS.Expression a -> [CS.Expression a]
 appFull = appFull' [] 
     where appFull' acc (CS.Apply _ e1 e2) = appFull' (e2 : acc) e1
           appFull' acc e                  = e : acc
+
+-- | Finds the base type that others have been applied to.
+typeAppBase :: CS.TypeExpr -> CS.TypeExpr
+typeAppBase = head . typeAppFull
+
+-- | Finds the full type application (i.e. the head and the args).
+typeAppFull :: CS.TypeExpr -> [CS.TypeExpr]
+typeAppFull = typeAppFull' [] 
+    where typeAppFull' acc (CS.ApplyType _ t1 t2) = typeAppFull' (t2 : acc) t1
+          typeAppFull' acc e                  = e : acc
 
 class HasExpressions s a | s -> a where
     -- | Fetches all expressions as pre-order traversal
