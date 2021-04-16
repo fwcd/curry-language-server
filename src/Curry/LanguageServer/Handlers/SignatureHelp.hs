@@ -3,6 +3,7 @@ module Curry.LanguageServer.Handlers.SignatureHelp (signatureHelpHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
+import qualified Base.Types as CT
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
@@ -39,13 +40,8 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
 fetchSignatureHelp :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
-    let exprs = elementsAt pos $ expressions ast
     -- TODO: Type applications?
-    (sym, args) <- liftMaybe $ lastSafe $ do
-        e@(CS.Apply _ _ _) <- exprs
-        let base : args = appFull e
-        sym <- maybeToList $ lookupExpression store ast base
-        return (sym, args)
+    (sym, args) <- liftMaybe $ findExpressionApplication store ast pos
     liftIO $ infoM "cls.signatureHelp" $ "Found symbol " ++ T.unpack (I.sQualIdent sym)
     let activeParam = maybe 0 fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
@@ -58,6 +54,14 @@ fetchSignatureHelp store entry pos = runMaybeT $ do
         sig = J.SignatureInformation label Nothing (Just $ J.List params) (Just activeParam)
         sigs = [sig]
     return $ J.SignatureHelp (J.List sigs) (Just activeSig) (Just activeParam)
+
+findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, [CS.Expression (Maybe CT.PredType)])
+findExpressionApplication store ast pos = lastSafe $ do
+    let exprs = elementsAt pos $ expressions ast
+    e@(CS.Apply _ _ _) <- exprs
+    let base : args = appFull e
+    sym <- maybeToList $ lookupExpression store ast base
+    return (sym, args)
 
 lookupExpression :: I.IndexStore -> ModuleAST -> CS.Expression a -> Maybe I.Symbol
 lookupExpression store ast e = listToMaybe $ case e of
