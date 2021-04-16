@@ -11,6 +11,8 @@ module Curry.LanguageServer.Utils.Syntax
     , elementsAt
     , elementContains
     , moduleIdentifier
+    , appHead
+    , appFull
     ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -38,6 +40,16 @@ elementContains pos = maybe False (rangeElem pos) . currySpanInfo2Range . CSPI.g
 -- | Fetches the module identifier for a module.
 moduleIdentifier :: CS.Module a -> CI.ModuleIdent
 moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
+
+-- | Finds the base expression that others have been applied to.
+appHead :: CS.Expression a -> CS.Expression a
+appHead = head . appFull
+
+-- | Finds the full expression application (i.e. the head and the args).
+appFull :: CS.Expression a -> [CS.Expression a]
+appFull = appFull' [] 
+    where appFull' acc (CS.Apply _ e1 e2) = appFull' (e2 : acc) e1
+          appFull' acc e                  = e : acc
 
 class HasExpressions s a | s -> a where
     -- | Fetches all expressions as pre-order traversal
