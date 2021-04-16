@@ -23,9 +23,6 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
-import Debug.Trace
-import Curry.LanguageServer.Utils.Convert (ppToString)
-
 signatureHelpHandler :: S.Handlers LSM
 signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req responder -> do
     liftIO $ debugM "cls.signatureHelp" "Processing signature help request"
@@ -47,11 +44,9 @@ fetchSignatureHelp store entry pos = runMaybeT $ do
     (sym, args) <- liftMaybe $ lastSafe $ do
         e@(CS.Apply _ _ _) <- exprs
         let base : args = appFull e
-        traceM $ "Signature help expr: " ++ ppToString e ++ ", base: " ++ ppToString base ++ ", args: " ++ show (ppToString <$> args)
-        traceM $ "Base is " ++ show base
         sym <- maybeToList $ lookupExpression store ast base
-        traceM $ "Found symbol " ++ show sym
         return (sym, args)
+    liftIO $ infoM "cls.signatureHelp" $ "Found symbol " ++ T.unpack (I.sQualIdent sym)
     let activeParam = maybe 0 fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
         labelStart = I.sQualIdent sym <> " :: "
