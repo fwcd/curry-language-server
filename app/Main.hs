@@ -32,6 +32,7 @@ runLanguageServer = do
         , S.options = S.defaultOptions
             { S.textDocumentSync = Just syncOptions
             , S.completionTriggerCharacters = Just ['.']
+            , S.signatureHelpTriggerCharacters = Just [' ']
             , S.executeCommandCommands = Just $ fst <$> commands
             , S.serverInfo = Just $ J.ServerInfo "Curry Language Server" Nothing
             }
