@@ -8,6 +8,7 @@ import Curry.LanguageServer.Handlers.Definition (definitionHandler)
 import Curry.LanguageServer.Handlers.DocumentSymbols (documentSymbolHandler)
 import Curry.LanguageServer.Handlers.Hover (hoverHandler)
 import Curry.LanguageServer.Handlers.Initialized (initializedHandler)
+import Curry.LanguageServer.Handlers.SignatureHelp (signatureHelpHandler)
 import Curry.LanguageServer.Handlers.TextDocument (didOpenHandler, didChangeHandler, didSaveHandler, didCloseHandler)
 import Curry.LanguageServer.Handlers.WorkspaceSymbols (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
@@ -24,6 +25,7 @@ handlers = mconcat
     , workspaceSymbolHandler
     , codeActionHandler
     , codeLensHandler
+    , signatureHelpHandler
       -- Notification handlers
     , initializedHandler
     , didOpenHandler
