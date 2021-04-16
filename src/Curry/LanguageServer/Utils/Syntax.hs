@@ -2,6 +2,7 @@
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax
     ( HasExpressions (..)
+    , HasTypeExpressions (..)
     , HasDeclarations (..)
     , HasQualIdentifiers (..)
     , HasIdentifiers (..)
@@ -127,6 +128,37 @@ instance HasExpressions s a => HasExpressions [s] a where
 
 instance HasExpressions s a => HasExpressions (Maybe s) a where
     expressions = expressions . maybeToList
+
+class HasTypeExpressions s where
+    typeExpressions :: s -> [CS.TypeExpr]
+
+instance HasTypeExpressions (CS.Module a) where
+    typeExpressions (CS.Module _ _ _ _ _ _ decls) = typeExpressions decls
+
+instance HasTypeExpressions (CS.Decl a) where
+    typeExpressions decl = case decl of
+        CS.TypeDecl _ _ _ t -> typeExpressions t
+        CS.TypeSig _ _ qt   -> typeExpressions qt
+        _ -> [] -- TODO (e.g. extract type exprs from explicitly typed expressions)
+
+instance HasTypeExpressions CS.QualTypeExpr where
+    typeExpressions (CS.QualTypeExpr _ _ t) = typeExpressions t
+
+instance HasTypeExpressions CS.TypeExpr where
+    typeExpressions texpr = texpr : case texpr of
+        CS.ApplyType _ t1 t2 -> typeExpressions t1 ++ typeExpressions t2
+        CS.TupleType _ ts    -> typeExpressions ts
+        CS.ListType _ t      -> typeExpressions t
+        CS.ArrowType _ t1 t2 -> typeExpressions t1 ++ typeExpressions t2
+        CS.ParenType _ t     -> typeExpressions t
+        CS.ForallType _ _ t  -> typeExpressions t
+        _                    -> []
+
+instance HasTypeExpressions s => HasTypeExpressions [s] where
+    typeExpressions = (typeExpressions =<<)
+
+instance HasTypeExpressions s => HasTypeExpressions (Maybe s) where
+    typeExpressions = typeExpressions . maybeToList
 
 class HasDeclarations s a | s -> a where
     -- | Fetches all declarations as pre-order traversal
