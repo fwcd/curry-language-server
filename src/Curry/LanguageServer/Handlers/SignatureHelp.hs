@@ -3,8 +3,10 @@ module Curry.LanguageServer.Handlers.SignatureHelp (signatureHelpHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Curry.Base.Ident as CI
+import qualified Curry.Base.SpanInfo as CSPI
 
+import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
@@ -24,6 +26,9 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
+import Curry.LanguageServer.Utils.Convert (ppToString)
+import Debug.Trace
+
 signatureHelpHandler :: S.Handlers LSM
 signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req responder -> do
     liftIO $ debugM "cls.signatureHelp" "Processing signature help request"
@@ -41,7 +46,8 @@ fetchSignatureHelp :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Ma
 fetchSignatureHelp store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     -- TODO: Type applications?
-    (sym, args) <- liftMaybe $ findExpressionApplication store ast pos
+    (sym, args) <- liftMaybe $  findExpressionApplication store ast pos
+                            <|> findTypeApplication       store ast pos
     liftIO $ infoM "cls.signatureHelp" $ "Found symbol " ++ T.unpack (I.sQualIdent sym)
     let activeParam = maybe 0 fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
@@ -55,16 +61,34 @@ fetchSignatureHelp store entry pos = runMaybeT $ do
         sigs = [sig]
     return $ J.SignatureHelp (J.List sigs) (Just activeSig) (Just activeParam)
 
-findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, [CS.Expression (Maybe CT.PredType)])
+findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, [CSPI.SpanInfo])
 findExpressionApplication store ast pos = lastSafe $ do
     let exprs = elementsAt pos $ expressions ast
     e@(CS.Apply _ _ _) <- exprs
     let base : args = appFull e
-    sym <- maybeToList $ lookupExpression store ast base
-    return (sym, args)
+    sym <- maybeToList $ lookupBaseExpression store ast base
+    return (sym, CSPI.getSpanInfo <$> args)
 
-lookupExpression :: I.IndexStore -> ModuleAST -> CS.Expression a -> Maybe I.Symbol
-lookupExpression store ast e = listToMaybe $ case e of
+findTypeApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, [CSPI.SpanInfo])
+findTypeApplication store ast pos = lastSafe $ do
+    let ts = elementsAt pos $ typeExpressions ast
+    traceM $ "Found these: " ++ show (ppToString <$> ts)
+    e@(CS.ApplyType _ _ _) <- ts
+    traceM $ "Found apply type " ++ ppToString e
+    let base : args = typeAppFull e
+    traceM $ "Found base " ++ show base
+    sym <- maybeToList $ lookupBaseTypeExpression store ast base
+    traceM $ "Found symbol " ++ show sym
+    return (sym, CSPI.getSpanInfo <$> args)
+
+lookupBaseTypeExpression :: I.IndexStore -> ModuleAST -> CS.TypeExpr -> Maybe I.Symbol
+lookupBaseTypeExpression store ast e = listToMaybe $ case e of
+    CS.ConstructorType _ q -> resolveQualIdent store ast q
+    CS.VariableType _ i    -> resolveQualIdent store ast $ CI.qualify i
+    _                      -> []
+
+lookupBaseExpression :: I.IndexStore -> ModuleAST -> CS.Expression a -> Maybe I.Symbol
+lookupBaseExpression store ast e = listToMaybe $ case e of
     CS.Variable _ _ q    -> resolveQualIdent store ast q
     CS.Constructor _ _ q -> resolveQualIdent store ast q
     _                    -> []
