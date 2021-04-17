@@ -70,16 +70,14 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
 
 findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findExpressionApplication store ast pos = lastSafe $ do
-    let exprs = elementsAt pos $ expressions ast
-    e@(CS.Apply _ _ _) <- exprs
+    e <- elementsAt pos $ expressions ast
     let base : args = appFull e
     sym <- maybeToList $ lookupBaseExpression store ast base
     return (sym, CSPI.getSpanInfo e, CSPI.getSpanInfo <$> args)
 
 findTypeApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findTypeApplication store ast pos = lastSafe $ do
-    let ts = elementsAt pos $ typeExpressions ast
-    e@(CS.ApplyType _ _ _) <- ts
+    e <- elementsAt pos $ typeExpressions ast
     let base : args = typeAppFull e
     sym <- maybeToList $ lookupBaseTypeExpression store ast base
     return (sym, CSPI.getSpanInfo e, CSPI.getSpanInfo <$> args)
