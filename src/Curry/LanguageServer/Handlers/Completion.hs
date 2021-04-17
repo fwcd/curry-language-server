@@ -14,7 +14,7 @@ import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
-import Curry.LanguageServer.Utils.General (filterF)
+import Curry.LanguageServer.Utils.General (filterF, lastSafe)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -160,13 +160,15 @@ toCompletionSymbols entry s = do
                 , cmsModuleName = m
                 , cmsImportEdits = if isImported $ I.sIdent s
                     then Nothing
-                    else Just $ case spec of
-                        Just (CS.Importing (currySpanInfo2Range -> Just (J.Range _ pos)) is) -> let range = J.Range pos pos
-                                                                                                    text | null is   = I.sIdent s
-                                                                                                         | otherwise = ", " <> I.sIdent s
-                                                                                                    edit = J.TextEdit range text
-                                                                                                in [edit]
-                        _                                                                    -> []
+                    else case spec of
+                        Just (CS.Importing _ is) -> do
+                            J.Range _ pos <- currySpanInfo2Range =<< lastSafe is
+                            let range = J.Range pos pos
+                                text | null is   = I.sIdent s
+                                     | otherwise = ", " <> I.sIdent s
+                                edit = J.TextEdit range text
+                            return [edit]
+                        _                        -> return []
                 }
 
 
