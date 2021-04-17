@@ -5,6 +5,8 @@ module Curry.LanguageServer.Index.Convert
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
+import qualified Base.CurryKinds as CKS
+import qualified Base.CurryTypes as CTS
 import qualified Base.TopEnv as CTE
 import qualified Base.Types as CT
 import qualified Base.Kinds as CK
@@ -14,7 +16,7 @@ import qualified Env.Value as CEV
 import Control.Applicative ((<|>))
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
-import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
+import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location, ppToTextPrec)
 import Curry.LanguageServer.Utils.General (lastSafe)
 import Data.Default (Default (..))
 import Data.List (inits)
@@ -69,7 +71,10 @@ makeValueSymbol k q t = do
         , sQualIdent = ppToText q
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText t
-        , sPrintedArgumentTypes = ppToText <$> CT.arrowArgs (CT.rawType t)
+        -- We explicitly perform the Type -> TypeExpr conversion here since
+        -- the Pretty Type instance ignores the precedence.
+        , sPrintedArgumentTypes = ppToTextPrec 2 . CTS.fromType CI.identSupply <$> CT.arrowArgs (CT.rawType t)
+        , sPrintedResultType = Just $ ppToText $ CT.arrowBase (CT.rawType t)
         , sArrowArity = Just $ CT.arrowArity $ CT.rawType t
         , sLocation = loc
         }
@@ -82,7 +87,12 @@ makeTypeSymbol k q k' = do
         , sQualIdent = ppToText q
         , sIdent = ppToText $ CI.qidIdent q
         , sPrintedType = Just $ ppToText k'
-        , sPrintedArgumentTypes = ppToText <$> CK.kindArgs k'
+        -- We explicitly perform the Kind conversion here since
+        -- the Pretty Kind instance ignores the precedence.
+        , sPrintedArgumentTypes = ppToTextPrec 2 . CKS.fromKind <$> CK.kindArgs k'
+        , sPrintedResultType = Just $ ppToText $ kindBase k'
         , sArrowArity = Just $ CK.kindArity k'
         , sLocation = loc
         }
+    where kindBase (CK.KindArrow _ k'') = kindBase k''
+          kindBase k''                  = k''

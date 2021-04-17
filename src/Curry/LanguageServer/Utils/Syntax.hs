@@ -2,13 +2,20 @@
 -- | AST utilities and typeclasses.
 module Curry.LanguageServer.Utils.Syntax
     ( HasExpressions (..)
+    , HasTypeExpressions (..)
     , HasDeclarations (..)
     , HasQualIdentifiers (..)
     , HasIdentifiers (..)
     , HasQualIdentifier (..)
     , HasIdentifier (..)
     , elementAt
+    , elementsAt
+    , elementContains
     , moduleIdentifier
+    , appBase
+    , appFull
+    , typeAppBase
+    , typeAppFull
     ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -23,7 +30,11 @@ import qualified Language.LSP.Types as J
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
-elementAt pos = lastSafe . filter (elementContains pos)
+elementAt pos = lastSafe . elementsAt pos
+
+-- | Fetches the elements at the given position.
+elementsAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> [e]
+elementsAt pos = filter $ elementContains pos
 
 -- | Tests whether the given element in the AST contains the given position.
 elementContains :: CSPI.HasSpanInfo e => J.Position -> e -> Bool
@@ -32,6 +43,26 @@ elementContains pos = maybe False (rangeElem pos) . currySpanInfo2Range . CSPI.g
 -- | Fetches the module identifier for a module.
 moduleIdentifier :: CS.Module a -> CI.ModuleIdent
 moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
+
+-- | Finds the base expression that others have been applied to.
+appBase :: CS.Expression a -> CS.Expression a
+appBase = head . appFull
+
+-- | Finds the full expression application (i.e. the head and the args).
+appFull :: CS.Expression a -> [CS.Expression a]
+appFull = appFull' [] 
+    where appFull' acc (CS.Apply _ e1 e2) = appFull' (e2 : acc) e1
+          appFull' acc e                  = e : acc
+
+-- | Finds the base type that others have been applied to.
+typeAppBase :: CS.TypeExpr -> CS.TypeExpr
+typeAppBase = head . typeAppFull
+
+-- | Finds the full type application (i.e. the head and the args).
+typeAppFull :: CS.TypeExpr -> [CS.TypeExpr]
+typeAppFull = typeAppFull' [] 
+    where typeAppFull' acc (CS.ApplyType _ t1 t2) = typeAppFull' (t2 : acc) t1
+          typeAppFull' acc e                  = e : acc
 
 class HasExpressions s a | s -> a where
     -- | Fetches all expressions as pre-order traversal
@@ -97,6 +128,37 @@ instance HasExpressions s a => HasExpressions [s] a where
 
 instance HasExpressions s a => HasExpressions (Maybe s) a where
     expressions = expressions . maybeToList
+
+class HasTypeExpressions s where
+    typeExpressions :: s -> [CS.TypeExpr]
+
+instance HasTypeExpressions (CS.Module a) where
+    typeExpressions (CS.Module _ _ _ _ _ _ decls) = typeExpressions decls
+
+instance HasTypeExpressions (CS.Decl a) where
+    typeExpressions decl = case decl of
+        CS.TypeDecl _ _ _ t -> typeExpressions t
+        CS.TypeSig _ _ qt   -> typeExpressions qt
+        _ -> [] -- TODO (e.g. extract type exprs from explicitly typed expressions)
+
+instance HasTypeExpressions CS.QualTypeExpr where
+    typeExpressions (CS.QualTypeExpr _ _ t) = typeExpressions t
+
+instance HasTypeExpressions CS.TypeExpr where
+    typeExpressions texpr = texpr : case texpr of
+        CS.ApplyType _ t1 t2 -> typeExpressions t1 ++ typeExpressions t2
+        CS.TupleType _ ts    -> typeExpressions ts
+        CS.ListType _ t      -> typeExpressions t
+        CS.ArrowType _ t1 t2 -> typeExpressions t1 ++ typeExpressions t2
+        CS.ParenType _ t     -> typeExpressions t
+        CS.ForallType _ _ t  -> typeExpressions t
+        _                    -> []
+
+instance HasTypeExpressions s => HasTypeExpressions [s] where
+    typeExpressions = (typeExpressions =<<)
+
+instance HasTypeExpressions s => HasTypeExpressions (Maybe s) where
+    typeExpressions = typeExpressions . maybeToList
 
 class HasDeclarations s a | s -> a where
     -- | Fetches all declarations as pre-order traversal
