@@ -181,9 +181,9 @@ replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 -- | Moves a cursor back until a non-whitespace character precedes it.
-snapToLastToken :: Foldable f => f Char -> Int -> Int
+snapToLastToken :: String -> Int -> Int
 snapToLastToken s n = n - delta
-    where delta = length $ takeWhile isSpace $ reverse $ take n $ toList s
+    where delta = length $ takeWhile isSpace $ reverse $ take n s
 
 class Insertable m a | m -> a where
     -- | Inserts a single entry.
