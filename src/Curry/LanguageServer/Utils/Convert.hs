@@ -19,6 +19,8 @@ module Curry.LanguageServer.Utils.Convert
     , setCurryPosUri
     , setCurrySpanUri
     , setCurrySpanInfoUri
+    , ppToStringPrec
+    , ppToTextPrec
     , ppToString
     , ppToText
     , ppTypeSchemeToText
@@ -154,6 +156,12 @@ setCurrySpanInfoUri uri x@(CSPI.getSpanInfo -> spi@CSPI.SpanInfo {..}) = do
     spn <- setCurrySpanUri uri srcSpan
     return $ CSPI.setSpanInfo spi { CSPI.srcSpan = spn } x
 setCurrySpanInfoUri _ x = Just x
+
+ppToStringPrec :: CPP.Pretty p => Int -> p -> String
+ppToStringPrec p = PP.render . CPP.pPrintPrec p
+
+ppToTextPrec :: CPP.Pretty p => Int -> p -> T.Text
+ppToTextPrec p = T.pack . ppToStringPrec p
 
 ppToString :: CPP.Pretty p => p -> String
 ppToString = PP.render . CPP.pPrint
