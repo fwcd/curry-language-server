@@ -14,7 +14,7 @@ import Curry.LanguageServer.Index.Resolve (resolveQualIdent)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Monad
-import Curry.LanguageServer.Utils.General (liftMaybe, lastSafe, snapToLastToken)
+import Curry.LanguageServer.Utils.General (liftMaybe, lastSafe, snapToLastTokenStart)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -48,7 +48,7 @@ fetchSignatureHelp :: I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     let line = VFS.rangeLinesFromVfs vfile $ J.Range (J.Position l 0) (J.Position (l + 1) 0)
-        c'   = snapToLastToken (T.unpack line) c
+        c'   = snapToLastTokenStart (T.unpack line) c
         pos' = J.Position l c'
     (sym, args) <- liftMaybe $  findExpressionApplication store ast pos'
                             <|> findTypeApplication       store ast pos'

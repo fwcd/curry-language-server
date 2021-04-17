@@ -19,7 +19,8 @@ module Curry.LanguageServer.Utils.General
     , removeSingle
     , nothingIfNull
     , replaceString
-    , snapToLastToken
+    , snapToLastTokenStart
+    , snapToLastTokenEnd
     , Insertable (..)
     , ConstMap (..)
     , insertIntoTrieWith
@@ -180,10 +181,16 @@ nothingIfNull xs = Just xs
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
--- | Moves a cursor back until a non-whitespace character precedes it.
-snapToLastToken :: String -> Int -> Int
-snapToLastToken s n = n - delta
-    where delta = length $ takeWhile isSpace $ reverse $ take n s
+-- | Moves the cursor back until the beginning of the last token.
+snapToLastTokenStart :: String -> Int -> Int
+snapToLastTokenStart = snapBack $ dropWhile (not . isSpace) . dropWhile isSpace
+
+-- | Moves the cursor back until a non-whitespace character precedes it (i.e. past the end of the last token).
+snapToLastTokenEnd :: String -> Int -> Int
+snapToLastTokenEnd = snapBack $ dropWhile isSpace
+
+snapBack :: ([a] -> [a]) -> [a] -> Int -> Int
+snapBack f s n = length $ f $ reverse $ take n s
 
 class Insertable m a | m -> a where
     -- | Inserts a single entry.
