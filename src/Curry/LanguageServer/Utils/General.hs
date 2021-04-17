@@ -19,6 +19,7 @@ module Curry.LanguageServer.Utils.General
     , removeSingle
     , nothingIfNull
     , replaceString
+    , snapToLastToken
     , Insertable (..)
     , ConstMap (..)
     , insertIntoTrieWith
@@ -36,7 +37,7 @@ import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
 import qualified Data.List as L
-import Data.Foldable (foldrM)
+import Data.Foldable (foldrM, toList)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
@@ -178,6 +179,11 @@ nothingIfNull xs = Just xs
 
 replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
+
+-- | Moves a cursor back until a non-whitespace character precedes it.
+snapToLastToken :: Foldable f => f Char -> Int -> Int
+snapToLastToken s n = n - delta
+    where delta = length $ takeWhile isSpace $ reverse $ take n $ toList s
 
 class Insertable m a | m -> a where
     -- | Inserts a single entry.
