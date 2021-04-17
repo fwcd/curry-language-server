@@ -38,7 +38,7 @@ import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
 import qualified Data.List as L
-import Data.Foldable (foldrM, toList)
+import Data.Foldable (foldrM)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
