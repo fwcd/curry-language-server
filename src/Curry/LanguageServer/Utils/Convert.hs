@@ -58,8 +58,9 @@ curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text tags relat
           code = Nothing
           src = Nothing
           text = T.pack $ PP.render $ CM.msgTxt msg
-          tags | "Unused" `T.isPrefixOf` text = Just $ J.List [J.DtUnnecessary]
-               | otherwise                    = Just $ J.List []
+          -- TODO: It would be better to have the frontend expose this as a flag/tag instead.
+          tags | "Unused" `T.isPrefixOf` text || "Unreferenced" `T.isPrefixOf` text = Just $ J.List [J.DtUnnecessary]
+               | otherwise                                                          = Just $ J.List []
           related = Nothing
 
 curryPos2Pos :: CP.Position -> Maybe J.Position
