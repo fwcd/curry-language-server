@@ -10,7 +10,7 @@ jobs:
     - name: Set up Haskell and Stack
       uses: actions/setup-haskell@v1
       with:
-        ghc-version: '8.6.5' # matches the lts-14.22 declared in stack.yaml
+        ghc-version: '8.8.3' # matches the lts-16.9 declared in stack.yaml
         enable-stack: true
         stack-version: 'latest'
     - name: Build
