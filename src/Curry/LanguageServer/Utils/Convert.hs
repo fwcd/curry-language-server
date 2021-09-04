@@ -27,6 +27,7 @@ module Curry.LanguageServer.Utils.Convert
     , ppPredTypeToText
     , HasDocumentSymbols (..)
     , HasWorkspaceSymbols (..)
+    , HasSemanticTokens (..)
     ) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -41,11 +42,12 @@ import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
 import qualified Text.PrettyPrint as PP
 
+import Control.Monad (guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(runMaybeT))
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri (filePathToUri, uriToFilePath)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
@@ -206,8 +208,8 @@ instance HasDocumentSymbols (CS.Decl a) where
                   symKind = J.SkOperator
         CS.DataDecl _ ident _ cs _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
-                  symKind = if length cs > 1 then J.SkEnum
-                                             else J.SkStruct
+                  symKind = if length cs /= 1 then J.SkEnum
+                                              else J.SkStruct
                   childs = documentSymbols =<< cs
         CS.NewtypeDecl _ ident _ c _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
@@ -215,7 +217,7 @@ instance HasDocumentSymbols (CS.Decl a) where
                   childs = documentSymbols c
         CS.ExternalDataDecl _ ident _ -> [makeDocumentSymbol name symKind range Nothing]
             where name = ppToText ident
-                  symKind = J.SkStruct
+                  symKind = J.SkEnum
         CS.FunctionDecl _ _ ident eqs -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = if eqsArity eqs > 0 then J.SkFunction
@@ -326,6 +328,183 @@ instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s whe
                 where cs' = maybe [] (\(J.List cs'') -> cs'') cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s
+
+makeSemanticToken :: J.SemanticTokenTypes -> [J.SemanticTokenModifiers] -> Maybe J.Range -> [J.SemanticTokenAbsolute]
+makeSemanticToken tt tm r = maybeToList $ do
+    J.Range (J.Position l c) (J.Position l' c') <- r
+    guard $ l == l'
+    return $ J.SemanticTokenAbsolute l c (c' - c) tt tm
+
+curryIdent2Token :: J.SemanticTokenTypes -> [J.SemanticTokenModifiers] -> CI.Ident -> [J.SemanticTokenAbsolute]
+curryIdent2Token tt tm = makeSemanticToken tt tm . currySpanInfo2Range
+
+class HasSemanticTokens e where
+    semanticTokens :: e -> [J.SemanticTokenAbsolute]
+
+instance HasSemanticTokens (CS.Module a) where
+    semanticTokens (CS.Module _ _ _ _ _ imps decls) = semanticTokens imps ++ semanticTokens decls
+
+instance HasSemanticTokens CS.ImportDecl where
+    semanticTokens (CS.ImportDecl _ _ _ _ spec) = semanticTokens spec
+
+instance HasSemanticTokens CS.ImportSpec where
+    semanticTokens spec = case spec of
+        CS.Importing _ is -> semanticTokens is
+        CS.Hiding _ is    -> semanticTokens is
+
+instance HasSemanticTokens CS.Import where
+    semanticTokens imp = case imp of
+        CS.Import _ _            -> []
+        CS.ImportTypeWith _ i is -> curryIdent2Token J.SttType [] i
+                                 ++ (curryIdent2Token J.SttFunction [] =<< is)
+        CS.ImportTypeAll _ i     -> curryIdent2Token J.SttType [] i
+
+instance HasSemanticTokens (CS.Decl a) where
+    semanticTokens decl = case decl of
+        CS.InfixDecl _ _ _ is         -> curryIdent2Token J.SttOperator [J.StmDeclaration] =<< is
+        CS.DataDecl _ i is cdecls _   -> curryIdent2Token tt [J.StmDeclaration] i
+                                      ++ (curryIdent2Token J.SttTypeParameter [J.StmDeclaration] =<< is)
+                                      ++ semanticTokens cdecls
+            where tt | length cdecls == 1 = J.SttStruct
+                     | otherwise          = J.SttEnum
+        CS.ExternalDataDecl _ i is    -> curryIdent2Token J.SttEnum [J.StmDeclaration] i
+                                      ++ (curryIdent2Token J.SttTypeParameter [J.StmDeclaration] =<< is)
+        CS.NewtypeDecl _ i is cdecl _ -> curryIdent2Token J.SttStruct [J.StmDeclaration] i
+                                      ++ (curryIdent2Token J.SttTypeParameter [J.StmDeclaration] =<< is)
+                                      ++ semanticTokens cdecl
+        CS.TypeDecl _ i is t          -> curryIdent2Token J.SttInterface [J.StmDeclaration] i
+                                      ++ (curryIdent2Token J.SttTypeParameter [J.StmDeclaration] =<< is)
+                                      ++ semanticTokens t
+        CS.TypeSig _ is t             -> (curryIdent2Token J.SttFunction [J.StmDeclaration] =<< is)
+                                      ++ semanticTokens t
+        CS.FunctionDecl _ _ i es      -> curryIdent2Token J.SttFunction [J.StmDeclaration] i
+                                      ++ semanticTokens es
+        CS.ExternalDecl _ vs          -> semanticTokens vs
+        CS.PatternDecl _ p rhs        -> semanticTokens p ++ semanticTokens rhs
+        CS.FreeDecl _ vs              -> semanticTokens vs
+        CS.DefaultDecl _ ts           -> semanticTokens ts
+        CS.ClassDecl _ _ c i1 i2 ds   -> semanticTokens c
+                                      ++ curryIdent2Token J.SttInterface [J.StmDeclaration] i1
+                                      ++ curryIdent2Token J.SttTypeParameter [J.StmDeclaration] i2
+                                      ++ semanticTokens ds
+        CS.InstanceDecl _ _ c _ _ ds  -> semanticTokens c ++ semanticTokens ds
+
+instance HasSemanticTokens CS.Constraint where
+    semanticTokens (CS.Constraint _ _ t) = semanticTokens t
+
+instance HasSemanticTokens (CS.Equation a) where
+    semanticTokens (CS.Equation _ lhs rhs) = semanticTokens lhs ++ semanticTokens rhs
+
+instance HasSemanticTokens (CS.Pattern a) where
+    semanticTokens pat = case pat of
+        CS.VariablePattern _ _ i        -> curryIdent2Token J.SttVariable [J.StmDeclaration] i
+        CS.ConstructorPattern _ _ _ ps  -> semanticTokens ps
+        CS.InfixPattern _ _ p1 _ p2     -> semanticTokens p1 ++ semanticTokens p2
+        CS.ParenPattern _ p             -> semanticTokens p
+        CS.RecordPattern _ _ _ fs       -> semanticTokens fs
+        CS.TuplePattern _ ps            -> semanticTokens ps
+        CS.ListPattern _ _ ps           -> semanticTokens ps
+        CS.AsPattern _ i p              -> curryIdent2Token J.SttVariable [J.StmDeclaration] i
+                                        ++ semanticTokens p
+        CS.LazyPattern _ p              -> semanticTokens p
+        CS.FunctionPattern _ _ _ ps     -> semanticTokens ps
+        CS.InfixFuncPattern _ _ p1 _ p2 -> semanticTokens p1 ++ semanticTokens p2
+        _                               -> []
+
+instance HasSemanticTokens (CS.Statement a) where
+    semanticTokens stmt = case stmt of
+        CS.StmtExpr _ e    -> semanticTokens e
+        CS.StmtDecl _ _ ds -> semanticTokens ds
+        CS.StmtBind _ p e  -> semanticTokens p ++ semanticTokens e
+
+instance HasSemanticTokens (CS.Lhs a) where
+    semanticTokens lhs = case lhs of
+        CS.FunLhs _ _ ps   -> semanticTokens ps
+        CS.OpLhs _ p1 _ p2 -> semanticTokens p1 ++ semanticTokens p2
+        CS.ApLhs _ l ps    -> semanticTokens l ++ semanticTokens ps
+
+instance HasSemanticTokens (CS.Rhs a) where
+    semanticTokens rhs = case rhs of
+        CS.SimpleRhs _ _ e ds   -> semanticTokens e ++ semanticTokens ds
+        CS.GuardedRhs _ _ es ds -> semanticTokens es ++ semanticTokens ds
+
+instance HasSemanticTokens (CS.CondExpr a) where
+    semanticTokens (CS.CondExpr _ e1 e2) = semanticTokens e1 ++ semanticTokens e2
+
+instance HasSemanticTokens (CS.Expression a) where
+    semanticTokens e = case e of
+        CS.Paren _ e'                -> semanticTokens e'
+        CS.Typed _ e' _              -> semanticTokens e'
+        CS.Record _ _ _ fields       -> semanticTokens fields
+        CS.RecordUpdate _ e' fields  -> semanticTokens e' ++ semanticTokens fields
+        CS.Tuple _ entries           -> semanticTokens entries
+        CS.List _ _ entries          -> semanticTokens entries
+        CS.ListCompr _ e' stmts      -> semanticTokens e' ++ semanticTokens stmts
+        CS.EnumFrom _ e'             -> semanticTokens e'
+        CS.EnumFromThen _ e1 e2      -> semanticTokens e1 ++ semanticTokens e2
+        CS.EnumFromThenTo _ e1 e2 e3 -> semanticTokens e1 ++ semanticTokens e2 ++ semanticTokens e3
+        CS.UnaryMinus _ e'           -> semanticTokens e'
+        CS.Apply _ e1 e2             -> semanticTokens e1 ++ semanticTokens e2
+        CS.InfixApply _ e1 _ e2      -> semanticTokens e1 ++ semanticTokens e2
+        CS.LeftSection _ e' _        -> semanticTokens e'
+        CS.RightSection _ _ e'       -> semanticTokens e'
+        CS.Lambda _ _ e'             -> semanticTokens e'
+        CS.Let _ _ decls e'          -> semanticTokens decls ++ semanticTokens e'
+        CS.Do _ _ stmts e'           -> semanticTokens stmts ++ semanticTokens e'
+        CS.IfThenElse _ e1 e2 e3     -> semanticTokens e1 ++ semanticTokens e2 ++ semanticTokens e3
+        CS.Case _ _ _ e' alts        -> semanticTokens e' ++ semanticTokens alts
+        _                            -> []
+
+instance HasSemanticTokens (CS.Alt a) where
+    semanticTokens (CS.Alt _ p rhs) = semanticTokens p ++ semanticTokens rhs
+
+instance HasSemanticTokens a => HasSemanticTokens (CS.Field a) where
+    semanticTokens (CS.Field _ _ e) = semanticTokens e
+
+instance HasSemanticTokens (CS.Var a) where
+    semanticTokens (CS.Var _ i) = curryIdent2Token J.SttVariable [] i
+
+instance HasSemanticTokens CS.ConstrDecl where
+    semanticTokens cdecl = case cdecl of
+        CS.ConstrDecl _ i ts   -> curryIdent2Token J.SttFunction [J.StmDeclaration] i
+                               ++ semanticTokens ts
+        CS.ConOpDecl _ t1 i t2 -> curryIdent2Token J.SttOperator [J.StmDeclaration] i
+                               ++ semanticTokens t1
+                               ++ semanticTokens t2
+        CS.RecordDecl _ i fs   -> curryIdent2Token J.SttFunction [J.StmDeclaration] i
+                               ++ semanticTokens fs
+
+instance HasSemanticTokens CS.FieldDecl where
+    semanticTokens (CS.FieldDecl _ _ t) = semanticTokens t
+
+instance HasSemanticTokens CS.NewConstrDecl where
+    semanticTokens cdecl = case cdecl of
+        CS.NewConstrDecl _ i t       -> curryIdent2Token J.SttFunction [J.StmDeclaration] i
+                                     ++ semanticTokens t
+        CS.NewRecordDecl _ i (i', t) -> curryIdent2Token J.SttFunction [J.StmDeclaration] i
+                                     ++ curryIdent2Token J.SttFunction [J.StmDeclaration] i'
+                                     ++ semanticTokens t
+
+instance HasSemanticTokens CS.TypeExpr where
+    semanticTokens texpr = case texpr of
+        CS.ApplyType _ t1 t2 -> semanticTokens t1 ++ semanticTokens t2
+        CS.VariableType _ i  -> curryIdent2Token J.SttTypeParameter [] i
+        CS.TupleType _ ts    -> semanticTokens ts
+        CS.ListType _ t      -> semanticTokens t
+        CS.ArrowType _ t1 t2 -> semanticTokens t1 ++ semanticTokens t2
+        CS.ParenType _ t     -> semanticTokens t
+        CS.ForallType _ is t -> (curryIdent2Token J.SttTypeParameter [J.StmDeclaration] =<< is)
+                             ++ semanticTokens t
+        _                    -> []
+
+instance HasSemanticTokens CS.QualTypeExpr where
+    semanticTokens (CS.QualTypeExpr _ c t) = semanticTokens c ++ semanticTokens t
+
+instance HasSemanticTokens a => HasSemanticTokens [a] where
+    semanticTokens = (semanticTokens =<<)
+
+instance HasSemanticTokens a => HasSemanticTokens (Maybe a) where
+    semanticTokens = semanticTokens . maybeToList
 
 -- Language Server Protocol -> Curry Compiler
 
