@@ -4,7 +4,9 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.Monad
 import qualified Curry.LanguageServer.Index.Store as I
+import Curry.LanguageServer.Utils.Convert (HasSemanticTokens (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Data.Default (def)
 import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
@@ -18,9 +20,12 @@ semanticTokensHandler = S.requestHandler J.STextDocumentSemanticTokensFull $ \re
         uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
     store <- getStore
-    responder $ Right $ Just $ J.SemanticTokens Nothing $ J.List []
+    let tokens = fromMaybe [] $ fetchSemanticTokens =<< I.storedModule normUri store
+    case J.makeSemanticTokens def tokens of
+        Left e   -> responder $ Left $ J.ResponseError J.InternalError e Nothing
+        Right ts -> responder $ Right $ Just ts
 
-fetchSemanticTokens :: I.ModuleStoreEntry -> [J.SemanticTokenAbsolute]
-fetchSemanticTokens entry = fromMaybe [] $ do
+fetchSemanticTokens :: I.ModuleStoreEntry -> Maybe [J.SemanticTokenAbsolute]
+fetchSemanticTokens entry = do
     ast <- I.mseModuleAST entry
-    return []
+    return $ semanticTokens ast
