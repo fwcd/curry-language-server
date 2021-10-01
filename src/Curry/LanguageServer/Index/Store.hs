@@ -228,7 +228,7 @@ walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
         ignorePaths <- filterM doesFileExist $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
         unless (null ignored) $
-            infoM "cls.indexStore" $ "In " ++ takeFileName fp ++ " ignoring " ++ show ignored
+            infoM "cls.indexStore" $ "In '" ++ takeFileName fp ++ "' ignoring " ++ show (G.decompile <$> ignored)
         return $ Just ignored
     , wcShouldIgnore = \ignored fp -> do
         isDir <- doesDirectoryExist fp
@@ -236,7 +236,7 @@ walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
             matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
             matchingIgnores = filter matchesFn ignored
         unless (null matchingIgnores) $
-            debugM "cls.indexStore" $ "Ignoring " ++ fn ++ " since it matches " ++ show matchingIgnores
+            debugM "cls.indexStore" $ "Ignoring '" ++ fn ++ "' since it matches " ++ show (G.decompile <$> matchingIgnores)
         return $ not (null matchingIgnores) || "." `isPrefixOf` fn
     }
 
