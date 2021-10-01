@@ -34,7 +34,7 @@ module Curry.LanguageServer.Utils.General
     , filterF
     ) where
 
-import Control.Monad (join)
+import Control.Monad (join, filterM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
@@ -132,13 +132,13 @@ data WalkConfiguration a = WalkConfiguration
       wcOnEnter      :: FilePath -> IO (Maybe a)
       -- | Tests whether a file or directory should be ignored using the state of
       --   the directory containing the path.
-    , wcShouldIgnore :: a -> FilePath -> Bool
+    , wcShouldIgnore :: a -> FilePath -> IO Bool
     }
 
 instance Default a => Default (WalkConfiguration a) where
     def = WalkConfiguration
         { wcOnEnter      = const $ return $ Just def
-        , wcShouldIgnore = const $ const False
+        , wcShouldIgnore = const $ const $ return False
         }
 
 -- | Lists files in the directory recursively.
@@ -148,7 +148,7 @@ walkFiles = walkFilesWith (def :: WalkConfiguration ())
 -- | Lists files in the directory recursively, ignoring files matching the given predicate.
 walkFilesIgnoring :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
 walkFilesIgnoring ignore = walkFilesWith $ (def :: WalkConfiguration ())
-    { wcShouldIgnore = const ignore
+    { wcShouldIgnore = const $ return . ignore
     }
 
 -- | Lists files in the directory recursively with the given configuration.
@@ -157,9 +157,10 @@ walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
     isDirectory <- liftIO $ unsafeInterleaveIO $ doesDirectoryExist fp
     isFile      <- liftIO $ unsafeInterleaveIO $ doesFileExist fp
     if | isDirectory -> do
-            state    <- MaybeT $ wcOnEnter wc fp
-            contents <- map (fp </>) . filter (not . wcShouldIgnore wc state) <$> liftIO (listDirectory fp)
-            join <$> mapM (liftIO . walkFilesWith wc) contents
+            state     <- MaybeT $ wcOnEnter wc fp
+            contents  <- liftIO $ listDirectory fp
+            contents' <- liftIO $ map (fp </>) <$> filterM ((not <$>) . wcShouldIgnore wc state) contents
+            join <$> mapM (liftIO . walkFilesWith wc) contents'
        | isFile      -> return [fp]
        | otherwise   -> liftMaybe Nothing
 

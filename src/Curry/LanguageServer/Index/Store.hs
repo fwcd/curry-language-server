@@ -48,16 +48,17 @@ import Data.Function (on)
 import Data.List (unionBy, isPrefixOf)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, fromMaybe, maybeToList, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe, maybeToList, mapMaybe, catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
-import System.Directory (doesFileExist)
+import System.Directory (doesFileExist, doesDirectoryExist)
 import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
+import qualified System.FilePath.Glob as G
 import System.Log.Logger
 import System.Process (readProcessWithExitCode)
 
@@ -229,15 +230,19 @@ walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
         unless (null ignored) $
             infoM "cls.indexStore" $ "In " ++ takeFileName fp ++ " ignoring " ++ show ignored
         return $ Just ignored
-    , wcShouldIgnore = \ignored fp ->
-        let fn = takeFileName fp
-        in  fn `elem` ignored || "." `isPrefixOf` fn
+    , wcShouldIgnore = \ignored fp -> do
+        isDir <- doesDirectoryExist fp
+        let fn              = takeFileName fp
+            matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
+            matchingIgnores = filter matchesFn ignored
+        unless (null matchingIgnores) $
+            debugM "cls.indexStore" $ "Ignoring " ++ fn ++ " since it matches " ++ show matchingIgnores
+        return $ not (null matchingIgnores) || "." `isPrefixOf` fn
     }
 
 -- | Reads the given ignore file, fetching the ignored (relative) paths.
--- TODO: Support globs
-readIgnoreFile :: FilePath -> IO [String]
-readIgnoreFile = (map T.unpack . filter useLine . T.lines <$>) . TIO.readFile
+readIgnoreFile :: FilePath -> IO [G.Pattern]
+readIgnoreFile = (map (G.simplify . G.compile . T.unpack) . filter useLine . T.lines <$>) . TIO.readFile
     where useLine l = not (T.null l) && not ("#" `T.isPrefixOf` l)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
