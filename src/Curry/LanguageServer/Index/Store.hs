@@ -45,12 +45,13 @@ import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (unionBy)
+import Data.List (unionBy, isPrefixOf)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, listToMaybe, fromMaybe, maybeToList, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe, maybeToList, mapMaybe)
 import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
@@ -216,9 +217,28 @@ walkPackageJsons = (filter ((== "package.json") . takeFileName) <$>) . walkFiles
 walkCurrySourceFiles :: FilePath -> IO [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFilesIgnoringHidden
 
--- | Recursively finds Curry source files, ignoring directories starting with dots.
+-- | Recursively finds Curry source files, ignoring directories starting with dots
+--   and those specified in .curry-language-server-ignore.
+--   TODO: Respect parent gitignore also in subdirectories (may require changes to walkFilesWith
+--         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
 walkFilesIgnoringHidden :: FilePath -> IO [FilePath]
-walkFilesIgnoringHidden = walkFilesIgnoring ((== Just '.') . listToMaybe . takeFileName)
+walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration 
+    { wcOnEnter      = \fp -> do
+        ignorePaths <- filterM doesFileExist $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
+        ignored     <- join <$> mapM readIgnoreFile ignorePaths
+        unless (null ignored) $
+            infoM "cls.indexStore" $ "In " ++ takeFileName fp ++ " ignoring " ++ show ignored
+        return $ Just ignored
+    , wcShouldIgnore = \ignored fp ->
+        let fn = takeFileName fp
+        in  fn `elem` ignored || "." `isPrefixOf` fn
+    }
+
+-- | Reads the given ignore file, fetching the ignored (relative) paths.
+-- TODO: Support globs
+readIgnoreFile :: FilePath -> IO [String]
+readIgnoreFile = (map T.unpack . filter useLine . T.lines <$>) . TIO.readFile
+    where useLine l = not (T.null l) && not ("#" `T.isPrefixOf` l)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
 recompileFile :: (MonadState IndexStore m, MonadIO m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
