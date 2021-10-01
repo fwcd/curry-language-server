@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General
     ( lastSafe
@@ -10,8 +10,10 @@ module Curry.LanguageServer.Utils.General
     , wordsWithSpaceCount
     , pointRange, emptyRange
     , maybeCons
+    , WalkConfiguration (..)
     , walkFiles
     , walkFilesIgnoring
+    , walkFilesWith
     , liftMaybe
     , slipr3, slipr4
     , (<.$>), (<$.>)
@@ -33,11 +35,14 @@ module Curry.LanguageServer.Utils.General
     ) where
 
 import Control.Monad (join)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
+import Data.Default (Default (..))
 import qualified Data.List as L
+import Data.Maybe (fromMaybe)
 import Data.Foldable (foldrM)
 import qualified Data.Text as T
 import qualified Data.Trie as TR
@@ -45,6 +50,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Language.LSP.Types as J
 import System.FilePath
+import System.IO.Unsafe (unsafeInterleaveIO)
 import System.Directory
 
 -- | Safely fetches the last element of the given list.
@@ -118,23 +124,44 @@ maybeCons :: Maybe a -> [a] -> [a]
 maybeCons Nothing = id
 maybeCons (Just x) = (x:)
 
+-- | A filtering configuration for a file walk.
+data WalkConfiguration a = WalkConfiguration
+    { -- | Executed when entering a new directory. Fetches some directory-specific
+      --   state for later use during filtering, e.g. an ignore file. Returning
+      --   Nothing causes the walker to skip the the directory.
+      wcOnEnter      :: FilePath -> IO (Maybe a)
+      -- | Tests whether a file or directory should be ignored using the state of
+      --   the directory containing the path.
+    , wcShouldIgnore :: a -> FilePath -> Bool
+    }
+
+instance Default a => Default (WalkConfiguration a) where
+    def = WalkConfiguration
+        { wcOnEnter      = const $ return $ Just def
+        , wcShouldIgnore = const $ const False
+        }
+
 -- | Lists files in the directory recursively.
 walkFiles :: FilePath -> IO [FilePath]
-walkFiles = walkFilesIgnoring $ const False
+walkFiles = walkFilesWith (def :: WalkConfiguration ())
 
--- | Lists files in the directory recursively, ignoring directories that match the given predicate.
+-- | Lists files in the directory recursively, ignoring files matching the given predicate.
 walkFilesIgnoring :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
-walkFilesIgnoring ignored fp = do
-    isFile <- doesFileExist fp
-    if isFile
-        then return [fp]
-        else do
-            isDirectory <- doesDirectoryExist fp
-            if isDirectory && not (ignored fp)
-                then do
-                    contents <- ((fp </>) <$>) <$> listDirectory fp
-                    join <$> mapM (walkFilesIgnoring ignored) contents
-                else return []
+walkFilesIgnoring ignore = walkFilesWith $ (def :: WalkConfiguration ())
+    { wcShouldIgnore = const ignore
+    }
+
+-- | Lists files in the directory recursively with the given configuration.
+walkFilesWith :: WalkConfiguration a -> FilePath -> IO [FilePath]
+walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
+    isDirectory <- liftIO $ unsafeInterleaveIO $ doesDirectoryExist fp
+    isFile      <- liftIO $ unsafeInterleaveIO $ doesFileExist fp
+    if | isDirectory -> do
+            state    <- MaybeT $ wcOnEnter wc fp
+            contents <- map (fp </>) . filter (not . wcShouldIgnore wc state) <$> liftIO (listDirectory fp)
+            join <$> mapM (liftIO . walkFilesWith wc) contents
+       | isFile      -> return [fp]
+       | otherwise   -> liftMaybe Nothing
 
 -- | Lifts a Maybe into a Maybe transformer.
 liftMaybe :: Monad m => Maybe a -> MaybeT m a
