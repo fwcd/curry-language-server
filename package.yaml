@@ -5,17 +5,12 @@ license:             BSD3
 author:              "fwcd"
 copyright:           "2020 fwcd"
 
+synopsis:            IDE support for the functional-logic language Curry
+category:            Development
+description:         Please see the README on GitHub at <https://github.com/fwcd/curry-language-server#readme>
+
 extra-source-files:
   - README.md
-
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/fwcd/curry-language-server#readme>
 
 dependencies:
   - base            >= 4.13 && < 4.14
