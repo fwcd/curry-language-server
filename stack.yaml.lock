@@ -7,80 +7,80 @@ packages:
 - completed:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
     pantry-tree:
-      size: 268
       sha256: 3b6f94160b9d868f341d841de0e3e9f354ae90b5817b171e2bb68fd67cf2790c
+      size: 268
   original:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
 - completed:
     hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
     pantry-tree:
-      size: 705
       sha256: bdc13e00a60830edee41119af62b7203602377ccd81a6555c4fea95b0cb3a252
+      size: 705
   original:
     hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
 - completed:
     hackage: lsp-1.2.0.1@sha256:5b37d26fcbf037434e257e953c08513d4cb125ed784d4611038905c72dc0f58c,5431
     pantry-tree:
-      size: 1417
       sha256: 299c7a971af914bc13d205e23c9e8be201492881c23cc6e5f0f171153fe79e68
+      size: 1417
   original:
     hackage: lsp-1.2.0.1
 - completed:
     hackage: lsp-types-1.3.0.1@sha256:1dc41eb358345c1927fb8f285e7d951869623fe5b695fbbecf2fe6a3cee9fcfd,4646
     pantry-tree:
-      size: 4146
       sha256: 568b2f7a9f658a3de08c02e998a22026d69a97df2be0c884947146fc8ae5e4bb
+      size: 4146
   original:
     hackage: lsp-types-1.3.0.1
 - completed:
     hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
     pantry-tree:
-      size: 594
       sha256: 3ce1012bfb02e4d7def9df19ce80b8cd2b472c691b25b181d9960638673fecd1
+      size: 594
   original:
     hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26
 - completed:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
     pantry-tree:
-      size: 551
       sha256: 5defa30010904d2ad05a036f3eaf83793506717c93cbeb599f40db1a3632cfc5
+      size: 551
   original:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221
 - completed:
     hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
     pantry-tree:
-      size: 290
       sha256: 9cbfb32b5a8a782b7a1c941803fd517633cb699159b851c1d82267a9e9391b50
+      size: 290
   original:
     hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531
 - completed:
     hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
     pantry-tree:
-      size: 436
       sha256: 32eeadeb991a290a1da41ce7e995dee7d38ebba3bd3e53ea8074c32c086701fd
+      size: 436
   original:
     hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde
 - completed:
     hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
     pantry-tree:
-      size: 328
       sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
+      size: 328
   original:
     hackage: unliftio-core-0.2.0.1
 - completed:
-    name: curry-frontend
-    version: 2.0.0
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
+    name: curry-frontend
     pantry-tree:
+      sha256: 79bbbfe13bbca4982b7fbafa71b576bc385d4e352cf8c1f4b3625e0f39d14cd9
       size: 16351
-      sha256: 9893eae5b1829f2f5d52d19482e2a2d85afb11e4aa1db9a475026953f12f4a2c
-    commit: 5b4861461556b3d8474d59417f8ac39bacf8237f
+    commit: dbec62ef4fa21bbe74f4e43f70705af4cb23c2a2
+    version: 2.0.0
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 5b4861461556b3d8474d59417f8ac39bacf8237f
+    commit: dbec62ef4fa21bbe74f4e43f70705af4cb23c2a2
 snapshots:
 - completed:
-    size: 532380
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/9.yaml
-    sha256: 14a7cec114424e4286adde73364438927a553ed248cc50f069a30a67e3ee1e69
-  original: lts-16.9
+    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
+    size: 586069
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/14.yaml
+  original: lts-18.14
