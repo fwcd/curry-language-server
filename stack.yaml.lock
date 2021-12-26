@@ -5,68 +5,19 @@
 
 packages:
 - completed:
+    hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54,3252
+    pantry-tree:
+      sha256: fc81a0cdc10877f594e4043612304bc5cecd25a83d71312b30c96dad4513398c
+      size: 705
+  original:
+    hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54
+- completed:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
     pantry-tree:
       sha256: 3b6f94160b9d868f341d841de0e3e9f354ae90b5817b171e2bb68fd67cf2790c
       size: 268
   original:
-    hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
-- completed:
-    hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
-    pantry-tree:
-      sha256: bdc13e00a60830edee41119af62b7203602377ccd81a6555c4fea95b0cb3a252
-      size: 705
-  original:
-    hackage: bytestring-trie-0.2.5.0@sha256:9efa9c6f556314d28486be2470ff789419c5238ed2e354870623a3cbbd28fbe2,3349
-- completed:
-    hackage: lsp-1.2.0.1@sha256:5b37d26fcbf037434e257e953c08513d4cb125ed784d4611038905c72dc0f58c,5431
-    pantry-tree:
-      sha256: 299c7a971af914bc13d205e23c9e8be201492881c23cc6e5f0f171153fe79e68
-      size: 1417
-  original:
-    hackage: lsp-1.2.0.1
-- completed:
-    hackage: lsp-types-1.3.0.1@sha256:1dc41eb358345c1927fb8f285e7d951869623fe5b695fbbecf2fe6a3cee9fcfd,4646
-    pantry-tree:
-      sha256: 568b2f7a9f658a3de08c02e998a22026d69a97df2be0c884947146fc8ae5e4bb
-      size: 4146
-  original:
-    hackage: lsp-types-1.3.0.1
-- completed:
-    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
-    pantry-tree:
-      sha256: 3ce1012bfb02e4d7def9df19ce80b8cd2b472c691b25b181d9960638673fecd1
-      size: 594
-  original:
-    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26
-- completed:
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-    pantry-tree:
-      sha256: 5defa30010904d2ad05a036f3eaf83793506717c93cbeb599f40db1a3632cfc5
-      size: 551
-  original:
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221
-- completed:
-    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
-    pantry-tree:
-      sha256: 9cbfb32b5a8a782b7a1c941803fd517633cb699159b851c1d82267a9e9391b50
-      size: 290
-  original:
-    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531
-- completed:
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-    pantry-tree:
-      sha256: 32eeadeb991a290a1da41ce7e995dee7d38ebba3bd3e53ea8074c32c086701fd
-      size: 436
-  original:
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde
-- completed:
-    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-    pantry-tree:
-      sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
-      size: 328
-  original:
-    hackage: unliftio-core-0.2.0.1
+    hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84
 - completed:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
