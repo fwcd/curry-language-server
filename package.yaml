@@ -41,6 +41,8 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+    - -Wall
 
 executables:
   curry-language-server:
