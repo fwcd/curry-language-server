@@ -4,6 +4,5 @@
 dist
 dist-newstyle
 .curry
-curry-language-server.cabal
 *~
 *.log
