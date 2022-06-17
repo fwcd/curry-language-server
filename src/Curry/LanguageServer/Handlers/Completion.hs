@@ -79,7 +79,7 @@ pragmaCompletions opts query
           isLanguagePragma = languagePragma `T.isInfixOf` line
           isOptionPragma = any (`T.isInfixOf` line) optionPragmas
           pragmaKinds = languagePragma : optionPragmas
-          knownExtensions = ["AnonFreeVars", "CPP", "FunctionalPatterns", "NegativeLiterals", "NoImplicitPrelude" :: T.Text]
+          knownExtensions = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
 importCompletions :: CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
 importCompletions opts store query = do
