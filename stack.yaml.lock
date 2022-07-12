@@ -7,31 +7,31 @@ packages:
 - completed:
     hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54,3252
     pantry-tree:
-      sha256: fc81a0cdc10877f594e4043612304bc5cecd25a83d71312b30c96dad4513398c
       size: 705
+      sha256: fc81a0cdc10877f594e4043612304bc5cecd25a83d71312b30c96dad4513398c
   original:
     hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54
 - completed:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
     pantry-tree:
-      sha256: 3b6f94160b9d868f341d841de0e3e9f354ae90b5817b171e2bb68fd67cf2790c
       size: 268
+      sha256: 3b6f94160b9d868f341d841de0e3e9f354ae90b5817b171e2bb68fd67cf2790c
   original:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84
 - completed:
-    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
-    pantry-tree:
-      sha256: 79bbbfe13bbca4982b7fbafa71b576bc385d4e352cf8c1f4b3625e0f39d14cd9
-      size: 16351
-    commit: dbec62ef4fa21bbe74f4e43f70705af4cb23c2a2
     version: 2.0.0
+    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
+    pantry-tree:
+      size: 16351
+      sha256: 9900813484338de598196e686106f0078a051e28fa5195f4932d26dfe327c363
+    commit: 5ad15cf76a5a49276f1ffa56288c9f7aa114e9b3
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: dbec62ef4fa21bbe74f4e43f70705af4cb23c2a2
+    commit: 5ad15cf76a5a49276f1ffa56288c9f7aa114e9b3
 snapshots:
 - completed:
-    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
     size: 586069
     url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/14.yaml
+    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
   original: lts-18.14
