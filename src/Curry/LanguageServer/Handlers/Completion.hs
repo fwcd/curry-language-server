@@ -75,7 +75,8 @@ pragmaCompletions opts query
     | otherwise        = return $ toMatchingCompletions opts query $ Keyword <$> pragmaKinds
     where line = VFS.fullLine query
           languagePragma = "LANGUAGE"
-          optionPragmas = ("OPTIONS_" <>) <$> ["KICS2", "PAKCS", "CYMAKE", "FRONTEND" :: T.Text]
+          knownTools = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownTool])
+          optionPragmas = ("OPTIONS_" <>) <$> knownTools
           isLanguagePragma = languagePragma `T.isInfixOf` line
           isOptionPragma = any (`T.isInfixOf` line) optionPragmas
           pragmaKinds = languagePragma : optionPragmas
