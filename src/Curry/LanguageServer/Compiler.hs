@@ -17,6 +17,7 @@ import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Base.Message as CM
 import Curry.Base.Monad (CYIO, CYT, runCYIO, liftCYM, silent, failMessages, warnMessages)
 import qualified Curry.Syntax as CS
+import qualified Curry.Syntax.Extension as CSE
 import qualified Base.Messages as CBM
 import qualified Checks as CC
 import qualified CurryDeps as CD
@@ -39,7 +40,7 @@ import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
-import Data.List (intercalate)
+import Data.List (intercalate, nub)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import System.FilePath
@@ -92,12 +93,14 @@ type FileLoader = FilePath -> IO String
 -- warning messages.
 compileCurryFileWithDeps :: CFG.Config -> FileLoader -> [FilePath] -> FilePath -> FilePath -> IO (CompileOutput, CompileState)
 compileCurryFileWithDeps cfg fl importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ runCM $ do
-    let cppOpts = CO.optCppOpts CO.defaultOptions
+    let defOpts = CO.defaultOptions
+        cppOpts = CO.optCppOpts defOpts
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
         opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
                                  , CO.optImportPaths = importPaths ++ CFG.cfgImportPaths cfg
                                  , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
+                                 , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
                                  }
     -- Resolve dependencies
     deps <- liftCYIO $ CD.flatDeps opts filePath
