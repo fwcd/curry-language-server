@@ -5,13 +5,6 @@
 
 packages:
 - completed:
-    hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54,3252
-    pantry-tree:
-      size: 705
-      sha256: fc81a0cdc10877f594e4043612304bc5cecd25a83d71312b30c96dad4513398c
-  original:
-    hackage: bytestring-trie-0.2.5.3@sha256:c15a42e256b084c83af9d1b851576cf64bbdbdf30ab547390acd462c0568af54
-- completed:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
     pantry-tree:
       size: 268
@@ -19,19 +12,33 @@ packages:
   original:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84
 - completed:
+    hackage: lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
+    pantry-tree:
+      size: 1044
+      sha256: 43a82c501ec3074d888f2bf4960e4b447028c1537abbca4cf65e74944604bf62
+  original:
+    hackage: lsp-1.6.0.0
+- completed:
+    hackage: co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456,3850
+    pantry-tree:
+      size: 584
+      sha256: af9c807ce50a126706bd99983ec71c060a489ab2b914de8dbccf756adccc2a43
+  original:
+    hackage: co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456
+- completed:
     name: curry-frontend
     version: 2.0.0
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     pantry-tree:
-      size: 16351
-      sha256: 9900813484338de598196e686106f0078a051e28fa5195f4932d26dfe327c363
-    commit: 5ad15cf76a5a49276f1ffa56288c9f7aa114e9b3
+      size: 16479
+      sha256: 875e059f12914dacb194ef95c6d7e6c966b613e0319122feb3d1cfa3bd444be9
+    commit: bc63970a92b0015a06467003dc7b889be020269d
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: 5ad15cf76a5a49276f1ffa56288c9f7aa114e9b3
+    commit: bc63970a92b0015a06467003dc7b889be020269d
 snapshots:
 - completed:
-    size: 586069
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/14.yaml
-    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
-  original: lts-18.14
+    size: 648424
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/1.yaml
+    sha256: b73b2b116143aea728c70e65c3239188998bac5bc3be56465813dacd74215dc5
+  original: lts-20.1
