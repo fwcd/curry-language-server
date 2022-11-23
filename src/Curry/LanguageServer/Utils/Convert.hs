@@ -65,7 +65,7 @@ curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text tags relat
 
 curryPos2Pos :: CP.Position -> Maybe J.Position
 curryPos2Pos CP.NoPos = Nothing
-curryPos2Pos CP.Position {..} = Just $ J.Position (line - 1) (column - 1)
+curryPos2Pos CP.Position {..} = Just $ J.Position (fromIntegral (line - 1)) (fromIntegral (column - 1))
 
 curryPos2Uri :: CP.Position -> MaybeT IO J.Uri
 curryPos2Uri CP.NoPos = liftMaybe Nothing

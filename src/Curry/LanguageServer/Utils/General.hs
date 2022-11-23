@@ -74,11 +74,12 @@ rangeOverlaps r1@(J.Range p1 p2) r2@(J.Range p3 p4) = rangeElem p1 r2
                                                    || rangeElem p4 r1
 
 -- | Safely fetches the nth entry.
-nth :: Int -> [a] -> Maybe a
+nth :: Integral a => a -> [b] -> Maybe b
 nth _ [] = Nothing
-nth n (x:xs) | n == 0 = Just x
-             | n < 0 = Nothing
-             | otherwise = nth (n - 1) xs
+nth n (x:xs) | n' == 0 = Just x
+             | n' <  0 = Nothing
+             | otherwise = nth (n' - 1) xs
+    where n' = (fromIntegral n :: Int)
 
 -- | Creates a pair. Useful in conjunction with partial application.
 pair :: a -> b -> (a, b)
@@ -89,8 +90,8 @@ dup :: a -> (a, a)
 dup x = (x, x)
 
 -- | Finds the word at the given offset.
-wordAtIndex :: Int -> T.Text -> Maybe T.Text
-wordAtIndex n = wordAtIndex' n . wordsWithSpaceCount
+wordAtIndex :: Integral a => a -> T.Text -> Maybe T.Text
+wordAtIndex n = wordAtIndex' (fromIntegral n) . wordsWithSpaceCount
     where wordAtIndex' :: Int -> [(Int, T.Text)] -> Maybe T.Text
           wordAtIndex' _ [] = Nothing
           wordAtIndex' n' ((k, s):ss) | (n' - k) <= len = Just s
@@ -210,15 +211,15 @@ replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 -- | Moves the cursor back until the beginning of the last token.
-snapToLastTokenStart :: String -> Int -> Int
+snapToLastTokenStart :: Integral a => String -> a -> a
 snapToLastTokenStart = snapBack $ dropWhile (not . isSpace) . dropWhile isSpace
 
 -- | Moves the cursor back until a non-whitespace character precedes it (i.e. past the end of the last token).
-snapToLastTokenEnd :: String -> Int -> Int
+snapToLastTokenEnd :: Integral a => String -> a -> a
 snapToLastTokenEnd = snapBack $ dropWhile isSpace
 
-snapBack :: ([a] -> [a]) -> [a] -> Int -> Int
-snapBack f s n = length $ f $ reverse $ take n s
+snapBack :: Integral a => ([b] -> [b]) -> [b] -> a -> a
+snapBack f s n = fromIntegral $ length $ f $ reverse $ take (fromIntegral n) s
 
 class Insertable m a | m -> a where
     -- | Inserts a single entry.
