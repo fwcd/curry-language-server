@@ -57,6 +57,7 @@ library
       Curry.LanguageServer.Utils.Concurrent
       Curry.LanguageServer.Utils.Convert
       Curry.LanguageServer.Utils.General
+      Curry.LanguageServer.Utils.Logging
       Curry.LanguageServer.Utils.Lookup
       Curry.LanguageServer.Utils.Sema
       Curry.LanguageServer.Utils.Syntax
