@@ -10,7 +10,7 @@ import Control.Monad (guard)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
 import Curry.LanguageServer.Utils.General (rangeOverlaps)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)

@@ -6,7 +6,7 @@ import Control.Monad.IO.Class (liftIO)
 import Curry.LanguageServer.Index.Store (ModuleStoreEntry (..))
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.Uri (normalizedUriToFilePath)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import qualified Data.Map as M
 import qualified Data.SortedList as SL
 import qualified Language.LSP.Diagnostics as D

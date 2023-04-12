@@ -6,7 +6,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
@@ -16,7 +16,7 @@ import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
 import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM, getStore)
 import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S

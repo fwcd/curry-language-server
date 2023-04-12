@@ -6,10 +6,10 @@ import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Index.Resolve
+import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM, getStore)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)

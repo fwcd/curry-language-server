@@ -5,7 +5,7 @@ import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.LogHandler (setupLogging)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Data.Maybe (maybeToList, fromMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J

@@ -4,7 +4,7 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM, getStore)
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S

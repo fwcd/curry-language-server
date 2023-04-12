@@ -18,7 +18,7 @@ import Curry.LanguageServer.Utils.General (filterF, lastSafe)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Data.Bifunctor (first)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M

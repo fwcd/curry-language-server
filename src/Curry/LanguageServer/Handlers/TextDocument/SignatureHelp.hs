@@ -14,11 +14,13 @@ import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Curry.LanguageServer.Index.Resolve (resolveQualIdent)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM, getStore)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (liftMaybe, lastSafe, snapToLastTokenEnd)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
-import Curry.LanguageServer.Utils.Syntax
+import Curry.LanguageServer.Utils.Syntax (appFull, elementContains, elementsAt
+                                         , typeAppFull, HasExpressions (..)
+                                         , HasTypeExpressions (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Data.Bifunctor (bimap)
 import Data.Foldable (find)

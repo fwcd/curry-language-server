@@ -1,12 +1,12 @@
 module Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbolHandler) where
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import Control.Lens ((^.))
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Utils.Convert (HasDocumentSymbols(..))
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J

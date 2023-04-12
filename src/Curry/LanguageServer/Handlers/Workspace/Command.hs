@@ -4,7 +4,7 @@ module Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler, c
 import Control.Lens ((^.))
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import qualified Data.Aeson as A
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S

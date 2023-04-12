@@ -13,7 +13,7 @@ import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (getDebouncers, modifyDebouncers, LSM)
 import Curry.LanguageServer.Utils.Concurrent (debounceConst)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Map as M

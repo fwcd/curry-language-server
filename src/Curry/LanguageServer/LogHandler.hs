@@ -8,12 +8,12 @@ module Curry.LanguageServer.LogHandler
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.IO.Unlift (askRunInIO)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Data.Char (toLower)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
-import System.Log
+import System.Log (Priority (..))
 import qualified System.Log.Formatter as LF
 import qualified System.Log.Handler as LH
 import qualified System.Log.Logger as LL
