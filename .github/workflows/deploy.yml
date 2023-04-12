@@ -9,6 +9,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
     - name: Get tag name
       id: tag
@@ -55,7 +57,7 @@ jobs:
         GH_REPO: ${{ github.repository }}
       shell: bash
       run: |
-        tag="${{ steps.platform.outputs.platform }}"
+        platform="${{ steps.platform.outputs.platform }}"
         archivename="curry-language-server-$platform.zip"
         zip -r "$archivename" bin
         gh release upload "${{ needs.release.outputs.tag }}" "$archivename"
