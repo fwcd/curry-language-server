@@ -23,6 +23,7 @@ import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Data.Bifunctor (bimap)
 import Data.Foldable (find)
 import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
+import qualified Data.List.NonEmpty as N
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
@@ -72,14 +73,14 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
 findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findExpressionApplication store ast pos = lastSafe $ do
     e <- elementsAt pos $ expressions ast
-    let base : args = appFull e
+    let base N.:| args = appFull e
     sym <- maybeToList $ lookupBaseExpression store ast base
     return (sym, CSPI.getSpanInfo e, CSPI.getSpanInfo <$> args)
 
 findTypeApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findTypeApplication store ast pos = lastSafe $ do
     e <- elementsAt pos $ typeExpressions ast
-    let base : args = typeAppFull e
+    let base N.:| args = typeAppFull e
     sym <- maybeToList $ lookupBaseTypeExpression store ast base
     return (sym, CSPI.getSpanInfo e, CSPI.getSpanInfo <$> args)
 
