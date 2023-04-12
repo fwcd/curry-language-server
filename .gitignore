@@ -3,6 +3,7 @@
 .stack-work
 dist
 dist-newstyle
+bin
 .curry
 *~
 *.log
