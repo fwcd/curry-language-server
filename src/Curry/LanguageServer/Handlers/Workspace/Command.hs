@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
-module Curry.LanguageServer.Handlers.Command (commandHandler, commands) where
+module Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler, commands) where
 
 import Control.Lens ((^.))
 import Control.Monad (void)
@@ -12,8 +12,8 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import System.Log.Logger
 
-commandHandler :: S.Handlers LSM
-commandHandler = S.requestHandler J.SWorkspaceExecuteCommand $ \req responder -> do
+executeCommandHandler :: S.Handlers LSM
+executeCommandHandler = S.requestHandler J.SWorkspaceExecuteCommand $ \req responder -> do
     liftIO $ debugM "cls.command" "Processing command execution request"
     let J.ExecuteCommandParams _ name args = req ^. J.params
     res <- executeCommand name $ maybe [] (\(J.List as) -> as) args

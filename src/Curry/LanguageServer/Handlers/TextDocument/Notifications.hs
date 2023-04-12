@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Handlers.TextDocument (
+module Curry.LanguageServer.Handlers.TextDocument.Notifications (
     didOpenHandler,
     didChangeHandler,
     didSaveHandler,

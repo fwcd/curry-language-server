@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MonadComprehensions #-}
-module Curry.LanguageServer.Handlers.SignatureHelp (signatureHelpHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS

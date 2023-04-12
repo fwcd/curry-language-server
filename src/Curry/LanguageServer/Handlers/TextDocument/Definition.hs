@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Definition (definitionHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.Definition (definitionHandler) where
 
 import Control.Lens ((^.))
 import Control.Monad.Trans (liftIO)

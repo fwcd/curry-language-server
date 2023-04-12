@@ -9,7 +9,7 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
-import Curry.LanguageServer.Handlers.Command (commands)
+import Curry.LanguageServer.Handlers.Workspace.Command (commands)
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
 

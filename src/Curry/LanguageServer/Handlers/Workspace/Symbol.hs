@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Handlers.WorkspaceSymbols (workspaceSymbolHandler) where
+module Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler) where
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)

@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.CodeLens (codeLensHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.CodeLens (codeLensHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS

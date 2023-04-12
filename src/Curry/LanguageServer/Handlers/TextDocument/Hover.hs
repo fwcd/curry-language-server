@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
-module Curry.LanguageServer.Handlers.Hover (hoverHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 

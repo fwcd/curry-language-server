@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns, MultiWayIf #-}
-module Curry.LanguageServer.Handlers.Completion (completionHandler) where
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiWayIf #-}
+module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS

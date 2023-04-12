@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.CodeAction (codeActionHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS

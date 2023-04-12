@@ -1,4 +1,4 @@
-module Curry.LanguageServer.Handlers.DocumentSymbols (documentSymbolHandler) where
+module Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbolHandler) where
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
