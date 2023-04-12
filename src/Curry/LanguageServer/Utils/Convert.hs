@@ -140,9 +140,10 @@ currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan})
 currySpanInfos2LocationLink _ _ = liftMaybe Nothing
 
 setCurryPosUri :: CP.HasPosition a => J.Uri -> a -> Maybe a
-setCurryPosUri uri x@(CP.getPosition -> p) = do
+setCurryPosUri uri x@(CP.getPosition -> p@(CP.Position {})) = do
     fp <- uriToFilePath uri
     return $ CP.setPosition p { CP.file = fp } x
+setCurryPosUri _ x = Just x
 
 setCurrySpanUri :: J.Uri -> CSP.Span -> Maybe CSP.Span
 setCurrySpanUri uri CSP.Span {..} = do
