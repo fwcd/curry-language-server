@@ -74,7 +74,7 @@ rangeOverlaps r1@(J.Range p1 p2) r2@(J.Range p3 p4) = rangeElem p1 r2
                                                    || rangeElem p4 r1
 
 -- | Safely fetches the nth entry.
-nth :: Int -> [a] -> Maybe a
+nth :: Integral n => n -> [a] -> Maybe a
 nth _ [] = Nothing
 nth n (x:xs) | n == 0 = Just x
              | n < 0 = Nothing
@@ -89,18 +89,18 @@ dup :: a -> (a, a)
 dup x = (x, x)
 
 -- | Finds the word at the given offset.
-wordAtIndex :: Int -> T.Text -> Maybe T.Text
+wordAtIndex :: Integral n => n -> T.Text -> Maybe T.Text
 wordAtIndex n = wordAtIndex' n . wordsWithSpaceCount
-    where wordAtIndex' :: Int -> [(Int, T.Text)] -> Maybe T.Text
+    where wordAtIndex' :: Integral n => n -> [(n, T.Text)] -> Maybe T.Text
           wordAtIndex' _ [] = Nothing
           wordAtIndex' n' ((k, s):ss) | (n' - k) <= len = Just s
                                       | otherwise = wordAtIndex' (n' - len - k) ss
-            where len = T.length s
+            where len = fromIntegral $ T.length s
 
 -- | Fetches the words with the list of spaces preceding them.
-wordsWithSpaceCount :: T.Text -> [(Int, T.Text)]
+wordsWithSpaceCount :: Integral n => T.Text -> [(n, T.Text)]
 wordsWithSpaceCount t | T.null t = []
-                      | otherwise = (T.length s, w) : wordsWithSpaceCount t''
+                      | otherwise = (fromIntegral $ T.length s, w) : wordsWithSpaceCount t''
                           -- TODO: Implement using T.breakOnAll
                           where s   = T.takeWhile isSpace t
                                 t'  = T.dropWhile isSpace t
@@ -210,15 +210,15 @@ replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 -- | Moves the cursor back until the beginning of the last token.
-snapToLastTokenStart :: String -> Int -> Int
+snapToLastTokenStart :: Integral n => String -> n -> n
 snapToLastTokenStart = snapBack $ dropWhile (not . isSpace) . dropWhile isSpace
 
 -- | Moves the cursor back until a non-whitespace character precedes it (i.e. past the end of the last token).
-snapToLastTokenEnd :: String -> Int -> Int
+snapToLastTokenEnd :: Integral n => String -> n -> n
 snapToLastTokenEnd = snapBack $ dropWhile isSpace
 
-snapBack :: ([a] -> [a]) -> [a] -> Int -> Int
-snapBack f s n = length $ f $ reverse $ take n s
+snapBack :: Integral n => ([a] -> [a]) -> [a] -> n -> n
+snapBack f s n = fromIntegral $ length $ f $ reverse $ take (fromIntegral n) s
 
 class Insertable m a | m -> a where
     -- | Inserts a single entry.

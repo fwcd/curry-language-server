@@ -20,6 +20,7 @@ import Curry.LanguageServer.Utils.General (liftMaybe, lastSafe, snapToLastTokenE
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Data.Bifunctor (bimap)
 import Data.Foldable (find)
 import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
 import qualified Data.Text as T
@@ -54,7 +55,7 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
        <|> findTypeApplication       store ast pos'
     liftIO $ infoM "cls.signatureHelp" $ "Found symbol " ++ T.unpack (I.sQualIdent sym)
     symEnd <- liftMaybe [end | J.Range _ end <- currySpanInfo2Range spi]
-    let defaultParam | pos >= symEnd = length args
+    let defaultParam | pos >= symEnd = fromIntegral $ length args
                      | otherwise     = 0
         activeParam = maybe defaultParam fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
@@ -62,7 +63,7 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
         paramSep = " -> "
         paramLabels = I.sPrintedArgumentTypes sym
         paramOffsets = reverse $ snd $ foldl (\(n, offs) lbl -> let n' = n + T.length lbl in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
-        params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset <$> paramOffsets
+        params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset . bimap fromIntegral fromIntegral <$> paramOffsets
         label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList (I.sPrintedResultType sym))
         sig = J.SignatureInformation label Nothing (Just $ J.List params) (Just activeParam)
         sigs = [sig]
