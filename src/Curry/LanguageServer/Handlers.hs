@@ -10,6 +10,7 @@ import Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler)
 import Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler)
 import Curry.LanguageServer.Handlers.Initialized (initializedHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler)
+import Curry.LanguageServer.Handlers.Workspace.Notifications (didChangeConfigurationHandler)
 import Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
 import qualified Language.LSP.Server as S
@@ -32,4 +33,5 @@ handlers = mconcat
     , didChangeHandler
     , didSaveHandler
     , didCloseHandler
+    , didChangeConfigurationHandler
     ]

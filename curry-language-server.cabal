@@ -45,6 +45,7 @@ library
       Curry.LanguageServer.Handlers.TextDocument.Notifications
       Curry.LanguageServer.Handlers.TextDocument.SignatureHelp
       Curry.LanguageServer.Handlers.Workspace.Command
+      Curry.LanguageServer.Handlers.Workspace.Notifications
       Curry.LanguageServer.Handlers.Workspace.Symbol
       Curry.LanguageServer.Index.Convert
       Curry.LanguageServer.Index.Resolve
