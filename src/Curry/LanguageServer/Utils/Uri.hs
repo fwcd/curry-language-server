@@ -7,22 +7,23 @@ module Curry.LanguageServer.Utils.Uri
     , normalizeUriWithPath
     ) where
 
+import Control.Monad.IO.Class (MonadIO (..))
 import qualified Language.LSP.Types as J
 import System.Directory (canonicalizePath)
 
-filePathToUri :: FilePath -> IO J.Uri
-filePathToUri = (J.filePathToUri <$>) . canonicalizePath
+filePathToUri :: MonadIO m => FilePath -> m J.Uri
+filePathToUri = liftIO . (J.filePathToUri <$>) . canonicalizePath
 
 uriToFilePath :: J.Uri -> Maybe FilePath
 uriToFilePath = J.uriToFilePath
 
-filePathToNormalizedUri :: FilePath -> IO J.NormalizedUri
-filePathToNormalizedUri = (J.toNormalizedUri <$>) . filePathToUri
+filePathToNormalizedUri :: MonadIO m => FilePath -> m J.NormalizedUri
+filePathToNormalizedUri = liftIO . (J.toNormalizedUri <$>) . filePathToUri
 
 normalizedUriToFilePath :: J.NormalizedUri -> Maybe FilePath
 normalizedUriToFilePath = uriToFilePath . J.fromNormalizedUri
 
 -- | Normalizes a URI by converting to a file path and back (thus ensuring
 -- consistent formatting e.g. of drive letters on Windows).
-normalizeUriWithPath :: J.Uri -> IO J.NormalizedUri
-normalizeUriWithPath uri = J.toNormalizedUri <$> maybe (return uri) filePathToUri (uriToFilePath uri)
+normalizeUriWithPath :: MonadIO m => J.Uri -> m J.NormalizedUri
+normalizeUriWithPath uri = liftIO (J.toNormalizedUri <$> maybe (return uri) filePathToUri (uriToFilePath uri))

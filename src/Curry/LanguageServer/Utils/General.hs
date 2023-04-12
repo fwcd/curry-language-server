@@ -35,8 +35,9 @@ module Curry.LanguageServer.Utils.General
     ) where
 
 import Control.Monad (join, filterM)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
@@ -125,42 +126,46 @@ maybeCons Nothing = id
 maybeCons (Just x) = (x:)
 
 -- | A filtering configuration for a file walk.
-data WalkConfiguration a = WalkConfiguration
+data WalkConfiguration m a = WalkConfiguration
     { -- | Executed when entering a new directory. Fetches some directory-specific
       --   state for later use during filtering, e.g. an ignore file. Returning
       --   Nothing causes the walker to skip the the directory.
-      wcOnEnter      :: FilePath -> IO (Maybe a)
+      wcOnEnter      :: FilePath -> m (Maybe a)
       -- | Tests whether a file or directory should be ignored using the state of
       --   the directory containing the path.
-    , wcShouldIgnore :: a -> FilePath -> IO Bool
+    , wcShouldIgnore :: a -> FilePath -> m Bool
     }
 
-instance Default a => Default (WalkConfiguration a) where
+instance (Default a, Monad m) => Default (WalkConfiguration m a) where
     def = WalkConfiguration
         { wcOnEnter      = const $ return $ Just def
         , wcShouldIgnore = const $ const $ return False
         }
 
+-- | An empty walk configuration.
+emptyWalkConfiguration :: Monad m => WalkConfiguration m ()
+emptyWalkConfiguration = def
+
 -- | Lists files in the directory recursively.
-walkFiles :: FilePath -> IO [FilePath]
-walkFiles = walkFilesWith (def :: WalkConfiguration ())
+walkFiles :: MonadIO m => FilePath -> m [FilePath]
+walkFiles = walkFilesWith emptyWalkConfiguration
 
 -- | Lists files in the directory recursively, ignoring files matching the given predicate.
-walkFilesIgnoring :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
-walkFilesIgnoring ignore = walkFilesWith $ (def :: WalkConfiguration ())
+walkFilesIgnoring :: MonadIO m => (FilePath -> Bool) -> FilePath -> m [FilePath]
+walkFilesIgnoring ignore = walkFilesWith emptyWalkConfiguration
     { wcShouldIgnore = const $ return . ignore
     }
 
 -- | Lists files in the directory recursively with the given configuration.
-walkFilesWith :: WalkConfiguration a -> FilePath -> IO [FilePath]
+walkFilesWith :: MonadIO m => WalkConfiguration m a -> FilePath -> m [FilePath]
 walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
     isDirectory <- liftIO $ unsafeInterleaveIO $ doesDirectoryExist fp
     isFile      <- liftIO $ unsafeInterleaveIO $ doesFileExist fp
     if | isDirectory -> do
             state     <- MaybeT $ wcOnEnter wc fp
             contents  <- liftIO $ listDirectory fp
-            contents' <- liftIO $ map (fp </>) <$> filterM ((not <$>) . wcShouldIgnore wc state) contents
-            join <$> mapM (liftIO . walkFilesWith wc) contents'
+            contents' <- map (fp </>) <$> filterM ((not <$>) . lift . wcShouldIgnore wc state) contents
+            join <$> mapM (lift . walkFilesWith wc) contents'
        | isFile      -> return [fp]
        | otherwise   -> liftMaybe Nothing
 

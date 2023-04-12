@@ -82,7 +82,7 @@ updateIndexStore uri = do
     fl <- lift fileLoader
     cfg <- lift S.getConfig
     normUri <- liftIO $ normalizeUriWithPath uri
-    I.recompileModule cfg fl normUri
+    lift $ I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
     lift $ emitDiagnostics normUri entry
 
