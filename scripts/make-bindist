@@ -15,12 +15,14 @@ def main():
 
     args = parser.parse_args()
     bin_dir = 'bin'
+    output = args.output
     
     print('==> Building...')
     subprocess.run(['stack', 'install', '--local-bin-path', bin_dir], check=True, cwd=ROOT_DIR)
 
     print('==> Archiving...')
-    with zipfile.ZipFile(args.output, mode='w') as zip:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(output, mode='w') as zip:
         for f in [f'{bin_dir}/curry-language-server', 'LICENSE']:
             zip.write(ROOT_DIR / f, f)
 
