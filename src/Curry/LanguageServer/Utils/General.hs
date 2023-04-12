@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General
     ( lastSafe
@@ -109,7 +109,7 @@ wordsWithSpaceCount t | T.null t = []
 
 -- | Finds the word at a given position.
 wordAtPos :: J.Position -> T.Text -> Maybe T.Text
-wordAtPos (J.Position l c) = (T.strip <$>) . (wordAtIndex c =<<) . nth l . T.lines 
+wordAtPos (J.Position l c) = (T.strip <$>) . (wordAtIndex c =<<) . nth l . T.lines
 
 -- | The point range at the origin.
 emptyRange :: J.Range

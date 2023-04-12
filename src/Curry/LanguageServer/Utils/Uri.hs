@@ -8,7 +8,7 @@ module Curry.LanguageServer.Utils.Uri
     ) where
 
 import qualified Language.LSP.Types as J
-import System.Directory
+import System.Directory (canonicalizePath)
 
 filePathToUri :: FilePath -> IO J.Uri
 filePathToUri = (J.filePathToUri <$>) . canonicalizePath

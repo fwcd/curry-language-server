@@ -23,8 +23,8 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
-import Curry.LanguageServer.Utils.Convert
-import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
+import Curry.LanguageServer.Utils.General (lastSafe, rangeElem)
 import qualified Data.List.NonEmpty as N
 import Data.Maybe (maybeToList)
 import qualified Language.LSP.Types as J

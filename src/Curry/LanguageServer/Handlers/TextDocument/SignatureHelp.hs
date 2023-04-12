@@ -18,9 +18,11 @@ import Curry.LanguageServer.Monad (LSM, getStore)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (liftMaybe, lastSafe, snapToLastTokenEnd)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
-import Curry.LanguageServer.Utils.Syntax (appFull, elementContains, elementsAt
-                                         , typeAppFull, HasExpressions (..)
-                                         , HasTypeExpressions (..))
+import Curry.LanguageServer.Utils.Syntax
+    ( appFull, elementContains, elementsAt
+    , typeAppFull, HasExpressions (..)
+    , HasTypeExpressions (..)
+    )
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Data.Bifunctor (bimap)
 import Data.Foldable (find)

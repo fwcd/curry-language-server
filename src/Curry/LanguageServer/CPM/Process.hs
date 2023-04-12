@@ -6,12 +6,12 @@ module Curry.LanguageServer.CPM.Process
 
 import Control.Exception (try, IOException)
 import Control.Monad (when, join)
-import Curry.LanguageServer.CPM.Monad
+import Curry.LanguageServer.CPM.Monad (cpmm, runCPMM, CPMM)
 import Curry.LanguageServer.Utils.General (replaceString)
 import Data.Either.Combinators (mapLeft)
 import Data.Either.Extra (maybeToEither)
 import System.Exit (ExitCode (..))
-import System.Process
+import System.Process (readCreateProcessWithExitCode, shell, CreateProcess(cwd))
 import System.Timeout (timeout)
 
 -- | Invokes the Curry Package Manager executable with the specified args.

@@ -1,9 +1,9 @@
-module Curry.LanguageServer.Handlers.TextDocument.Notifications (
-    didOpenHandler,
-    didChangeHandler,
-    didSaveHandler,
-    didCloseHandler
-) where
+module Curry.LanguageServer.Handlers.TextDocument.Notifications
+    ( didOpenHandler
+    , didChangeHandler
+    , didSaveHandler
+    , didCloseHandler
+    ) where
 
 import Control.Lens ((^.))
 import Control.Monad (void, when)

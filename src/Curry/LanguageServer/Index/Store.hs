@@ -142,7 +142,7 @@ storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 p
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- liftIO $ findCurrySourcesInWorkspace cfg dirPath
-    sequence_ $ (\(i, (f, ip)) -> recompileFile i (length files) cfg fl ip (Just dirPath) f) <$> zip [1..] files
+    mapM_ (\(i, (f, ip)) -> recompileFile i (length files) cfg fl ip (Just dirPath) f) (zip [1..] files)
     liftIO $ infoM "cls.indexStore" $ "Added workspace directory " ++ dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
@@ -178,13 +178,13 @@ findCurrySourcesInProject cfg dirPath = do
                 config <- invokeCPMConfig dirPath cpmPath
                 deps   <- invokeCPMDeps   dirPath cpmPath
                 return (config, deps)
-            
+
             case result of
                 Right (config, deps) -> do
                     let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
                         curryBinPath = fromJust $ lookup "CURRY_BIN" config
                         curryLibPath = libPath curryBinPath
-                    
+
                     liftIO $ infoM "cls.indexStore" $ "Package path: " ++ packagePath
                     liftIO $ infoM "cls.indexStore" $ "Curry bin path: " ++ curryBinPath
                     liftIO $ infoM "cls.indexStore" $ "Curry lib path: " ++ curryLibPath
@@ -204,7 +204,7 @@ findCurrySourcesInProject cfg dirPath = do
             let curryLibPath = libPath fullCurryPath
                 libPaths | exitCode == ExitSuccess = [curryLibPath]
                          | otherwise               = []
-            
+
             unless (exitCode == ExitSuccess) $
                 warningM "cls.indexStore" "Could not find default Curry libraries, this might result in 'missing Prelude' errors..."
 
@@ -223,7 +223,7 @@ walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFilesI
 --   TODO: Respect parent gitignore also in subdirectories (may require changes to walkFilesWith
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
 walkFilesIgnoringHidden :: FilePath -> IO [FilePath]
-walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration 
+walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
     { wcOnEnter      = \fp -> do
         ignorePaths <- filterM doesFileExist $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
@@ -260,7 +260,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     (co, cs) <- liftIO $ catch
         (C.compileCurryFileWithDeps cfg fl importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
-    
+
     let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
             uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
             liftIO $ normalizeUriWithPath uri'
@@ -275,7 +275,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
 
     -- Update store with compiled modules
 
-    let modifyEntry f uri' ms' = M.alter (Just . f . fromMaybe defEntry) uri' ms'
+    let modifyEntry f = M.alter (Just . f . fromMaybe defEntry)
 
     forM_ asts $ \(uri', (env, ast)) -> do
         -- Update module store
@@ -300,12 +300,12 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
             { idxSymbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) $ idxSymbols s
             , idxModuleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) $ idxModuleSymbols s
             }
-    
+
     -- Update store with messages from files that were not successfully compiled
 
     let uris = S.fromList $ fst <$> asts
         other = filter ((`S.notMember` uris) . fst) . M.toList
-    
+
     forM_ (other warns) $ \(uri', msgs) -> do
         let updateEntry e = e { mseWarningMessages = msgs }
         modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }

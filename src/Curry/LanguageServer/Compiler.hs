@@ -38,13 +38,13 @@ import Control.Monad.Trans.Maybe (MaybeT (..))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
-import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.General ((<.$>))
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Data.List (intercalate, nub)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
-import System.FilePath
-import System.Log.Logger
+import System.FilePath ((</>), takeFileName)
+import System.Log.Logger (debugM)
 
 data CompileState = CompileState
     { csWarnings :: [CM.Message]

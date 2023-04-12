@@ -17,7 +17,14 @@ import Control.Monad.State (State, when, execState, gets, modify)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
 import Curry.LanguageServer.Utils.Syntax
+    ( elementAt
+    , HasExpressions(..)
+    , HasIdentifiers(..)
+    , HasQualIdentifier(..)
+    , HasQualIdentifiers(..)
+    )
 import Curry.LanguageServer.Utils.Sema
+    ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
 import qualified Data.Map as M
 import qualified Language.LSP.Types as J
 

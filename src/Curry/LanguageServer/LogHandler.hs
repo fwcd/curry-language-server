@@ -53,7 +53,7 @@ setupLogging :: LSM ()
 setupLogging = do
     -- TODO: Ask for config with log level?
     runInIO <- askRunInIO
-    let sn = \m -> runInIO . S.sendNotification m
+    let sn m = runInIO . S.sendNotification m
         lvl = INFO
         handler = CLSLogHandler { sendNotification = sn, level = lvl, formatter = LF.simpleLogFormatter logFormat }
     liftIO $ do
@@ -64,7 +64,7 @@ updateLogLevel :: Priority -> IO ()
 updateLogLevel = updateLoggers . LL.setLevel
 
 updateLoggers :: (LL.Logger -> LL.Logger) -> IO ()
-updateLoggers f = sequence_ $ flip LL.updateGlobalLogger f <$> updatedLoggers
+updateLoggers f = mapM_ (`LL.updateGlobalLogger` f) updatedLoggers
     where updatedLoggers = [logName]
 
 parseLogLevel :: String -> Maybe Priority
