@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 def main():
     parser = argparse.ArgumentParser(description='Creates a binary distribution of the language server')
-    parser.add_argument('-o', '--output', type=Path, default=ROOT_DIR / 'bindists' / f'curry-language-server-{platform.machine()}-{platform.system().lower()}.zip', help='The name of the output zip.')
+    parser.add_argument('-o', '--output', type=Path, default=ROOT_DIR / 'bindists' / f'curry-language-server-{platform.machine().lower()}-{platform.system().lower()}.zip', help='The name of the output zip.')
 
     args = parser.parse_args()
     bin_dir = 'bin'
