@@ -1,5 +1,6 @@
 module Curry.LanguageServer.Handlers (handlers) where
 
+import Curry.LanguageServer.Handlers.Cancel (cancelHandler)
 import Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler)
 import Curry.LanguageServer.Handlers.TextDocument.CodeLens (codeLensHandler)
 import Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
@@ -34,4 +35,5 @@ handlers = mconcat
     , didSaveHandler
     , didCloseHandler
     , didChangeConfigurationHandler
+    , cancelHandler
     ]

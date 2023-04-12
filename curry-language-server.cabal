@@ -34,6 +34,7 @@ library
       Curry.LanguageServer.CPM.Process
       Curry.LanguageServer.FileLoader
       Curry.LanguageServer.Handlers
+      Curry.LanguageServer.Handlers.Cancel
       Curry.LanguageServer.Handlers.Diagnostics
       Curry.LanguageServer.Handlers.Initialized
       Curry.LanguageServer.Handlers.TextDocument.CodeAction
