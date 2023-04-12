@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+
+import argparse
+import platform
+import subprocess
+import zipfile
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+def main():
+    parser = argparse.ArgumentParser(description='Creates a binary distribution of the language server')
+    parser.add_argument('-o', '--output', type=Path, default=ROOT_DIR / 'bindists' / f'curry-language-server-{platform.machine()}-{platform.system().lower()}.zip', help='The name of the output zip.')
+
+    args = parser.parse_args()
+    bin_dir = 'bin'
+    
+    print('==> Building...')
+    subprocess.run(['stack', 'install', '--local-bin-path', bin_dir], check=True, cwd=ROOT_DIR)
+
+    print('==> Archiving...')
+    with zipfile.ZipFile(args.output, mode='w') as zip:
+        for f in [f'{bin_dir}/curry-language-server', 'LICENSE']:
+            zip.write(ROOT_DIR / f, f)
+
+if __name__ == '__main__':
+    main()
