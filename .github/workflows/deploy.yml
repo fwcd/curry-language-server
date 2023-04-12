@@ -1,0 +1,61 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+    - '*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get tag name
+      id: tag
+      run: |
+        tag=$(basename "${{ github.ref }}")
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        tag="${{ steps.tag.outputs.tag }}"
+        echo "Tag: $tag"
+        gh release create "$tag" --title "$tag"
+
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    needs: [release]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Get platform
+      id: platform
+      shell: bash
+      run: |
+        os=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+        arch=$(echo "${{ runner.arch }}" | tr '[:upper:]' '[:lower:]')
+        platform="$arch-$os"
+        echo "Platform: $platform"
+        echo "platform=$platform" >> $GITHUB_OUTPUT
+    - uses: actions/checkout@v3
+    - name: Set up Haskell and Stack
+      uses: haskell/actions/setup@v2
+      with:
+        enable-stack: true
+        stack-version: 'latest'
+    - name: Build
+      run: stack install --local-bin-path bin
+    - name: Archive and upload
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      shell: bash
+      run: |
+        tag="${{ steps.platform.outputs.platform }}"
+        archivename="curry-language-server-$platform.zip"
+        zip -r "$archivename" bin
+        gh release upload "${{ needs.release.outputs.tag }}" "$archivename"
