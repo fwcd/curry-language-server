@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings #-}
 module Curry.LanguageServer.Compiler
     ( CompileAuxiliary (..)
     , CompileState (..)
@@ -34,6 +34,7 @@ import qualified Transformations as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad (join)
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Maybe (MaybeT (..))
@@ -41,11 +42,15 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader.Class (asks)
 import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
+import Curry.LanguageServer.Utils.Convert (ppToText)
 import Curry.LanguageServer.Utils.General ((<.$>))
+import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
-import Data.List (intercalate, nub)
+import Data.List (nub)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
+import qualified Data.Text as T
+import Language.LSP.Server (MonadLsp)
 import System.FilePath ((</>), takeFileName)
 
 type FileLoader = FilePath -> IO String
@@ -76,17 +81,12 @@ instance Monoid CompileState where
         }
 
 -- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
-type CM = MaybeT (StateT CompileState (ReaderT CompileAuxiliary IO))
+type CMT m = MaybeT (StateT CompileState (ReaderT CompileAuxiliary m))
 
-runCM :: MonadIO m => CM a -> CompileAuxiliary -> m (Maybe a, CompileState)
-runCM cm aux = liftIO . flip runReaderT aux . flip runStateT mempty . runMaybeT $ cm
+runCMT :: MonadIO m => CMT m a -> CompileAuxiliary -> m (Maybe a, CompileState)
+runCMT cm aux = flip runReaderT aux . flip runStateT mempty . runMaybeT $ cm
 
-debug :: String -> CM ()
-debug msg = do
-    dbg <- asks debugLogger
-    liftIO $ dbg msg
-
-catchCYIO :: CYIO a -> CM (Maybe a)
+catchCYIO :: MonadIO m => CYIO a -> CMT m (Maybe a)
 catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
     Left es       -> do
         modify $ \s -> s { csErrors = csErrors s ++ es }
@@ -95,7 +95,10 @@ catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
         modify $ \s -> s { csWarnings = csWarnings s ++ ws }
         return $ Just x
 
-liftCYIO :: CYIO a -> CM a
+liftToCM :: Monad m => m a -> CMT m a
+liftToCM = lift . lift . lift
+
+liftCYIO :: MonadIO m => CYIO a -> CMT m a
 liftCYIO = MaybeT . (join <$>) . runMaybeT . catchCYIO
 
 type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
@@ -106,8 +109,8 @@ type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: MonadIO m => CFG.Config -> CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
-compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ flip runCM aux $ do
+compileCurryFileWithDeps :: (MonadIO m, MonadLsp c m) => CFG.Config -> CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
+compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ flip runCMT aux $ do
     let defOpts = CO.defaultOptions
         cppOpts = CO.optCppOpts defOpts
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
@@ -119,16 +122,16 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
                                  }
     -- Resolve dependencies
     deps <- liftCYIO $ CD.flatDeps opts filePath
-    debug $ "Compiling " ++ takeFileName filePath ++ ", found deps: " ++ intercalate ", " (PP.render . CS.pPrint . fst <$> deps)
+    liftToCM $ debugM $ "Compiling " <> T.pack (takeFileName filePath) <> ", found deps: " <> T.intercalate ", " (ppToText . fst <$> deps)
     -- Compile the module and its dependencies in topological order
     compileCurryModules opts outDirPath deps
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: CO.Options -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CM CompileOutput
+compileCurryModules :: (MonadIO m, MonadLsp c m) => CO.Options -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CMT m CompileOutput
 compileCurryModules opts outDirPath deps = case deps of
     [] -> liftCYIO $ failMessages [makeFailMessage "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
-        debug $ "Actually compiling " ++ fp
+        liftToCM $ debugM $ "Actually compiling " <> T.pack fp
         let opts' = processPragmas opts ps
         output <- compileCurryModule opts' outDirPath m fp
         if null ds
@@ -143,9 +146,9 @@ compileCurryModules opts outDirPath deps = case deps of
               _      -> o
 
 -- | Compiles a single module.
-compileCurryModule :: CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CM CompileOutput
+compileCurryModule :: (MonadIO m, MonadLsp c m) => CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CMT m CompileOutput
 compileCurryModule opts outDirPath m fp = do
-    debug $ "Compiling module " ++ takeFileName fp
+    liftToCM $ debugM $ "Compiling module " <> T.pack (takeFileName fp)
     -- Parse and check the module
     mdl <- loadAndCheckCurryModule opts m fp
     -- Generate and store an on-disk interface file
@@ -153,7 +156,7 @@ compileCurryModule opts outDirPath m fp = do
     let interf = uncurry CEX.exportInterface $ CT.qual mdl'
         interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
-    debug $ "Writing interface file to " ++ interfFilePath
+    liftToCM $ debugM $ "Writing interface file to " <> T.pack interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
     return [(fp, mdl)]
 
@@ -170,7 +173,7 @@ compileCurryModule opts outDirPath m fp = do
 --                    2018        Kai-Oliver Prott
 
 -- | Loads a single module and performs checks.
-loadAndCheckCurryModule :: CO.Options -> CI.ModuleIdent -> FilePath -> CM (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule :: MonadIO m => CO.Options -> CI.ModuleIdent -> FilePath -> CMT m (CE.CompEnv ModuleAST)
 loadAndCheckCurryModule opts m fp = do
     -- Read source file (possibly from VFS)
     fl <- asks fileLoader

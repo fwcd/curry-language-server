@@ -29,7 +29,8 @@ import qualified Curry.Files.Filenames as CFN
 import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
-import Control.Exception (catch, SomeException)
+import Control.Exception (SomeException)
+import Control.Monad.Catch (MonadCatch (..))
 import Control.Monad.State
 import Control.Monad.IO.Unlift (askRunInIO)
 import Control.Monad.Trans.Maybe
@@ -141,7 +142,7 @@ storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
 storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxModuleSymbols
 
 -- | Compiles the given directory recursively and stores its entries.
-addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp c m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
+addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- lift $ findCurrySourcesInWorkspace cfg dirPath
     lift $ do
@@ -149,7 +150,7 @@ addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
-recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp c m) => CFG.Config -> C.FileLoader -> J.NormalizedUri -> m ()
+recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => CFG.Config -> C.FileLoader -> J.NormalizedUri -> m ()
 recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     lift $ do
@@ -250,7 +251,7 @@ readIgnoreFile = liftIO . (map (G.simplify . G.compile . T.unpack) . filter useL
     where useLine l = not (T.null l) && not ("#" `T.isPrefixOf` l)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp c m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
+recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
 recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     infoM $ "[" <> T.pack (show i) <> " of " <> T.pack (show total) <> "] (Re)compiling file " <> T.pack (takeFileName filePath)
 
@@ -264,7 +265,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     runInIO <- askRunInIO
     let aux = C.CompileAuxiliary { C.fileLoader = fl, C.debugLogger = runInIO . debugM . T.pack }
 
-    (co, cs) <- liftIO $ catch
+    (co, cs) <- catch
         (C.compileCurryFileWithDeps cfg aux importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
 
