@@ -52,7 +52,6 @@ library
       Curry.LanguageServer.Index.Resolve
       Curry.LanguageServer.Index.Store
       Curry.LanguageServer.Index.Symbol
-      Curry.LanguageServer.LogHandler
       Curry.LanguageServer.Monad
       Curry.LanguageServer.Utils.Concurrent
       Curry.LanguageServer.Utils.Convert
@@ -82,7 +81,6 @@ library
     , either >=5.0 && <6
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*
@@ -119,7 +117,6 @@ executable curry-language-server
     , either >=5.0 && <6
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*
@@ -157,7 +154,6 @@ test-suite curry-language-server-test
     , either >=5.0 && <6
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*

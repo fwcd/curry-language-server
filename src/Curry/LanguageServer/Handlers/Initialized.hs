@@ -2,7 +2,6 @@
 module Curry.LanguageServer.Handlers.Initialized (initializedHandler) where
 
 import Curry.LanguageServer.FileLoader (fileLoader)
-import Curry.LanguageServer.LogHandler (setupLogging)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import Curry.LanguageServer.Utils.Logging (infoM)
 import qualified Curry.LanguageServer.Index.Store as I
@@ -14,7 +13,6 @@ import qualified Language.LSP.Types as J
 
 initializedHandler :: S.Handlers LSM
 initializedHandler = S.notificationHandler J.SInitialized $ \_nt -> do
-    setupLogging
     infoM "Building index store..."
     workspaceFolders <- fromMaybe [] <$> S.getWorkspaceFolders
     let folders = maybeToList . folderToPath =<< workspaceFolders
