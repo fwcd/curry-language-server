@@ -295,8 +295,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
 
         -- Update symbol store
-        valueSymbols <- liftIO $ join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
-        typeSymbols  <- liftIO $ join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
+        valueSymbols <- join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
+        typeSymbols  <- join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
         modSymbols   <- liftIO $ join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
 
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols

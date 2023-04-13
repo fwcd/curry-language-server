@@ -9,7 +9,8 @@ import qualified Curry.Base.SpanInfo as CSPI
 
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Curry.LanguageServer.Index.Resolve (resolveQualIdent)
 import qualified Curry.LanguageServer.Index.Store as I
@@ -24,6 +25,7 @@ import Curry.LanguageServer.Utils.Syntax
     , HasTypeExpressions (..)
     )
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Curry.LanguageServer.Utils.Logging (infoM, debugM)
 import Data.Bifunctor (bimap)
 import Data.Foldable (find)
 import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
@@ -33,11 +35,11 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import qualified Language.LSP.VFS as VFS
-import System.Log.Logger
+import Language.LSP.Server (MonadLsp)
 
 signatureHelpHandler :: S.Handlers LSM
 signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req responder -> do
-    liftIO $ debugM "cls.signatureHelp" "Processing signature help request"
+    debugM "Processing signature help request"
     let J.SignatureHelpParams doc pos _ _ = req ^. J.params
         uri = doc ^. J.uri
     normUri <- liftIO $ normalizeUriWithPath uri
@@ -45,11 +47,11 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
     sigHelp <- runMaybeT $ do
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
-        liftMaybe =<< (liftIO $ fetchSignatureHelp store entry vfile pos)
+        MaybeT $ fetchSignatureHelp store entry vfile pos
     responder $ Right $ fromMaybe emptyHelp sigHelp
     where emptyHelp = J.SignatureHelp (J.List []) Nothing Nothing
 
-fetchSignatureHelp :: I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> IO (Maybe J.SignatureHelp)
+fetchSignatureHelp :: (MonadIO m, MonadLsp c m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     let line = VFS.rangeLinesFromVfs vfile $ J.Range (J.Position l 0) (J.Position (l + 1) 0)
@@ -58,7 +60,7 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
     (sym, spi, args) <- liftMaybe
         $  findExpressionApplication store ast pos'
        <|> findTypeApplication       store ast pos'
-    liftIO $ infoM "cls.signatureHelp" $ "Found symbol " ++ T.unpack (I.sQualIdent sym)
+    lift $ infoM $ "Found symbol " <> I.sQualIdent sym
     symEnd <- liftMaybe [end | J.Range _ end <- currySpanInfo2Range spi]
     let defaultParam | pos >= symEnd = fromIntegral $ length args
                      | otherwise     = 0

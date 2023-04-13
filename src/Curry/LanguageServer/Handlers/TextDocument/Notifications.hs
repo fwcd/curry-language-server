@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.TextDocument.Notifications
     ( didOpenHandler
     , didChangeHandler
@@ -7,7 +8,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Notifications
 
 import Control.Lens ((^.))
 import Control.Monad (void, when)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import Curry.LanguageServer.FileLoader (fileLoader)
@@ -15,35 +16,35 @@ import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad (getDebouncers, modifyDebouncers, LSM)
 import Curry.LanguageServer.Utils.Concurrent (debounceConst)
+import Curry.LanguageServer.Utils.Logging (infoM, debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
 
 didOpenHandler :: S.Handlers LSM
 didOpenHandler = S.notificationHandler J.STextDocumentDidOpen $ \nt -> do
-    liftIO $ debugM "cls.textDocument" "Processing open notification"
+    debugM "Processing open notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didChangeHandler :: S.Handlers LSM
 didChangeHandler = S.notificationHandler J.STextDocumentDidChange $ \nt -> do
-    liftIO $ debugM "cls.textDocument" "Processing change notification"
+    debugM "Processing change notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didSaveHandler :: S.Handlers LSM
 didSaveHandler = S.notificationHandler J.STextDocumentDidSave $ \nt -> do
-    liftIO $ debugM "cls.textDocument" "Processing save notification"
+    debugM "Processing save notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didCloseHandler :: S.Handlers LSM
 didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \nt -> do
-    liftIO $ debugM "cls.textDocument" "Processing close notification"
+    debugM "Processing close notification"
     -- TODO: Remove file from LSM state?
     let uri = nt ^. J.params . J.textDocument . J.uri
     removeDebouncer uri
@@ -56,7 +57,7 @@ updateIndexStoreDebounced uri = do
     when (M.notMember uri dbs) $ do
         -- TODO: Make this delay configurable, e.g. through a config option
         let delayMs = 500
-        liftIO $ infoM "cls.textDocument" $ "Creating debouncer for " ++ show uri
+        infoM $ "Creating debouncer for " <> J.getUri uri
         fresh <- debounceConst (delayMs * 1000) (void $ runMaybeT $ updateIndexStore uri)
         modifyDebouncers $ M.insert uri fresh
 
@@ -67,7 +68,7 @@ updateIndexStoreDebounced uri = do
 removeDebouncer :: J.Uri -> LSM ()
 removeDebouncer uri = do
     dbs <- getDebouncers
-    liftIO $ infoM "cls.textDocument" $ "Removing debouncer for " ++ show uri
+    infoM $ "Removing debouncer for " <> J.getUri uri
 
     -- Cancel old debouncer
     case M.lookup uri dbs of
