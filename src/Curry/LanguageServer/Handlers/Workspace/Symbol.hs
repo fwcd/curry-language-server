@@ -1,31 +1,33 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler) where
 
 import Control.Lens ((^.))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Monad (LSM, getStore)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
+import Language.LSP.Server (MonadLsp)
 
 workspaceSymbolHandler :: S.Handlers LSM
 workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder -> do
-    liftIO $ debugM "cls.workspaceSymbols" "Processing workspace symbols request"
+    debugM "Processing workspace symbols request"
     let query = req ^. J.params . J.query
     store <- getStore
-    symbols <- liftIO $ fetchWorkspaceSymbols store query
+    symbols <- fetchWorkspaceSymbols store query
     let maxSymbols = 150
     responder $ Right $ J.List $ take maxSymbols symbols
 
-fetchWorkspaceSymbols :: I.IndexStore -> T.Text -> IO [J.SymbolInformation]
+fetchWorkspaceSymbols :: (MonadIO m, MonadLsp c m) => I.IndexStore -> T.Text -> m [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
-    debugM "cls.workspaceSymbols" $ "Searching " ++ show (I.storedSymbolCount store) ++ " symbol(s)..."
+    debugM $ "Searching " <> T.pack (show (I.storedSymbolCount store)) <> " symbol(s)..."
     let symbols = mapMaybe toWorkspaceSymbol $ I.storedSymbolsWithPrefix query store
-    infoM "cls.workspaceSymbols" $ "Found " ++ show (length symbols) ++ " symbol(s)"
+    infoM $ "Found " <> T.pack (show (length symbols)) <> " symbol(s)"
     return symbols
 
 toWorkspaceSymbol :: I.Symbol -> Maybe J.SymbolInformation

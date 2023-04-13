@@ -5,13 +5,15 @@ module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
-import Control.Monad.Trans (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
 import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
@@ -22,26 +24,26 @@ import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
+import Language.LSP.Server (MonadLsp)
 
 hoverHandler :: S.Handlers LSM
 hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
-    liftIO $ debugM "cls.hover" "Processing hover request"
+    debugM "Processing hover request"
     -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
     let J.HoverParams doc pos _ = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     store <- getStore
     hover <- runMaybeT $ do
         entry <- I.getModule normUri
-        liftMaybe =<< liftIO (fetchHover store entry pos)
+        MaybeT $ fetchHover store entry pos
     responder $ Right hover
 
-fetchHover :: I.IndexStore -> I.ModuleStoreEntry -> J.Position -> IO (Maybe J.Hover)
+fetchHover :: (MonadIO m, MonadLsp c m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
 fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    liftIO $ infoM "cls.hover" $ "Found hover: " ++ T.unpack (previewHover hover)
+    lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
 
 qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover

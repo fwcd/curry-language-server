@@ -6,39 +6,42 @@ import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
 import Control.Lens ((^.))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad (LSM)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, currySpanInfo2Uri, ppToText)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Aeson as A
 import Data.Maybe (fromMaybe, maybeToList)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
+import Language.LSP.Server (MonadLsp)
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
 
 codeLensHandler :: S.Handlers LSM
 codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> do
-    liftIO $ debugM "cls.codeLens" "Processing code lens request"
+    debugM "Processing code lens request"
     let J.CodeLensParams _ _ doc = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     lenses <- runMaybeT $ do
         entry <- I.getModule normUri
-        liftIO $ fetchCodeLenses entry
+        lift $ fetchCodeLenses entry
     responder $ Right $ J.List $ fromMaybe [] lenses
 
-fetchCodeLenses :: I.ModuleStoreEntry -> IO [J.CodeLens]
+fetchCodeLenses :: (MonadIO m, MonadLsp c m) => I.ModuleStoreEntry -> m [J.CodeLens]
 fetchCodeLenses entry = do
     lenses <- maybe (pure []) codeLenses $ I.mseModuleAST entry
-    infoM "cls.codeLens" $ "Found " ++ show (length lenses) ++ " code lens(es)"
+    infoM $ "Found " <> T.pack (show (length lenses)) <> " code lens(es)"
     return lenses
 
 class HasCodeLenses s where
-    codeLenses :: s -> IO [J.CodeLens]
+    codeLenses :: MonadIO m => s -> m [J.CodeLens]
 
 instance HasCodeLenses (CS.Module (Maybe CT.PredType)) where
     codeLenses mdl@(CS.Module spi _ _ _ _ _ _) = do
