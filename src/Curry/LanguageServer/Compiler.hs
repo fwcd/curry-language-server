@@ -54,12 +54,10 @@ import Language.LSP.Server (MonadLsp)
 import System.FilePath ((</>), takeFileName)
 
 type FileLoader = FilePath -> IO String
-type DebugLogger = String -> IO ()
 
 -- | Read-only state used during compilation.
-data CompileAuxiliary = CompileAuxiliary
+newtype CompileAuxiliary = CompileAuxiliary
     { fileLoader :: FileLoader
-    , debugLogger :: DebugLogger
     }
 
 -- | Read/write state used during compilation.

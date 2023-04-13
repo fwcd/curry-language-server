@@ -32,7 +32,6 @@ import qualified CompilerEnv as CE
 import Control.Exception (SomeException)
 import Control.Monad.Catch (MonadCatch (..))
 import Control.Monad.State
-import Control.Monad.IO.Unlift (askRunInIO)
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
 import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
@@ -261,9 +260,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     let defEntry = def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }
         outDirPath = CFN.defaultOutDir </> "language-server"
         importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
-    
-    runInIO <- askRunInIO
-    let aux = C.CompileAuxiliary { C.fileLoader = fl, C.debugLogger = runInIO . debugM . T.pack }
+        aux = C.CompileAuxiliary { C.fileLoader = fl }
 
     (co, cs) <- catch
         (C.compileCurryFileWithDeps cfg aux importPaths' outDirPath filePath)
