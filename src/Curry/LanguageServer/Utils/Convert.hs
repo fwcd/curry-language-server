@@ -41,8 +41,8 @@ import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe (MaybeT(runMaybeT))
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri (filePathToUri, uriToFilePath)
 import Data.Maybe (fromMaybe, listToMaybe)
@@ -67,17 +67,17 @@ curryPos2Pos :: CP.Position -> Maybe J.Position
 curryPos2Pos CP.NoPos = Nothing
 curryPos2Pos CP.Position {..} = Just $ J.Position (fromIntegral line - 1) (fromIntegral column - 1)
 
-curryPos2Uri :: CP.Position -> MaybeT IO J.Uri
+curryPos2Uri :: MonadIO m => CP.Position -> MaybeT m J.Uri
 curryPos2Uri CP.NoPos = liftMaybe Nothing
 curryPos2Uri CP.Position {..} = liftIO $ filePathToUri file
 
-curryPos2Location :: CP.Position -> MaybeT IO J.Location
+curryPos2Location :: MonadIO m => CP.Position -> MaybeT m J.Location
 curryPos2Location cp = do
     p <- liftMaybe $ curryPos2Pos cp
     uri <- curryPos2Uri cp
     return $ J.Location uri $ pointRange p
 
-curryPos2LocationLink :: CP.Position -> MaybeT IO J.LocationLink
+curryPos2LocationLink :: MonadIO m => CP.Position -> MaybeT m J.LocationLink
 curryPos2LocationLink cp = do
     p <- liftMaybe $ curryPos2Pos cp
     uri <- curryPos2Uri cp
@@ -91,25 +91,25 @@ currySpan2Range CSP.Span {..} = do
     J.Position el ec <- curryPos2Pos end
     return $ J.Range s $ J.Position el (ec + 1)
 
-currySpan2Uri :: CSP.Span -> MaybeT IO J.Uri
+currySpan2Uri :: MonadIO m => CSP.Span -> MaybeT m J.Uri
 currySpan2Uri CSP.NoSpan = liftMaybe Nothing
 currySpan2Uri CSP.Span {..} = curryPos2Uri start
 
-currySpan2Location :: CSP.Span -> MaybeT IO J.Location
+currySpan2Location :: MonadIO m => CSP.Span -> MaybeT m J.Location
 currySpan2Location CSP.NoSpan = liftMaybe Nothing
 currySpan2Location spn = do
     range <- liftMaybe $ currySpan2Range spn
     uri <- currySpan2Uri spn
     return $ J.Location uri range
 
-currySpan2LocationLink :: CSP.Span -> MaybeT IO J.LocationLink
+currySpan2LocationLink :: MonadIO m => CSP.Span -> MaybeT m J.LocationLink
 currySpan2LocationLink CSP.NoSpan = liftMaybe Nothing
 currySpan2LocationLink spn = do
     range <- liftMaybe $ currySpan2Range spn
     uri <- currySpan2Uri spn
     return $ J.LocationLink Nothing uri range range
 
-currySpans2LocationLink :: CSP.Span -> CSP.Span -> MaybeT IO J.LocationLink
+currySpans2LocationLink :: MonadIO m => CSP.Span -> CSP.Span -> MaybeT m J.LocationLink
 currySpans2LocationLink CSP.NoSpan destSpan = currySpan2LocationLink destSpan
 currySpans2LocationLink _ CSP.NoSpan = liftMaybe Nothing
 currySpans2LocationLink srcSpan destSpan = do
@@ -122,19 +122,19 @@ currySpanInfo2Range :: CSPI.HasSpanInfo a => a -> Maybe J.Range
 currySpanInfo2Range (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Range srcSpan
 currySpanInfo2Range _ = Nothing
 
-currySpanInfo2Uri :: CSPI.HasSpanInfo a => a -> MaybeT IO J.Uri
+currySpanInfo2Uri :: MonadIO m => CSPI.HasSpanInfo a => a -> MaybeT m J.Uri
 currySpanInfo2Uri (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Uri srcSpan
 currySpanInfo2Uri _ = liftMaybe Nothing
 
-currySpanInfo2Location :: CSPI.HasSpanInfo a => a -> MaybeT IO J.Location
+currySpanInfo2Location :: MonadIO m => CSPI.HasSpanInfo a => a -> MaybeT m J.Location
 currySpanInfo2Location (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2Location srcSpan
 currySpanInfo2Location _ = liftMaybe Nothing
 
-currySpanInfo2LocationLink :: CSPI.HasSpanInfo a => a -> MaybeT IO J.LocationLink
+currySpanInfo2LocationLink :: MonadIO m => CSPI.HasSpanInfo a => a -> MaybeT m J.LocationLink
 currySpanInfo2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo {..}) = currySpan2LocationLink srcSpan
 currySpanInfo2LocationLink _ = liftMaybe Nothing
 
-currySpanInfos2LocationLink :: CSPI.HasSpanInfo a => a -> CSPI.SpanInfo -> MaybeT IO J.LocationLink
+currySpanInfos2LocationLink :: MonadIO m => CSPI.HasSpanInfo a => a -> CSPI.SpanInfo -> MaybeT m J.LocationLink
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.NoSpanInfo) spi = currySpanInfo2LocationLink spi
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan}) (CSPI.getSpanInfo -> CSPI.SpanInfo {srcSpan=destSpan}) = currySpans2LocationLink srcSpan destSpan
 currySpanInfos2LocationLink _ _ = liftMaybe Nothing

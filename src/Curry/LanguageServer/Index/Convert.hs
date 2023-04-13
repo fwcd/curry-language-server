@@ -14,6 +14,7 @@ import qualified Env.TypeConstructor as CETC
 import qualified Env.Value as CEV
 
 import Control.Applicative ((<|>))
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Maybe (runMaybeT)
 import Curry.LanguageServer.Index.Symbol (Symbol (..), SymbolKind (..))
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location, ppToTextPrec)
@@ -24,7 +25,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
 class ToSymbols s where
-    toSymbols :: s -> IO [Symbol]
+    toSymbols :: MonadIO m => s -> m [Symbol]
     
 instance ToSymbols (CI.QualIdent, CEV.ValueInfo) where
     toSymbols (q, vinfo)
@@ -63,7 +64,7 @@ instance ToSymbols CI.ModuleIdent where
 qualifyWithModuleFrom :: CTE.Entity a => a -> CI.QualIdent -> CI.QualIdent
 qualifyWithModuleFrom (CTE.origName -> CI.qidModule -> mid) q = q { CI.qidModule = CI.qidModule q <|> mid }
 
-makeValueSymbol :: SymbolKind -> CI.QualIdent -> CT.TypeScheme -> IO Symbol
+makeValueSymbol :: MonadIO m => SymbolKind -> CI.QualIdent -> CT.TypeScheme -> m Symbol
 makeValueSymbol k q t = do
     loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
@@ -79,8 +80,8 @@ makeValueSymbol k q t = do
         , sLocation = loc
         }
 
-makeTypeSymbol :: SymbolKind -> CI.QualIdent -> CK.Kind -> IO Symbol
-makeTypeSymbol k q k' = do
+makeTypeSymbol :: MonadIO m => SymbolKind -> CI.QualIdent -> CK.Kind -> m Symbol
+makeTypeSymbol k q k' = liftIO $ do
     loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
         { sKind = k

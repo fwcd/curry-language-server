@@ -268,15 +268,15 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         (C.compileCurryFileWithDeps cfg aux importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
 
-    let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
+    let msgNormUri msg = liftIO $ (fromMaybe uri <$>) $ runMaybeT $ do
             uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
             liftIO $ normalizeUriWithPath uri'
 
     -- Ignore parses from interface files, only consider source files for now
-    asts <- liftIO $ mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
+    asts <- mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
 
-    warns  <- liftIO $ groupIntoMapByM msgNormUri $ C.csWarnings cs
-    errors <- liftIO $ groupIntoMapByM msgNormUri $ C.csErrors cs
+    warns  <- groupIntoMapByM msgNormUri $ C.csWarnings cs
+    errors <- groupIntoMapByM msgNormUri $ C.csErrors cs
 
     debugM $ "Recompiled module paths: " <> T.pack (show (fst <$> asts))
 
