@@ -21,7 +21,7 @@ documentSymbolHandler :: S.Handlers LSM
 documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req responder -> do
     debugM "Processing document symbols request"
     let uri = req ^. J.params . J.textDocument . J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     symbols <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchDocumentSymbols entry

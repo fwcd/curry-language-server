@@ -266,9 +266,9 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         (C.compileCurryFileWithDeps cfg aux importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
 
-    let msgNormUri msg = liftIO $ (fromMaybe uri <$>) $ runMaybeT $ do
+    let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
             uri' <- currySpanInfo2Uri $ CM.msgSpanInfo msg
-            liftIO $ normalizeUriWithPath uri'
+            normalizeUriWithPath uri'
 
     -- Ignore parses from interface files, only consider source files for now
     asts <- mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
@@ -295,7 +295,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         -- Update symbol store
         valueSymbols <- join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
         typeSymbols  <- join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
-        modSymbols   <- liftIO $ join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
+        modSymbols   <- join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
 
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
             combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))

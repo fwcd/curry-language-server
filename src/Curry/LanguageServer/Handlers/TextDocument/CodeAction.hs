@@ -30,7 +30,7 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
     debugM "Processing code action request"
     let J.CodeActionParams _ _ doc range _ = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     actions <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchCodeActions range entry

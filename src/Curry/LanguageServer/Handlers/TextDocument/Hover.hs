@@ -32,7 +32,7 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
     -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
     let J.HoverParams doc pos _ = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     store <- getStore
     hover <- runMaybeT $ do
         entry <- I.getModule normUri

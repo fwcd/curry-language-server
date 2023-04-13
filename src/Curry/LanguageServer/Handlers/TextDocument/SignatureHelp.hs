@@ -42,7 +42,7 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
     debugM "Processing signature help request"
     let J.SignatureHelpParams doc pos _ _ = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     store <- getStore
     sigHelp <- runMaybeT $ do
         entry <- I.getModule normUri

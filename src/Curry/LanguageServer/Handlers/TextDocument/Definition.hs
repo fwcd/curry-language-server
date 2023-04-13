@@ -27,7 +27,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
     -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
     let J.DefinitionParams doc pos _ _ = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do
         lift $ debugM $ "Looking up " <> J.getUri (J.fromNormalizedUri normUri) <> " in " <> T.pack (show (M.keys $ I.idxModules store))

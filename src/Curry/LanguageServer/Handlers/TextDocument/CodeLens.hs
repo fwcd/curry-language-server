@@ -28,7 +28,7 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
     debugM "Processing code lens request"
     let J.CodeLensParams _ _ doc = req ^. J.params
         uri = doc ^. J.uri
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     lenses <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchCodeLenses entry

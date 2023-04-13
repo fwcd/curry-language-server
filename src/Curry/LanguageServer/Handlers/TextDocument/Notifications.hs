@@ -82,7 +82,7 @@ updateIndexStore :: J.Uri -> MaybeT LSM ()
 updateIndexStore uri = do
     fl <- lift fileLoader
     cfg <- lift S.getConfig
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     lift $ I.recompileModule cfg fl normUri
     entry <- I.getModule normUri
     lift $ emitDiagnostics normUri entry

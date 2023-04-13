@@ -69,7 +69,7 @@ curryPos2Pos CP.Position {..} = Just $ J.Position (fromIntegral line - 1) (fromI
 
 curryPos2Uri :: MonadIO m => CP.Position -> MaybeT m J.Uri
 curryPos2Uri CP.NoPos = liftMaybe Nothing
-curryPos2Uri CP.Position {..} = liftIO $ filePathToUri file
+curryPos2Uri CP.Position {..} = filePathToUri file
 
 curryPos2Location :: MonadIO m => CP.Position -> MaybeT m J.Location
 curryPos2Location cp = do

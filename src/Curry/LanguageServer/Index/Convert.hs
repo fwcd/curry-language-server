@@ -81,7 +81,7 @@ makeValueSymbol k q t = do
         }
 
 makeTypeSymbol :: MonadIO m => SymbolKind -> CI.QualIdent -> CK.Kind -> m Symbol
-makeTypeSymbol k q k' = liftIO $ do
+makeTypeSymbol k q k' = do
     loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
         { sKind = k
