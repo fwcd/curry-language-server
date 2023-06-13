@@ -1,20 +1,19 @@
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
-module Curry.LanguageServer.Handlers.Command (commandHandler, commands) where
+module Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler, commands) where
 
 import Control.Lens ((^.))
 import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM, warnM)
 import qualified Data.Aeson as A
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
 
-commandHandler :: S.Handlers LSM
-commandHandler = S.requestHandler J.SWorkspaceExecuteCommand $ \req responder -> do
-    liftIO $ debugM "cls.command" "Processing command execution request"
+executeCommandHandler :: S.Handlers LSM
+executeCommandHandler = S.requestHandler J.SWorkspaceExecuteCommand $ \req responder -> do
+    debugM "Processing command execution request"
     let J.ExecuteCommandParams _ name args = req ^. J.params
     res <- executeCommand name $ maybe [] (\(J.List as) -> as) args
     responder res
@@ -24,13 +23,13 @@ executeCommand name args = case lookup name commands of
     Just command -> command args
     Nothing -> do
         let msg = "Unknown command '" <> name <> "'"
-        liftIO $ warningM "cls.command" $ T.unpack msg
+        warnM msg
         return $ Left $ J.ResponseError J.InvalidParams msg Nothing
 
 commands :: [(T.Text, [A.Value] -> LSM (Either J.ResponseError A.Value))]
 commands =
     [ ("ping", \_args -> do
-        liftIO $ infoM "cls.command" "Pong!"
+        infoM "Pong!"
         return $ Right A.Null)
     , ("decl.applyTypeHint", \args -> do
         case args of

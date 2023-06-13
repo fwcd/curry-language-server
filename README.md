@@ -1,6 +1,6 @@
 ![Curry Language Server](images/banner.svg)
 
-[![CI Badge](https://github.com/fwcd/curry-language-server/workflows/Linux/badge.svg)](https://github.com/fwcd/curry-language-server/actions)
+[![Build](https://github.com/fwcd/curry-language-server/actions/workflows/build.yml/badge.svg)](https://github.com/fwcd/curry-language-server/actions/workflows/build.yml)
 ![Haskell](https://img.shields.io/badge/language-Haskell-7363a3.svg)
 ![BSD3 License](https://img.shields.io/badge/license-BSD3-333333.svg)
 

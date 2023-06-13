@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase, ScopedTypeVariables, OverloadedStrings #-}
 module Main where
 
+import Colog.Core (LogAction (..), WithSeverity (..))
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Aeson as A
 import Data.Default (Default (..))
@@ -9,9 +10,10 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
-import Curry.LanguageServer.Handlers.Command (commands)
+import Curry.LanguageServer.Handlers.Workspace.Command (commands)
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
+import System.IO (stdin, stdout)
 
 main :: IO ()
 main = runLanguageServer >>= \case
@@ -21,7 +23,7 @@ main = runLanguageServer >>= \case
 runLanguageServer :: IO Int
 runLanguageServer = do
     state <- newLSStateVar
-    S.runServer $ S.ServerDefinition
+    S.runServerWithHandles logger logger stdin stdout $ S.ServerDefinition
         { S.defaultConfig = def
         , S.onConfigurationChange = \_old v -> case A.fromJSON v of
                                             A.Error e -> Left $ T.pack e
@@ -38,6 +40,14 @@ runLanguageServer = do
             }
         }
     where
+        -- We discard log messages originating from the LSP framework for now,
+        -- since logging every JSON-RPC message makes the output hard to read.
+        -- Eventually we may want to filter by severity (e.g. >= Info) or define
+        -- our own `pretty :: LspServerLog -> Text`, similar to
+        -- https://github.com/haskell/lsp/blob/7c1fcaa1073dc79e6b330b06e34d30b5d0045af6/lsp/src/Language/LSP/Server/Control.hs#L56-L71
+        -- and filter out all the cases that we do not care about (e.g. ParsedMsg, SendMsg).
+        logger :: Monad m => LogAction m (WithSeverity S.LspServerLog)
+        logger = LogAction $ const $ return ()
         syncOptions = J.TextDocumentSyncOptions
                         (Just True) -- open/close notifications
                         (Just J.TdSyncIncremental) -- changes

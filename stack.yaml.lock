@@ -30,15 +30,15 @@ packages:
     version: 2.0.0
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     pantry-tree:
-      size: 16479
-      sha256: 875e059f12914dacb194ef95c6d7e6c966b613e0319122feb3d1cfa3bd444be9
-    commit: bc63970a92b0015a06467003dc7b889be020269d
+      size: 16480
+      sha256: 2961c26a8307c515ef47a8381b6d10e07737bf123fddce3b4696d84ef0ec8d5a
+    commit: d61f3cf3604332fff026056ab22937203a5420f1
   original:
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: bc63970a92b0015a06467003dc7b889be020269d
+    commit: d61f3cf3604332fff026056ab22937203a5420f1
 snapshots:
 - completed:
-    size: 648424
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/1.yaml
-    sha256: b73b2b116143aea728c70e65c3239188998bac5bc3be56465813dacd74215dc5
-  original: lts-20.1
+    size: 649598
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/17.yaml
+    sha256: 14ca51a9a597c32dd7804c10d079feea3d0ae40c5fbbb346cbd67b3ae49f6d01
+  original: lts-20.17

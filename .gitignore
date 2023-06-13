@@ -3,6 +3,8 @@
 .stack-work
 dist
 dist-newstyle
+bin
+bindists
 .curry
 *~
 *.log

@@ -1,6 +1,6 @@
 module Curry.LanguageServer.CPM.Deps (invokeCPMDeps) where
 
-import Curry.LanguageServer.CPM.Monad
+import Curry.LanguageServer.CPM.Monad (CPMM)
 import Curry.LanguageServer.CPM.Process (invokeCPM)
 import Data.Either.Combinators (rightToMaybe)
 import Data.Maybe (mapMaybe)

@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, ViewPatterns, MultiWayIf #-}
-module Curry.LanguageServer.Handlers.Completion (completionHandler) where
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiWayIf #-}
+module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
@@ -7,7 +7,8 @@ import qualified Base.Types as CT
 
 import Control.Lens ((^.))
 import Control.Monad (join, guard)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
 import Control.Monad.State.Class (get)
 import qualified Curry.LanguageServer.Config as CFG
@@ -15,10 +16,11 @@ import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (filterF, lastSafe)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Data.Bifunctor (first)
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
@@ -29,14 +31,14 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.VFS as VFS
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
-import System.Log.Logger
+import Language.LSP.Server (MonadLsp)
 
 completionHandler :: S.Handlers LSM
 completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder -> do
-    liftIO $ debugM "cls.completions" "Processing completion request"
+    debugM "Processing completion request"
     let uri = req ^. J.params . J.textDocument . J.uri
         pos = req ^. J.params . J.position
-    normUri <- liftIO $ normalizeUriWithPath uri
+    normUri <- normalizeUriWithPath uri
     capabilities <- S.getClientCapabilities
     cfg <- S.getConfig
     completions <- fmap (join . maybeToList) $ runMaybeT $ do
@@ -52,14 +54,14 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
                     ciCapabilities <- cmCapabilities ^. J.completionItem
                     ciCapabilities ^. J.snippetSupport)
                 }
-        liftIO $ fetchCompletions opts entry store query
+        lift $ fetchCompletions opts entry store query
     let maxCompletions = 25
         items = take maxCompletions completions
         incomplete = length completions > maxCompletions
         result = J.CompletionList incomplete $ J.List items
     responder $ Right $ J.InR result
 
-fetchCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+fetchCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 fetchCompletions opts entry store query
     | isPragma  = pragmaCompletions opts query
     | isImport  = importCompletions opts store query
@@ -68,7 +70,7 @@ fetchCompletions opts entry store query
           isPragma = "{-#" `T.isPrefixOf` line
           isImport = "import " `T.isPrefixOf` line
 
-pragmaCompletions :: CompletionOptions -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+pragmaCompletions :: MonadIO m => CompletionOptions -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 pragmaCompletions opts query
     | isLanguagePragma = return $ toMatchingCompletions opts query $ Keyword <$> knownExtensions
     | isOptionPragma   = return []
@@ -82,16 +84,16 @@ pragmaCompletions opts query
           pragmaKinds = languagePragma : optionPragmas
           knownExtensions = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
-importCompletions :: CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+importCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
     let modules            = nubOrdOn I.sQualIdent $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
         moduleCompletions  = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
         keywordCompletions = toMatchingCompletions opts query $ Keyword <$> ["qualified", "as", "hiding"]
         completions        = moduleCompletions ++ keywordCompletions
-    infoM "cls.completions" $ "Found " ++ show (length completions) ++ " import completion(s)"
+    infoM $ "Found " <> T.pack (show (length completions)) <> " import completion(s)"
     return completions
 
-generalCompletions :: CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> IO [J.CompletionItem]
+generalCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 generalCompletions opts entry store query = do
     let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) (I.mseModuleAST entry)
         localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
@@ -101,8 +103,8 @@ generalCompletions opts entry store query = do
         symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< symbols
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
-    infoM "cls.completions" $ "Local identifiers in scope: " ++ show (M.keys localIdentifiers')
-    infoM "cls.completions" $ "Found " ++ show (length completions) ++ " completion(s) with prefix '" ++ show (VFS.prefixText query) ++ "'"
+    infoM $ "Local identifiers in scope: " <> T.pack (show (M.keys localIdentifiers'))
+    infoM $ "Found " <> T.pack (show (length completions)) <> " completion(s) with prefix '" <> T.pack (show (VFS.prefixText query)) <> "'"
     return completions
     where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 

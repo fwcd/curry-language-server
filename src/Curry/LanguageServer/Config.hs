@@ -2,6 +2,15 @@
 module Curry.LanguageServer.Config (Config (..)) where
 
 import Data.Aeson
+    ( FromJSON (..)
+    , ToJSON (..)
+    , (.!=)
+    , (.:)
+    , (.:?)
+    , withObject
+    , object
+    , KeyValue (..)
+    )
 import Data.Default (Default(..))
 
 data Config = Config { cfgForceRecompilation :: Bool

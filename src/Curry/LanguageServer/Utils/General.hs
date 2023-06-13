@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General
     ( lastSafe
@@ -35,8 +35,9 @@ module Curry.LanguageServer.Utils.General
     ) where
 
 import Control.Monad (join, filterM)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString as B
 import Data.Bifunctor (first, second)
 import Data.Char (isSpace)
@@ -74,7 +75,7 @@ rangeOverlaps r1@(J.Range p1 p2) r2@(J.Range p3 p4) = rangeElem p1 r2
                                                    || rangeElem p4 r1
 
 -- | Safely fetches the nth entry.
-nth :: Integral a => a -> [b] -> Maybe b
+nth :: Integral n => n -> [a] -> Maybe a
 nth _ [] = Nothing
 nth n (x:xs) | n' == 0 = Just x
              | n' <  0 = Nothing
@@ -90,18 +91,18 @@ dup :: a -> (a, a)
 dup x = (x, x)
 
 -- | Finds the word at the given offset.
-wordAtIndex :: Integral a => a -> T.Text -> Maybe T.Text
-wordAtIndex n = wordAtIndex' (fromIntegral n) . wordsWithSpaceCount
-    where wordAtIndex' :: Int -> [(Int, T.Text)] -> Maybe T.Text
+wordAtIndex :: Integral n => n -> T.Text -> Maybe T.Text
+wordAtIndex n = wordAtIndex' n . wordsWithSpaceCount
+    where wordAtIndex' :: Integral n => n -> [(n, T.Text)] -> Maybe T.Text
           wordAtIndex' _ [] = Nothing
           wordAtIndex' n' ((k, s):ss) | (n' - k) <= len = Just s
                                       | otherwise = wordAtIndex' (n' - len - k) ss
-            where len = T.length s
+            where len = fromIntegral $ T.length s
 
 -- | Fetches the words with the list of spaces preceding them.
-wordsWithSpaceCount :: T.Text -> [(Int, T.Text)]
+wordsWithSpaceCount :: Integral n => T.Text -> [(n, T.Text)]
 wordsWithSpaceCount t | T.null t = []
-                      | otherwise = (T.length s, w) : wordsWithSpaceCount t''
+                      | otherwise = (fromIntegral $ T.length s, w) : wordsWithSpaceCount t''
                           -- TODO: Implement using T.breakOnAll
                           where s   = T.takeWhile isSpace t
                                 t'  = T.dropWhile isSpace t
@@ -110,7 +111,7 @@ wordsWithSpaceCount t | T.null t = []
 
 -- | Finds the word at a given position.
 wordAtPos :: J.Position -> T.Text -> Maybe T.Text
-wordAtPos (J.Position l c) = (T.strip <$>) . (wordAtIndex c =<<) . nth l . T.lines 
+wordAtPos (J.Position l c) = (T.strip <$>) . (wordAtIndex c =<<) . nth l . T.lines
 
 -- | The point range at the origin.
 emptyRange :: J.Range
@@ -126,42 +127,46 @@ maybeCons Nothing = id
 maybeCons (Just x) = (x:)
 
 -- | A filtering configuration for a file walk.
-data WalkConfiguration a = WalkConfiguration
+data WalkConfiguration m a = WalkConfiguration
     { -- | Executed when entering a new directory. Fetches some directory-specific
       --   state for later use during filtering, e.g. an ignore file. Returning
       --   Nothing causes the walker to skip the the directory.
-      wcOnEnter      :: FilePath -> IO (Maybe a)
+      wcOnEnter      :: FilePath -> m (Maybe a)
       -- | Tests whether a file or directory should be ignored using the state of
       --   the directory containing the path.
-    , wcShouldIgnore :: a -> FilePath -> IO Bool
+    , wcShouldIgnore :: a -> FilePath -> m Bool
     }
 
-instance Default a => Default (WalkConfiguration a) where
+instance (Default a, Monad m) => Default (WalkConfiguration m a) where
     def = WalkConfiguration
         { wcOnEnter      = const $ return $ Just def
         , wcShouldIgnore = const $ const $ return False
         }
 
+-- | An empty walk configuration.
+emptyWalkConfiguration :: Monad m => WalkConfiguration m ()
+emptyWalkConfiguration = def
+
 -- | Lists files in the directory recursively.
-walkFiles :: FilePath -> IO [FilePath]
-walkFiles = walkFilesWith (def :: WalkConfiguration ())
+walkFiles :: MonadIO m => FilePath -> m [FilePath]
+walkFiles = walkFilesWith emptyWalkConfiguration
 
 -- | Lists files in the directory recursively, ignoring files matching the given predicate.
-walkFilesIgnoring :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
-walkFilesIgnoring ignore = walkFilesWith $ (def :: WalkConfiguration ())
+walkFilesIgnoring :: MonadIO m => (FilePath -> Bool) -> FilePath -> m [FilePath]
+walkFilesIgnoring ignore = walkFilesWith emptyWalkConfiguration
     { wcShouldIgnore = const $ return . ignore
     }
 
 -- | Lists files in the directory recursively with the given configuration.
-walkFilesWith :: WalkConfiguration a -> FilePath -> IO [FilePath]
+walkFilesWith :: MonadIO m => WalkConfiguration m a -> FilePath -> m [FilePath]
 walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
     isDirectory <- liftIO $ unsafeInterleaveIO $ doesDirectoryExist fp
     isFile      <- liftIO $ unsafeInterleaveIO $ doesFileExist fp
     if | isDirectory -> do
             state     <- MaybeT $ wcOnEnter wc fp
             contents  <- liftIO $ listDirectory fp
-            contents' <- liftIO $ map (fp </>) <$> filterM ((not <$>) . wcShouldIgnore wc state) contents
-            join <$> mapM (liftIO . walkFilesWith wc) contents'
+            contents' <- map (fp </>) <$> filterM ((not <$>) . lift . wcShouldIgnore wc state) contents
+            join <$> mapM (lift . walkFilesWith wc) contents'
        | isFile      -> return [fp]
        | otherwise   -> liftMaybe Nothing
 
@@ -211,14 +216,14 @@ replaceString :: String -> String -> String -> String
 replaceString n r = T.unpack . T.replace (T.pack n) (T.pack r) . T.pack
 
 -- | Moves the cursor back until the beginning of the last token.
-snapToLastTokenStart :: Integral a => String -> a -> a
+snapToLastTokenStart :: Integral n => String -> n -> n
 snapToLastTokenStart = snapBack $ dropWhile (not . isSpace) . dropWhile isSpace
 
 -- | Moves the cursor back until a non-whitespace character precedes it (i.e. past the end of the last token).
-snapToLastTokenEnd :: Integral a => String -> a -> a
+snapToLastTokenEnd :: Integral n => String -> n -> n
 snapToLastTokenEnd = snapBack $ dropWhile isSpace
 
-snapBack :: Integral a => ([b] -> [b]) -> [b] -> a -> a
+snapBack :: Integral n => ([a] -> [a]) -> [a] -> n -> n
 snapBack f s n = fromIntegral $ length $ f $ reverse $ take (fromIntegral n) s
 
 class Insertable m a | m -> a where

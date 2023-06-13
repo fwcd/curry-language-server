@@ -23,8 +23,9 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
-import Curry.LanguageServer.Utils.Convert
-import Curry.LanguageServer.Utils.General
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
+import Curry.LanguageServer.Utils.General (lastSafe, rangeElem)
+import qualified Data.List.NonEmpty as N
 import Data.Maybe (maybeToList)
 import qualified Language.LSP.Types as J
 
@@ -46,23 +47,23 @@ moduleIdentifier (CS.Module _ _ _ ident _ _ _) = ident
 
 -- | Finds the base expression that others have been applied to.
 appBase :: CS.Expression a -> CS.Expression a
-appBase = head . appFull
+appBase = N.head . appFull
 
 -- | Finds the full expression application (i.e. the head and the args).
-appFull :: CS.Expression a -> [CS.Expression a]
+appFull :: CS.Expression a -> N.NonEmpty (CS.Expression a)
 appFull = appFull' [] 
     where appFull' acc (CS.Apply _ e1 e2) = appFull' (e2 : acc) e1
-          appFull' acc e                  = e : acc
+          appFull' acc e                  = e N.:| acc
 
 -- | Finds the base type that others have been applied to.
 typeAppBase :: CS.TypeExpr -> CS.TypeExpr
-typeAppBase = head . typeAppFull
+typeAppBase = N.head . typeAppFull
 
 -- | Finds the full type application (i.e. the head and the args).
-typeAppFull :: CS.TypeExpr -> [CS.TypeExpr]
+typeAppFull :: CS.TypeExpr -> N.NonEmpty CS.TypeExpr
 typeAppFull = typeAppFull' [] 
     where typeAppFull' acc (CS.ApplyType _ t1 t2) = typeAppFull' (t2 : acc) t1
-          typeAppFull' acc e                  = e : acc
+          typeAppFull' acc e                  = e N.:| acc
 
 class HasExpressions s a | s -> a where
     -- | Fetches all expressions as pre-order traversal

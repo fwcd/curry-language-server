@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           curry-language-server
-version:        0.1.1.0
+version:        0.1.1.5
 synopsis:       IDE support for the functional-logic language Curry
 description:    Please see the README on GitHub at <https://github.com/fwcd/curry-language-server#readme>
 category:       Development
@@ -34,27 +34,29 @@ library
       Curry.LanguageServer.CPM.Process
       Curry.LanguageServer.FileLoader
       Curry.LanguageServer.Handlers
-      Curry.LanguageServer.Handlers.CodeAction
-      Curry.LanguageServer.Handlers.CodeLens
-      Curry.LanguageServer.Handlers.Command
-      Curry.LanguageServer.Handlers.Completion
-      Curry.LanguageServer.Handlers.Definition
+      Curry.LanguageServer.Handlers.Cancel
       Curry.LanguageServer.Handlers.Diagnostics
-      Curry.LanguageServer.Handlers.DocumentSymbols
-      Curry.LanguageServer.Handlers.Hover
       Curry.LanguageServer.Handlers.Initialized
-      Curry.LanguageServer.Handlers.SignatureHelp
-      Curry.LanguageServer.Handlers.TextDocument
-      Curry.LanguageServer.Handlers.WorkspaceSymbols
+      Curry.LanguageServer.Handlers.TextDocument.CodeAction
+      Curry.LanguageServer.Handlers.TextDocument.CodeLens
+      Curry.LanguageServer.Handlers.TextDocument.Completion
+      Curry.LanguageServer.Handlers.TextDocument.Definition
+      Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol
+      Curry.LanguageServer.Handlers.TextDocument.Hover
+      Curry.LanguageServer.Handlers.TextDocument.Notifications
+      Curry.LanguageServer.Handlers.TextDocument.SignatureHelp
+      Curry.LanguageServer.Handlers.Workspace.Command
+      Curry.LanguageServer.Handlers.Workspace.Notifications
+      Curry.LanguageServer.Handlers.Workspace.Symbol
       Curry.LanguageServer.Index.Convert
       Curry.LanguageServer.Index.Resolve
       Curry.LanguageServer.Index.Store
       Curry.LanguageServer.Index.Symbol
-      Curry.LanguageServer.LogHandler
       Curry.LanguageServer.Monad
       Curry.LanguageServer.Utils.Concurrent
       Curry.LanguageServer.Utils.Convert
       Curry.LanguageServer.Utils.General
+      Curry.LanguageServer.Utils.Logging
       Curry.LanguageServer.Utils.Lookup
       Curry.LanguageServer.Utils.Sema
       Curry.LanguageServer.Utils.Syntax
@@ -68,17 +70,18 @@ library
       Glob ==0.10.*
     , aeson ==2.0.*
     , async ==2.2.*
-    , base >=4.15 && <4.17
+    , base ==4.16.*
     , bytestring ==0.11.*
     , bytestring-trie ==0.2.*
+    , co-log-core ==0.3.*
     , containers ==0.6.*
     , curry-frontend
     , data-default ==0.7.*
     , directory ==1.3.*
     , either >=5.0 && <6
+    , exceptions ==0.10.*
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*
@@ -103,18 +106,19 @@ executable curry-language-server
       Glob ==0.10.*
     , aeson ==2.0.*
     , async ==2.2.*
-    , base >=4.15 && <4.17
+    , base ==4.16.*
     , bytestring ==0.11.*
     , bytestring-trie ==0.2.*
+    , co-log-core ==0.3.*
     , containers ==0.6.*
     , curry-frontend
     , curry-language-server
     , data-default ==0.7.*
     , directory ==1.3.*
     , either >=5.0 && <6
+    , exceptions ==0.10.*
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*
@@ -140,18 +144,19 @@ test-suite curry-language-server-test
       Glob ==0.10.*
     , aeson ==2.0.*
     , async ==2.2.*
-    , base >=4.15 && <4.17
+    , base ==4.16.*
     , bytestring ==0.11.*
     , bytestring-trie ==0.2.*
+    , co-log-core ==0.3.*
     , containers ==0.6.*
     , curry-frontend
     , curry-language-server
     , data-default ==0.7.*
     , directory ==1.3.*
     , either >=5.0 && <6
+    , exceptions ==0.10.*
     , extra ==1.7.*
     , filepath ==1.4.*
-    , hslogger ==1.3.*
     , lens ==5.1.*
     , lsp ==1.6.*
     , mtl ==2.2.*

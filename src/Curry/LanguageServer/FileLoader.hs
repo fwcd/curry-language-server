@@ -2,7 +2,7 @@ module Curry.LanguageServer.FileLoader (fileLoader) where
 
 import Control.Monad.IO.Unlift (askRunInIO)
 import qualified Curry.LanguageServer.Compiler as C
-import Curry.LanguageServer.Monad
+import Curry.LanguageServer.Monad (LSM)
 import Curry.LanguageServer.Utils.Uri (filePathToNormalizedUri)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
