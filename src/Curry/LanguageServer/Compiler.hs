@@ -21,6 +21,7 @@ import qualified Curry.Syntax as CS
 import qualified Curry.Syntax.Extension as CSE
 import qualified Base.Messages as CBM
 import qualified Checks as CC
+import qualified CurryBuilder as CB
 import qualified CurryDeps as CD
 import qualified CompilerEnv as CE
 import qualified CondCompile as CNC
@@ -130,18 +131,12 @@ compileCurryModules opts outDirPath deps = case deps of
     [] -> liftCYIO $ failMessages [makeFailMessage "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
         liftToCM $ debugM $ "Actually compiling " <> T.pack fp
-        let opts' = processPragmas opts ps
+        opts' <- liftCYIO $ CB.processPragmas opts ps
         output <- compileCurryModule opts' outDirPath m fp
         if null ds
             then return output
             else (output <>) <$> compileCurryModules opts outDirPath ds
     (_:ds) -> compileCurryModules opts outDirPath ds
-    where processPragmas :: CO.Options -> [CS.ModulePragma] -> CO.Options
-          processPragmas o ps = foldl processLanguagePragma o [e | CS.LanguagePragma _ es <- ps, CS.KnownExtension _ e <- es]
-          processLanguagePragma :: CO.Options -> CS.KnownExtension -> CO.Options
-          processLanguagePragma o e = case e of
-              CS.CPP -> o { CO.optCppOpts = (CO.optCppOpts o) { CO.cppRun = True } }
-              _      -> o
 
 -- | Compiles a single module.
 compileCurryModule :: (MonadIO m, MonadLsp c m) => CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CMT m CompileOutput
