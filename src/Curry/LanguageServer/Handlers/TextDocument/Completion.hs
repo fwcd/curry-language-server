@@ -5,7 +5,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
 import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
-import Control.Lens ((^.))
+import Control.Lens ((^.), (.~))
 import Control.Monad (join, guard)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans (lift)
@@ -72,17 +72,23 @@ fetchCompletions opts entry store query
 
 pragmaCompletions :: MonadIO m => CompletionOptions -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 pragmaCompletions opts query
-    | isLanguagePragma = return $ toMatchingCompletions opts query $ Keyword <$> knownExtensions
+    | isLanguagePragma = return $ toMatchingCompletions opts query knownExtensions
     | isOptionPragma   = return []
-    | otherwise        = return $ toMatchingCompletions opts query $ Keyword <$> pragmaKinds
-    where line = VFS.fullLine query
-          languagePragma = "LANGUAGE"
-          knownTools = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownTool])
-          optionPragmas = ("OPTIONS_" <>) <$> knownTools
-          isLanguagePragma = languagePragma `T.isInfixOf` line
-          isOptionPragma = any (`T.isInfixOf` line) optionPragmas
-          pragmaKinds = languagePragma : optionPragmas
-          knownExtensions = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
+    | otherwise        = return $ toMatchingCompletions opts query pragmaKeywords
+    where line               = VFS.fullLine query
+          languagePragmaName = "LANGUAGE"
+          optionPragmaPrefix = "OPTIONS_"
+          languagePragma     = Tagged [] $ Keyword languagePragmaName
+          knownTools         = [minBound..maxBound] :: [CS.KnownTool]
+          optionPragmas      = makeToolOptionKeyword <$> knownTools
+          makeToolOptionKeyword tool = Tagged tags $ Keyword $ optionPragmaPrefix <> T.pack (show tool)
+            where tags = case tool of
+                    CS.CYMAKE -> [J.CitDeprecated]
+                    _         -> []
+          isLanguagePragma = languagePragmaName `T.isInfixOf` line
+          isOptionPragma   = optionPragmaPrefix `T.isInfixOf` line
+          pragmaKeywords   = languagePragma : optionPragmas
+          knownExtensions  = Keyword . T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
 importCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
@@ -114,6 +120,8 @@ toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filterF 
 newtype Keyword = Keyword T.Text
 
 data Local = Local T.Text (Maybe CT.PredType)
+
+data Tagged a = Tagged [J.CompletionItemTag] a
 
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
@@ -199,6 +207,9 @@ instance CompletionQueryFilter Keyword where
 instance CompletionQueryFilter Local where
     matchesCompletionQuery query (Local i _) = VFS.prefixText query `T.isPrefixOf` i
 
+instance CompletionQueryFilter a => CompletionQueryFilter (Tagged a) where
+    matchesCompletionQuery query (Tagged _ x) = matchesCompletionQuery query x
+
 instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
 
@@ -268,6 +279,9 @@ instance ToCompletionItems T.Text where
               insertText = Just txt
               insertTextFormat = Just J.PlainText
               edits = Nothing
+
+instance ToCompletionItems a => ToCompletionItems (Tagged a) where
+    toCompletionItems opts query (Tagged tags x) = (J.tags .~ Just (J.List tags)) <$> toCompletionItems opts query x
 
 -- | Creates a snippet with VSCode-style syntax.
 makeSnippet :: T.Text -> [T.Text] -> T.Text
