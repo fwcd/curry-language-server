@@ -72,17 +72,23 @@ fetchCompletions opts entry store query
 
 pragmaCompletions :: MonadIO m => CompletionOptions -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 pragmaCompletions opts query
-    | isLanguagePragma = return $ toMatchingCompletions opts query $ Keyword <$> knownExtensions
+    | isLanguagePragma = return $ toMatchingCompletions opts query knownExtensions
     | isOptionPragma   = return []
-    | otherwise        = return $ toMatchingCompletions opts query $ Keyword <$> pragmaKinds
-    where line = VFS.fullLine query
-          languagePragma = "LANGUAGE"
-          knownTools = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownTool])
-          optionPragmas = ("OPTIONS_" <>) <$> knownTools
-          isLanguagePragma = languagePragma `T.isInfixOf` line
-          isOptionPragma = any (`T.isInfixOf` line) optionPragmas
-          pragmaKinds = languagePragma : optionPragmas
-          knownExtensions = T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
+    | otherwise        = return $ toMatchingCompletions opts query pragmaKeywords
+    where line               = VFS.fullLine query
+          languagePragmaName = "LANGUAGE"
+          optionPragmaPrefix = "OPTIONS_"
+          languagePragma     = Tagged [] $ Keyword languagePragmaName
+          knownTools         = [minBound..maxBound] :: [CS.KnownTool]
+          optionPragmas      = makeToolOptionKeyword <$> knownTools
+          makeToolOptionKeyword tool = Tagged tags $ Keyword $ optionPragmaPrefix <> T.pack (show tool)
+            where tags = case tool of
+                    CS.CYMAKE -> [J.CitDeprecated]
+                    _         -> []
+          isLanguagePragma = languagePragmaName `T.isInfixOf` line
+          isOptionPragma   = optionPragmaPrefix `T.isInfixOf` line
+          pragmaKeywords   = languagePragma : optionPragmas
+          knownExtensions  = Keyword . T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
 importCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
