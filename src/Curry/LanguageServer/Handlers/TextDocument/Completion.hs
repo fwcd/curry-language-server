@@ -5,7 +5,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
 import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
-import Control.Lens ((^.))
+import Control.Lens ((^.), (.~))
 import Control.Monad (join, guard)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans (lift)
@@ -115,6 +115,8 @@ newtype Keyword = Keyword T.Text
 
 data Local = Local T.Text (Maybe CT.PredType)
 
+data Tagged a = Tagged [J.CompletionItemTag] a
+
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
       cmsSymbol :: I.Symbol
@@ -199,6 +201,9 @@ instance CompletionQueryFilter Keyword where
 instance CompletionQueryFilter Local where
     matchesCompletionQuery query (Local i _) = VFS.prefixText query `T.isPrefixOf` i
 
+instance CompletionQueryFilter a => CompletionQueryFilter (Tagged a) where
+    matchesCompletionQuery query (Tagged _ x) = matchesCompletionQuery query x
+
 instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
 
@@ -268,6 +273,9 @@ instance ToCompletionItems T.Text where
               insertText = Just txt
               insertTextFormat = Just J.PlainText
               edits = Nothing
+
+instance ToCompletionItems a => ToCompletionItems (Tagged a) where
+    toCompletionItems opts query (Tagged tags x) = (J.tags .~ Just (J.List tags)) <$> toCompletionItems opts query x
 
 -- | Creates a snippet with VSCode-style syntax.
 makeSnippet :: T.Text -> [T.Text] -> T.Text
