@@ -1,20 +1,23 @@
-module Curry.LanguageServer.CPM.Deps (invokeCPMDeps) where
+module Curry.LanguageServer.CPM.Deps
+    ( generatePathsJsonWithCPM
+    , readPathsJson
+    ) where
 
+import Control.Monad.IO.Class (MonadIO (..))
 import Curry.LanguageServer.CPM.Monad (CPMM)
 import Curry.LanguageServer.CPM.Process (invokeCPM)
-import Data.Either.Combinators (rightToMaybe)
-import Data.Maybe (mapMaybe)
-import Text.Parsec (Parsec, noneOf, spaces, string, many, parse)
+import Control.Monad (void)
+import Data.Aeson (decodeFileStrict)
+import System.FilePath ((</>))
 
-type Parser a = Parsec String () a
+-- | Tries generating the '.curry/language-server/paths.json' from a CPM package's dependencies.
+generatePathsJsonWithCPM :: FilePath -> FilePath -> CPMM ()
+generatePathsJsonWithCPM dirPath = void . invokeCPM dirPath ["deps", "--language-server"]
 
--- | Finds the dependencies (name-version) in the project with the given path.
-invokeCPMDeps :: FilePath -> FilePath -> CPMM [String]
-invokeCPMDeps fp = ((mapMaybe $ rightToMaybe . parse depLine "") . lines <$>) . invokeCPM fp ["deps"]
-
-depLine :: Parser String
-depLine = do
-    spaces
-    _ <- string "|-"
-    spaces
-    many (noneOf [' '])
+-- | Reads the '.curry/language-server/paths.json'.
+readPathsJson :: FilePath -> CPMM [FilePath]
+readPathsJson dirPath = do
+    result <- liftIO $ decodeFileStrict $ dirPath </> ".curry" </> "language-server" </> "paths.json"
+    case result of
+        Just paths -> return paths
+        Nothing    -> fail "Could not read paths.json!"
