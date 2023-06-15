@@ -3,6 +3,7 @@ module Curry.LanguageServer.CPM.Deps
     , readPathsJson
     ) where
 
+import Control.Monad.Error.Class (MonadError (..))
 import Control.Monad.IO.Class (MonadIO (..))
 import Curry.LanguageServer.CPM.Monad (CPMM)
 import Curry.LanguageServer.CPM.Process (invokeCPM)
@@ -17,7 +18,8 @@ generatePathsJsonWithCPM dirPath = void . invokeCPM dirPath ["deps", "--language
 -- | Reads the '.curry/language-server/paths.json'.
 readPathsJson :: FilePath -> CPMM [FilePath]
 readPathsJson dirPath = do
-    result <- liftIO $ decodeFileStrict $ dirPath </> ".curry" </> "language-server" </> "paths.json"
+    let pathsJsonPath = dirPath </> ".curry" </> "language-server" </> "paths.json"
+    result <- liftIO $ decodeFileStrict pathsJsonPath
     case result of
         Just paths -> return paths
-        Nothing    -> fail "Could not read paths.json!"
+        Nothing    -> throwError $ "Could not read or decode " <> pathsJsonPath <> "!"
