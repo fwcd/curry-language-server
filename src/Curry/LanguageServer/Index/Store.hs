@@ -260,7 +260,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     ms <- gets idxModules
 
     let defEntry = def { mseProjectDir = dirPath, mseImportPaths = importPaths }
-        outDirPath = CFN.defaultOutDir </> "language-server"
+        outDirPath = maybe CFN.defaultOutDir (</> ".curry") dirPath </> "language-server"
         importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
         aux = C.CompileAuxiliary { C.fileLoader = fl }
 
