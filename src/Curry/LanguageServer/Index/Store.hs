@@ -46,7 +46,7 @@ import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (unionBy, isPrefixOf, isSuffixOf)
+import Data.List (unionBy, isPrefixOf, foldl')
 import Data.List.Extra (nubOrdOn, nubOrd)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, maybeToList, mapMaybe, catMaybes)
@@ -58,7 +58,7 @@ import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
 import System.Directory (doesFileExist, doesDirectoryExist)
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName, splitPath, joinPath)
+import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
 import qualified System.FilePath.Glob as G
 import System.Process (readProcessWithExitCode)
 import Language.LSP.Server (MonadLsp)
@@ -211,26 +211,28 @@ findCurrySourcesInProject cfg dirPath = do
 
 -- | Recursively finds all projects in a directory containing the given identifying file.
 walkCurryProjects :: (MonadIO m, MonadLsp c m) => [FilePath] -> FilePath -> m [FilePath]
-walkCurryProjects relPath = ((joinPath . dropLast (length relPath) . splitPath <$>) . filter ((relPath `isSuffixOf`) . splitPath) <$>)
-                          . walkFilesIgnoringHidden
+walkCurryProjects relPath dirPath = do
+    files <- walkIgnoringHidden dirPath
+    filterM (liftIO . doesFileExist . applyRelPath) files
+    where applyRelPath = flip (foldl' (</>)) relPath
 
 -- | Recursively finds all Curry source files in a directory.
 walkCurrySourceFiles :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFilesIgnoringHidden
+walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkIgnoringHidden
 
 -- | Recursively finds Curry source files, ignoring directories starting with dots
 --   and those specified in .curry-language-server-ignore.
 --   TODO: Respect parent gitignore also in subdirectories (may require changes to walkFilesWith
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
-walkFilesIgnoringHidden :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
-    { wcOnEnter      = \fp -> do
+walkIgnoringHidden :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
+walkIgnoringHidden = walkFilesWith WalkConfiguration
+    { wcOnEnter            = \fp -> do
         ignorePaths <- filterM (liftIO . doesFileExist) $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
         unless (null ignored) $
             infoM $ "In '" <> T.pack (takeFileName fp) <> "' ignoring " <> T.pack (show (G.decompile <$> ignored))
         return $ Just ignored
-    , wcShouldIgnore = \ignored fp -> do
+    , wcShouldIgnore       = \ignored fp -> do
         isDir <- liftIO $ doesDirectoryExist fp
         let fn              = takeFileName fp
             matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
@@ -238,6 +240,8 @@ walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
         unless (null matchingIgnores) $
             debugM $ "Ignoring '" <> T.pack fn <> "' since it matches " <> T.pack (show (G.decompile <$> matchingIgnores))
         return $ not (null matchingIgnores) || "." `isPrefixOf` fn
+    , wcIncludeDirectories = True
+    , wcIncludeFiles       = True
     }
 
 -- | Reads the given ignore file, fetching the ignored (relative) paths.
