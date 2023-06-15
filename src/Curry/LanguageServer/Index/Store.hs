@@ -69,7 +69,7 @@ import Language.LSP.Server (MonadLsp)
 data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
                                          , mseErrorMessages :: [CM.Message]
                                          , mseWarningMessages :: [CM.Message]
-                                         , mseWorkspaceDir :: Maybe FilePath
+                                         , mseProjectDir :: Maybe FilePath
                                          , mseImportPaths :: [FilePath]
                                          }
 
@@ -90,7 +90,7 @@ instance Default ModuleStoreEntry where
     def = ModuleStoreEntry { mseModuleAST = Nothing
                            , mseWarningMessages = []
                            , mseErrorMessages = []
-                           , mseWorkspaceDir = Nothing
+                           , mseProjectDir = Nothing
                            , mseImportPaths = []
                            }
 
@@ -145,7 +145,7 @@ addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- lift $ findCurrySourcesInWorkspace cfg dirPath
     lift $ do
-        mapM_ (\(i, (f, ip)) -> recompileFile i (length files) cfg fl ip (Just dirPath) f) (zip [1..] files)
+        mapM_ (\(i, file) -> recompileFile i (length files) cfg fl (csfImportPaths file) (Just (csfProjectDir file)) (csfPath file)) (zip [1..] files)
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
@@ -156,15 +156,20 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
         recompileFile 1 1 cfg fl [] Nothing filePath
         debugM $ "Recompiled entry " <> T.pack (show uri)
 
+data CurrySourceFile = CurrySourceFile { csfProjectDir :: FilePath
+                                       , csfImportPaths :: [FilePath]
+                                       , csfPath :: FilePath
+                                       }
+
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
-findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [(FilePath, [FilePath])]
+findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInWorkspace cfg dirPath = do
     cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
     let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
-    nubOrdOn fst <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
+    nubOrdOn csfPath <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
-findCurrySourcesInProject :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [(FilePath, [FilePath])]
+findCurrySourcesInProject :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInProject cfg dirPath = do
     let curryPath = CFG.cfgCurryPath cfg
         cpmPath = curryPath ++ " cypm"
@@ -196,11 +201,11 @@ findCurrySourcesInProject cfg dirPath = do
                     let depPaths = (packagePath </>) . (</> "src") <$> deps
                         libPaths = [curryLibPath]
 
-                    return $ map (, projSrcFolder : libPaths ++ depPaths) projSources
+                    return $ map (CurrySourceFile dirPath $ projSrcFolder : libPaths ++ depPaths) projSources
                 Left err -> do
                     errorM $ "Could not fetch CPM configuration/dependencies: " <> T.pack err <> " (This might result in 'missing Prelude' errors!)"
 
-                    return $ map (, []) projSources
+                    return $ map (CurrySourceFile dirPath []) projSources
         else do
             infoM $ "Found generic project '" <> T.pack (takeFileName dirPath) <> "', searching for sources..."
 
@@ -212,7 +217,7 @@ findCurrySourcesInProject cfg dirPath = do
             unless (exitCode == ExitSuccess) $
                 warnM "Could not find default Curry libraries, this might result in 'missing Prelude' errors..."
 
-            map (, libPaths) <$> walkCurrySourceFiles dirPath
+            map (CurrySourceFile dirPath libPaths) <$> walkCurrySourceFiles dirPath
 
 -- | Recursively finds all CPM manifests in a directory.
 walkPackageJsons :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
@@ -257,7 +262,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     uri <- filePathToNormalizedUri filePath
     ms <- gets idxModules
 
-    let defEntry = def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }
+    let defEntry = def { mseProjectDir = dirPath, mseImportPaths = importPaths }
         outDirPath = CFN.defaultOutDir </> "language-server"
         importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
         aux = C.CompileAuxiliary { C.fileLoader = fl }
