@@ -30,4 +30,6 @@ infoM = logAt Info
 
 -- | Logs a message at the debug level.
 debugM :: MonadLsp c m => T.Text -> m ()
-debugM = logAt Debug
+-- TODO: Log at Debug again once https://github.com/microsoft/vscode-languageserver-node/issues/1255
+--       is resolved and upstreamed to haskell/lsp
+debugM = logAt Info
