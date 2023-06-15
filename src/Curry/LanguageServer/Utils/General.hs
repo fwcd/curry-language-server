@@ -32,6 +32,7 @@ module Curry.LanguageServer.Utils.General
     , fst3, snd3, thd3
     , tripleToPair
     , filterF
+    , dropLast
     ) where
 
 import Control.Monad (join, filterM)
@@ -131,16 +132,22 @@ data WalkConfiguration m a = WalkConfiguration
     { -- | Executed when entering a new directory. Fetches some directory-specific
       --   state for later use during filtering, e.g. an ignore file. Returning
       --   Nothing causes the walker to skip the the directory.
-      wcOnEnter      :: FilePath -> m (Maybe a)
+      wcOnEnter            :: FilePath -> m (Maybe a)
       -- | Tests whether a file or directory should be ignored using the state of
       --   the directory containing the path.
-    , wcShouldIgnore :: a -> FilePath -> m Bool
+    , wcShouldIgnore       :: a -> FilePath -> m Bool
+      -- | Whether the walk should include directories.
+    , wcIncludeDirectories :: Bool
+      -- | Whether the walk should include files.
+    , wcIncludeFiles       :: Bool
     }
 
 instance (Default a, Monad m) => Default (WalkConfiguration m a) where
     def = WalkConfiguration
-        { wcOnEnter      = const $ return $ Just def
-        , wcShouldIgnore = const $ const $ return False
+        { wcOnEnter            = const $ return $ Just def
+        , wcShouldIgnore       = const $ const $ return False
+        , wcIncludeDirectories = False
+        , wcIncludeFiles       = True
         }
 
 -- | An empty walk configuration.
@@ -166,8 +173,8 @@ walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
             state     <- MaybeT $ wcOnEnter wc fp
             contents  <- liftIO $ listDirectory fp
             contents' <- map (fp </>) <$> filterM ((not <$>) . lift . wcShouldIgnore wc state) contents
-            join <$> mapM (lift . walkFilesWith wc) contents'
-       | isFile      -> return [fp]
+            ([fp | wcIncludeDirectories wc] ++) . join <$> mapM (lift . walkFilesWith wc) contents'
+       | isFile      -> return [fp | wcIncludeFiles wc]
        | otherwise   -> liftMaybe Nothing
 
 -- | Lifts a Maybe into a Maybe transformer.
@@ -307,3 +314,7 @@ tripleToPair (x, y, _) = (x, y)
 -- | Filter over a foldable value. For [a], filterF = filter.
 filterF :: Foldable t => (a -> Bool) -> t a -> [a]
 filterF f = foldr (\x xs -> if f x then x : xs else xs) []
+
+-- | Drops the last n items.
+dropLast :: Int -> [a] -> [a]
+dropLast n = reverse . drop n . reverse

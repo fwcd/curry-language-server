@@ -28,7 +28,6 @@ library
   exposed-modules:
       Curry.LanguageServer.Compiler
       Curry.LanguageServer.Config
-      Curry.LanguageServer.CPM.Config
       Curry.LanguageServer.CPM.Deps
       Curry.LanguageServer.CPM.Monad
       Curry.LanguageServer.CPM.Process

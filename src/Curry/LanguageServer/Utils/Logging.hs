@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Curry.LanguageServer.Utils.Logging
     ( logAt, showAt
     , errorM, warnM, infoM, debugM
@@ -30,4 +31,6 @@ infoM = logAt Info
 
 -- | Logs a message at the debug level.
 debugM :: MonadLsp c m => T.Text -> m ()
-debugM = logAt Debug
+-- TODO: Remove [Debug] prefix once https://github.com/microsoft/vscode-languageserver-node/issues/1255
+--       is resolved and upstreamed to haskell/lsp
+debugM t = logAt Debug $ "[Debug] " <> t

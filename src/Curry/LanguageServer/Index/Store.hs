@@ -31,26 +31,26 @@ import qualified CompilerEnv as CE
 
 import Control.Exception (SomeException)
 import Control.Monad.Catch (MonadCatch (..))
+import Control.Monad.Extra (whenM)
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
-import Curry.LanguageServer.CPM.Config (invokeCPMConfig)
-import Curry.LanguageServer.CPM.Deps (invokeCPMDeps)
+import Curry.LanguageServer.CPM.Deps (generatePathsJsonWithCPM, readPathsJson)
 import Curry.LanguageServer.CPM.Monad (runCPMM)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Index.Convert
 import Curry.LanguageServer.Index.Symbol
 import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
-import Curry.LanguageServer.Utils.Logging (infoM, errorM, debugM, warnM)
+import Curry.LanguageServer.Utils.Logging (infoM, debugM, warnM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (unionBy, isPrefixOf)
-import Data.List.Extra (nubOrdOn)
+import Data.List (unionBy, isPrefixOf, foldl')
+import Data.List.Extra (nubOrdOn, nubOrd)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, fromMaybe, maybeToList, mapMaybe, catMaybes)
+import Data.Maybe (fromMaybe, maybeToList, mapMaybe, catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -69,7 +69,7 @@ import Language.LSP.Server (MonadLsp)
 data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
                                          , mseErrorMessages :: [CM.Message]
                                          , mseWarningMessages :: [CM.Message]
-                                         , mseWorkspaceDir :: Maybe FilePath
+                                         , mseProjectDir :: Maybe FilePath
                                          , mseImportPaths :: [FilePath]
                                          }
 
@@ -90,7 +90,7 @@ instance Default ModuleStoreEntry where
     def = ModuleStoreEntry { mseModuleAST = Nothing
                            , mseWarningMessages = []
                            , mseErrorMessages = []
-                           , mseWorkspaceDir = Nothing
+                           , mseProjectDir = Nothing
                            , mseImportPaths = []
                            }
 
@@ -145,7 +145,7 @@ addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- lift $ findCurrySourcesInWorkspace cfg dirPath
     lift $ do
-        mapM_ (\(i, (f, ip)) -> recompileFile i (length files) cfg fl ip (Just dirPath) f) (zip [1..] files)
+        mapM_ (\(i, file) -> recompileFile i (length files) cfg fl (csfImportPaths file) (Just (csfProjectDir file)) (csfPath file)) (zip [1..] files)
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
@@ -156,85 +156,85 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
         recompileFile 1 1 cfg fl [] Nothing filePath
         debugM $ "Recompiled entry " <> T.pack (show uri)
 
+data CurrySourceFile = CurrySourceFile { csfProjectDir :: FilePath
+                                       , csfImportPaths :: [FilePath]
+                                       , csfPath :: FilePath
+                                       }
+
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
-findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [(FilePath, [FilePath])]
+findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInWorkspace cfg dirPath = do
-    cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
-    let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
-    nubOrdOn fst <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
+    -- First and foremost, the language server tries to locate CPM packages by their 'package.json'
+    cpmProjPaths <- walkCurryProjects ["package.json"] dirPath
+    -- In addition to that, it also supports non-CPM packages located at '.curry/language-server/paths.json'
+    pathsJsonProjPaths <- walkCurryProjects [".curry", "language-server", "paths.json"] dirPath
+    -- If nothing is found, default to the workspace directory
+    let projPaths = fromMaybe [dirPath] $ nothingIfNull $ nubOrd $ cpmProjPaths ++ pathsJsonProjPaths
+    nubOrdOn csfPath <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
-findCurrySourcesInProject :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [(FilePath, [FilePath])]
+findCurrySourcesInProject :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInProject cfg dirPath = do
     let curryPath = CFG.cfgCurryPath cfg
         cpmPath = curryPath ++ " cypm"
         libPath binPath = takeDirectory (takeDirectory binPath) </> "lib"
 
-    e <- liftIO $ doesFileExist $ dirPath </> "package.json"
-    if e
-        then do
-            infoM $ "Found CPM project '" <> T.pack (takeFileName dirPath) <> "', searching for sources..."
-            let projSrcFolder = dirPath </> "src"
-            projSources <- walkCurrySourceFiles projSrcFolder
+    infoM $ "Entering project " <> T.pack dirPath <> "..."
 
-            infoM "Invoking CPM to fetch project configuration and dependencies..."
-            result <- runCPMM $ do
-                config <- invokeCPMConfig dirPath cpmPath
-                deps   <- invokeCPMDeps   dirPath cpmPath
-                return (config, deps)
+    whenM (liftIO $ doesFileExist $ dirPath </> "package.json") $ do
+        infoM "Resolving dependencies automatically since package.json was found..."
+        cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
+        case cpmResult of
+            Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack cpmPath <> "'!"
+            Left _  -> infoM $ "Could not update paths.json using " <> T.pack cpmPath <> ", trying to read paths.json anyway..."
 
-            case result of
-                Right (config, deps) -> do
-                    let packagePath = fromJust $ lookup "PACKAGE_INSTALL_PATH" config
-                        curryBinPath = fromJust $ lookup "CURRY_BIN" config
-                        curryLibPath = libPath curryBinPath
-
-                    infoM $ "Package path: " <> T.pack packagePath
-                    infoM $ "Curry bin path: " <> T.pack curryBinPath
-                    infoM $ "Curry lib path: " <> T.pack curryLibPath
-
-                    let depPaths = (packagePath </>) . (</> "src") <$> deps
-                        libPaths = [curryLibPath]
-
-                    return $ map (, projSrcFolder : libPaths ++ depPaths) projSources
-                Left err -> do
-                    errorM $ "Could not fetch CPM configuration/dependencies: " <> T.pack err <> " (This might result in 'missing Prelude' errors!)"
-
-                    return $ map (, []) projSources
-        else do
-            infoM $ "Found generic project '" <> T.pack (takeFileName dirPath) <> "', searching for sources..."
-
+    infoM "Reading paths.json..."
+    pathsResult <- runCPMM $ readPathsJson dirPath
+    paths <- case pathsResult of
+        Right paths -> do
+            infoM $ "Successfully read paths.json: " <> T.pack (show (length paths)) <> " path(s)"
+            return paths
+        Left e      -> do
+            warnM $ "Could not read paths.json (" <> T.pack e <> "), trying fallback resolution of Curry standard libraries..."
             (exitCode, fullCurryPath, _) <- liftIO $ readProcessWithExitCode "which" [curryPath] []
             let curryLibPath = libPath fullCurryPath
-                libPaths | exitCode == ExitSuccess = [curryLibPath]
-                         | otherwise               = []
 
-            unless (exitCode == ExitSuccess) $
-                warnM "Could not find default Curry libraries, this might result in 'missing Prelude' errors..."
+            if exitCode == ExitSuccess then do
+                warnM "Could not find Curry standard libraries, this might result in 'missing Prelude' errors..."
+                return []
+            else do
+                infoM $ "Found Curry standard library at " <> T.pack curryLibPath
+                return [curryLibPath]
+    
+    infoM "Searching for sources..."
+    projSources <- walkCurrySourceFiles dirPath
 
-            map (, libPaths) <$> walkCurrySourceFiles dirPath
+    return $ CurrySourceFile dirPath paths <$> projSources
 
--- | Recursively finds all CPM manifests in a directory.
-walkPackageJsons :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkPackageJsons = (filter ((== "package.json") . takeFileName) <$>) . walkFilesIgnoringHidden
+-- | Recursively finds all projects in a directory containing the given identifying file.
+walkCurryProjects :: (MonadIO m, MonadLsp c m) => [FilePath] -> FilePath -> m [FilePath]
+walkCurryProjects relPath dirPath = do
+    files <- walkIgnoringHidden dirPath
+    filterM (liftIO . doesFileExist . applyRelPath) files
+    where applyRelPath = flip (foldl' (</>)) relPath
 
 -- | Recursively finds all Curry source files in a directory.
 walkCurrySourceFiles :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkFilesIgnoringHidden
+walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkIgnoringHidden
 
 -- | Recursively finds Curry source files, ignoring directories starting with dots
 --   and those specified in .curry-language-server-ignore.
 --   TODO: Respect parent gitignore also in subdirectories (may require changes to walkFilesWith
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
-walkFilesIgnoringHidden :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
-    { wcOnEnter      = \fp -> do
+walkIgnoringHidden :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
+walkIgnoringHidden = walkFilesWith WalkConfiguration
+    { wcOnEnter            = \fp -> do
         ignorePaths <- filterM (liftIO . doesFileExist) $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
         unless (null ignored) $
             infoM $ "In '" <> T.pack (takeFileName fp) <> "' ignoring " <> T.pack (show (G.decompile <$> ignored))
         return $ Just ignored
-    , wcShouldIgnore = \ignored fp -> do
+    , wcShouldIgnore       = \ignored fp -> do
         isDir <- liftIO $ doesDirectoryExist fp
         let fn              = takeFileName fp
             matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
@@ -242,6 +242,8 @@ walkFilesIgnoringHidden = walkFilesWith $ WalkConfiguration
         unless (null matchingIgnores) $
             debugM $ "Ignoring '" <> T.pack fn <> "' since it matches " <> T.pack (show (G.decompile <$> matchingIgnores))
         return $ not (null matchingIgnores) || "." `isPrefixOf` fn
+    , wcIncludeDirectories = True
+    , wcIncludeFiles       = True
     }
 
 -- | Reads the given ignore file, fetching the ignored (relative) paths.
@@ -257,7 +259,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     uri <- filePathToNormalizedUri filePath
     ms <- gets idxModules
 
-    let defEntry = def { mseWorkspaceDir = dirPath, mseImportPaths = importPaths }
+    let defEntry = def { mseProjectDir = dirPath, mseImportPaths = importPaths }
         outDirPath = CFN.defaultOutDir </> "language-server"
         importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
         aux = C.CompileAuxiliary { C.fileLoader = fl }
