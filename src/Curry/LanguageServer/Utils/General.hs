@@ -32,6 +32,7 @@ module Curry.LanguageServer.Utils.General
     , fst3, snd3, thd3
     , tripleToPair
     , filterF
+    , dropLast
     ) where
 
 import Control.Monad (join, filterM)
@@ -306,3 +307,7 @@ tripleToPair (x, y, _) = (x, y)
 -- | Filter over a foldable value. For [a], filterF = filter.
 filterF :: Foldable t => (a -> Bool) -> t a -> [a]
 filterF f = foldr (\x xs -> if f x then x : xs else xs) []
+
+-- | Drops the last n items.
+dropLast :: Int -> [a] -> [a]
+dropLast n = reverse . drop n . reverse

@@ -47,8 +47,8 @@ import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
-import Data.List (unionBy, isPrefixOf)
-import Data.List.Extra (nubOrdOn)
+import Data.List (unionBy, isPrefixOf, isSuffixOf)
+import Data.List.Extra (nubOrdOn, nubOrd)
 import qualified Data.Map as M
 import Data.Maybe (fromJust, fromMaybe, maybeToList, mapMaybe, catMaybes)
 import qualified Data.Set as S
@@ -59,7 +59,7 @@ import qualified Data.Trie as TR
 import qualified Language.LSP.Types as J
 import System.Directory (doesFileExist, doesDirectoryExist)
 import System.Exit (ExitCode(ExitSuccess))
-import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
+import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName, splitPath, joinPath)
 import qualified System.FilePath.Glob as G
 import System.Process (readProcessWithExitCode)
 import Language.LSP.Server (MonadLsp)
@@ -164,8 +164,12 @@ data CurrySourceFile = CurrySourceFile { csfProjectDir :: FilePath
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
 findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInWorkspace cfg dirPath = do
-    cpmProjPaths <- (takeDirectory <$>) <$> walkPackageJsons dirPath
-    let projPaths = fromMaybe [dirPath] $ nothingIfNull cpmProjPaths
+    -- First and foremost, the language server tries to locate CPM packages by their 'package.json'
+    cpmProjPaths <- walkCurryProjects ["package.json"] dirPath
+    -- In addition to that, it also supports non-CPM packages located at '.curry/language-server/paths.json'
+    pathsJsonProjPaths <- walkCurryProjects [".curry", "language-server", "paths.json"] dirPath
+    -- If nothing is found, default to the workspace directory
+    let projPaths = fromMaybe [dirPath] $ nothingIfNull $ nubOrd $ cpmProjPaths ++ pathsJsonProjPaths
     nubOrdOn csfPath <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
@@ -219,9 +223,10 @@ findCurrySourcesInProject cfg dirPath = do
 
             map (CurrySourceFile dirPath libPaths) <$> walkCurrySourceFiles dirPath
 
--- | Recursively finds all CPM manifests in a directory.
-walkPackageJsons :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
-walkPackageJsons = (filter ((== "package.json") . takeFileName) <$>) . walkFilesIgnoringHidden
+-- | Recursively finds all projects in a directory containing the given identifying file.
+walkCurryProjects :: (MonadIO m, MonadLsp c m) => [FilePath] -> FilePath -> m [FilePath]
+walkCurryProjects relPath = ((joinPath . dropLast (length relPath) . splitPath <$>) . filter ((relPath `isSuffixOf`) . splitPath) <$>)
+                          . walkFilesIgnoringHidden
 
 -- | Recursively finds all Curry source files in a directory.
 walkCurrySourceFiles :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
