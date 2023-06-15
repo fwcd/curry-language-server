@@ -31,6 +31,7 @@ import qualified CompilerEnv as CE
 
 import Control.Exception (SomeException)
 import Control.Monad.Catch (MonadCatch (..))
+import Control.Monad.Extra (whenM)
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import qualified Curry.LanguageServer.Compiler as C
@@ -180,13 +181,14 @@ findCurrySourcesInProject cfg dirPath = do
 
     infoM $ "Entering project " <> T.pack dirPath <> "..."
 
-    infoM "Resolving dependencies..."
-    cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
-    case cpmResult of
-        Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack cpmPath <> "'!"
-        Left _  -> infoM $ "Could not update paths.json using " <> T.pack cpmPath <> ", trying to read paths.json anyway..."
+    whenM (liftIO $ doesFileExist $ dirPath </> "package.json") $ do
+        infoM "Resolving dependencies automatically since package.json was found..."
+        cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
+        case cpmResult of
+            Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack cpmPath <> "'!"
+            Left _  -> infoM $ "Could not update paths.json using " <> T.pack cpmPath <> ", trying to read paths.json anyway..."
 
-    infoM "Reading dependency paths..."
+    infoM "Reading paths.json..."
     pathsResult <- runCPMM $ readPathsJson dirPath
     paths <- case pathsResult of
         Right paths -> do
