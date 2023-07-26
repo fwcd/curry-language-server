@@ -267,6 +267,7 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.EnumFrom _ e'             -> qualIdentifiers e'
         CS.EnumFromThen _ e1 e2      -> qualIdentifiers e1 ++ qualIdentifiers e2
         CS.EnumFromThenTo _ e1 e2 e3 -> qualIdentifiers e1 ++ qualIdentifiers e2 ++ qualIdentifiers e3
+        CS.EnumFromTo _ e1 e2        -> qualIdentifiers e1 ++ qualIdentifiers e2
         CS.UnaryMinus _ e'           -> qualIdentifiers e'
         CS.Apply _ e1 e2             -> qualIdentifiers e1 ++ qualIdentifiers e2
         CS.InfixApply _ e1 op e2     -> qualIdentifiers e1 ++ qualIdentifiers op ++ qualIdentifiers e2
@@ -279,7 +280,7 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.Case _ _ _ e' alts        -> qualIdentifiers e' ++ qualIdentifiers alts
         CS.Variable _ _ q            -> [q]
         CS.Constructor _ _ q         -> [q]
-        _                            -> []
+        CS.Literal _ _ _             -> []
 
 instance HasQualIdentifiers (CS.InfixOp a) where
     qualIdentifiers e = case e of
