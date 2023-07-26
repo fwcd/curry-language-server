@@ -269,7 +269,7 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.EnumFromThenTo _ e1 e2 e3 -> qualIdentifiers e1 ++ qualIdentifiers e2 ++ qualIdentifiers e3
         CS.UnaryMinus _ e'           -> qualIdentifiers e'
         CS.Apply _ e1 e2             -> qualIdentifiers e1 ++ qualIdentifiers e2
-        CS.InfixApply _ e1 _ e2      -> qualIdentifiers e1 ++ qualIdentifiers e2
+        CS.InfixApply _ e1 op e2     -> qualIdentifiers e1 ++ qualIdentifiers op ++ qualIdentifiers e2
         CS.LeftSection _ e' _        -> qualIdentifiers e'
         CS.RightSection _ _ e'       -> qualIdentifiers e'
         CS.Lambda _ _ e'             -> qualIdentifiers e'
@@ -280,6 +280,11 @@ instance HasQualIdentifiers (CS.Expression a) where
         CS.Variable _ _ q            -> [q]
         CS.Constructor _ _ q         -> [q]
         _                            -> []
+
+instance HasQualIdentifiers (CS.InfixOp a) where
+    qualIdentifiers e = case e of
+        CS.InfixOp     _ q -> [q]
+        CS.InfixConstr _ q -> [q]
 
 instance HasQualIdentifiers a => HasQualIdentifiers (CS.Field a) where
     qualIdentifiers (CS.Field _ q e) = q : qualIdentifiers e
