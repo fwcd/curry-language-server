@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings, FlexibleContexts #-}
 module Curry.LanguageServer.Compiler
     ( CompileAuxiliary (..)
     , CompileState (..)
@@ -108,7 +108,7 @@ type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: (MonadIO m, MonadLsp c m) => CFG.Config -> CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
+compileCurryFileWithDeps :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
 compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ flip runCMT aux $ do
     let defOpts = CO.defaultOptions
         cppOpts = CO.optCppOpts defOpts
@@ -126,7 +126,7 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
     compileCurryModules opts outDirPath deps
 
 -- | Compiles the given list of modules in order.
-compileCurryModules :: (MonadIO m, MonadLsp c m) => CO.Options -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CMT m CompileOutput
+compileCurryModules :: (MonadIO m, MonadLsp CFG.Config m) => CO.Options -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CMT m CompileOutput
 compileCurryModules opts outDirPath deps = case deps of
     [] -> liftCYIO $ failMessages [makeFailMessage "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
@@ -139,7 +139,7 @@ compileCurryModules opts outDirPath deps = case deps of
     (_:ds) -> compileCurryModules opts outDirPath ds
 
 -- | Compiles a single module.
-compileCurryModule :: (MonadIO m, MonadLsp c m) => CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CMT m CompileOutput
+compileCurryModule :: (MonadIO m, MonadLsp CFG.Config m) => CO.Options -> FilePath -> CI.ModuleIdent -> FilePath -> CMT m CompileOutput
 compileCurryModule opts outDirPath m fp = do
     liftToCM $ debugM $ "Compiling module " <> T.pack (takeFileName fp)
     -- Parse and check the module

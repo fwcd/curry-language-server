@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, MonadComprehensions #-}
 module Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -12,6 +11,7 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT, MaybeT (..))
+import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Index.Resolve (resolveQualIdent)
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
@@ -51,7 +51,7 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
     responder $ Right $ fromMaybe emptyHelp sigHelp
     where emptyHelp = J.SignatureHelp (J.List []) Nothing Nothing
 
-fetchSignatureHelp :: (MonadIO m, MonadLsp c m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
+fetchSignatureHelp :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     let line = VFS.rangeLinesFromVfs vfile $ J.Range (J.Position l 0) (J.Position (l + 1) 0)

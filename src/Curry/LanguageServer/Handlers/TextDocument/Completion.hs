@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, MultiWayIf #-}
 module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -61,7 +61,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         result = J.CompletionList incomplete $ J.List items
     responder $ Right $ J.InR result
 
-fetchCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+fetchCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 fetchCompletions opts entry store query
     | isPragma  = pragmaCompletions opts query
     | isImport  = importCompletions opts store query
@@ -90,7 +90,7 @@ pragmaCompletions opts query
           pragmaKeywords   = languagePragma : optionPragmas
           knownExtensions  = Keyword . T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
-importCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+importCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
     let modules            = nubOrdOn I.sQualIdent $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
         moduleCompletions  = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
@@ -99,7 +99,7 @@ importCompletions opts store query = do
     infoM $ "Found " <> T.pack (show (length completions)) <> " import completion(s)"
     return completions
 
-generalCompletions :: (MonadIO m, MonadLsp c m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+generalCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 generalCompletions opts entry store query = do
     let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) (I.mseModuleAST entry)
         localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers

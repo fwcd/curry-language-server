@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -8,6 +8,7 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT (..))
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
@@ -38,7 +39,7 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
         MaybeT $ fetchHover store entry pos
     responder $ Right hover
 
-fetchHover :: (MonadIO m, MonadLsp c m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
+fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
 fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe $ I.mseModuleAST entry
     hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos

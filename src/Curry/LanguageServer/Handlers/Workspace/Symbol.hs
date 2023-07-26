@@ -1,8 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 module Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler) where
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO (..))
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Monad (LSM, getStore)
@@ -23,7 +24,7 @@ workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder ->
     let maxSymbols = 150
     responder $ Right $ J.List $ take maxSymbols symbols
 
-fetchWorkspaceSymbols :: (MonadIO m, MonadLsp c m) => I.IndexStore -> T.Text -> m [J.SymbolInformation]
+fetchWorkspaceSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> T.Text -> m [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
     debugM $ "Searching " <> T.pack (show (I.storedSymbolCount store)) <> " symbol(s)..."
     let symbols = mapMaybe toWorkspaceSymbol $ I.storedSymbolsWithPrefix query store

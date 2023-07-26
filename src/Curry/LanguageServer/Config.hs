@@ -1,5 +1,8 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings, TypeApplications #-}
-module Curry.LanguageServer.Config (Config (..)) where
+module Curry.LanguageServer.Config
+    ( Config (..)
+    , LogLevel (..)
+    ) where
 
 import Colog.Core (Severity (..))
 import Data.Aeson

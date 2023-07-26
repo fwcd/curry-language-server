@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -10,6 +10,7 @@ import Control.Monad (guard)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT)
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad (LSM)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Uri, currySpanInfo2Range, ppToText)
@@ -36,7 +37,7 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
         lift $ fetchCodeActions range entry
     responder $ Right $ J.List $ J.InR <$> fromMaybe [] actions
 
-fetchCodeActions :: (MonadIO m, MonadLsp c m) => J.Range -> I.ModuleStoreEntry -> m [J.CodeAction]
+fetchCodeActions :: (MonadIO m, MonadLsp CFG.Config m) => J.Range -> I.ModuleStoreEntry -> m [J.CodeAction]
 fetchCodeActions range entry = do
     actions <- maybe (pure []) (codeActions range) $ I.mseModuleAST entry
     debugM $ "Found " <> T.pack (show (length actions)) <> " code action(s)"

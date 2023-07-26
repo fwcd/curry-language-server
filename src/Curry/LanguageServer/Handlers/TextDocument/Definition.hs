@@ -1,10 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.TextDocument.Definition (definitionHandler) where
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
@@ -34,7 +35,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
         lift $ fetchDefinitions store entry pos
     responder $ Right $ J.InR $ J.InR $ J.List $ fromMaybe [] defs
 
-fetchDefinitions :: (MonadIO m, MonadLsp c m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m [J.LocationLink]
+fetchDefinitions :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m [J.LocationLink]
 fetchDefinitions store entry pos = do
     defs <- (fromMaybe [] <$>) $ runMaybeT $ do
         ast <- liftMaybe $ I.mseModuleAST entry

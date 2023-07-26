@@ -141,7 +141,7 @@ storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
 storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxModuleSymbols
 
 -- | Compiles the given directory recursively and stores its entries.
-addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
+addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- lift $ findCurrySourcesInWorkspace cfg dirPath
     lift $ do
@@ -149,7 +149,7 @@ addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
-recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => CFG.Config -> C.FileLoader -> J.NormalizedUri -> m ()
+recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => CFG.Config -> C.FileLoader -> J.NormalizedUri -> m ()
 recompileModule cfg fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     lift $ do
@@ -162,7 +162,7 @@ data CurrySourceFile = CurrySourceFile { csfProjectDir :: FilePath
                                        }
 
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
-findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
+findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInWorkspace cfg dirPath = do
     -- First and foremost, the language server tries to locate CPM packages by their 'package.json'
     cpmProjPaths <- walkCurryProjects ["package.json"] dirPath
@@ -173,7 +173,7 @@ findCurrySourcesInWorkspace cfg dirPath = do
     nubOrdOn csfPath <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
-findCurrySourcesInProject :: (MonadIO m, MonadLsp c m) => CFG.Config -> FilePath -> m [CurrySourceFile]
+findCurrySourcesInProject :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInProject cfg dirPath = do
     let curryPath = CFG.cfgCurryPath cfg
         cpmPath = curryPath ++ " cypm"
@@ -212,21 +212,21 @@ findCurrySourcesInProject cfg dirPath = do
     return $ CurrySourceFile dirPath paths <$> projSources
 
 -- | Recursively finds all projects in a directory containing the given identifying file.
-walkCurryProjects :: (MonadIO m, MonadLsp c m) => [FilePath] -> FilePath -> m [FilePath]
+walkCurryProjects :: (MonadIO m, MonadLsp CFG.Config m) => [FilePath] -> FilePath -> m [FilePath]
 walkCurryProjects relPath dirPath = do
     files <- walkIgnoringHidden dirPath
     filterM (liftIO . doesFileExist . applyRelPath) files
     where applyRelPath = flip (foldl' (</>)) relPath
 
 -- | Recursively finds all Curry source files in a directory.
-walkCurrySourceFiles :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
+walkCurrySourceFiles :: (MonadIO m, MonadLsp CFG.Config m) => FilePath -> m [FilePath]
 walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkIgnoringHidden
 
 -- | Recursively finds Curry source files, ignoring directories starting with dots
 --   and those specified in .curry-language-server-ignore.
 --   TODO: Respect parent gitignore also in subdirectories (may require changes to walkFilesWith
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
-walkIgnoringHidden :: (MonadIO m, MonadLsp c m) => FilePath -> m [FilePath]
+walkIgnoringHidden :: (MonadIO m, MonadLsp CFG.Config m) => FilePath -> m [FilePath]
 walkIgnoringHidden = walkFilesWith WalkConfiguration
     { wcOnEnter            = \fp -> do
         ignorePaths <- filterM (liftIO . doesFileExist) $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
@@ -252,7 +252,7 @@ readIgnoreFile = liftIO . (map (G.simplify . G.compile . T.unpack) . filter useL
     where useLine l = not (T.null l) && not ("#" `T.isPrefixOf` l)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp c m, MonadCatch m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
+recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
 recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     infoM $ "[" <> T.pack (show i) <> " of " <> T.pack (show total) <> "] (Re)compiling file " <> T.pack (takeFileName filePath)
 

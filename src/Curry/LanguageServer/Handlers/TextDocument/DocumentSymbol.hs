@@ -1,10 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbolHandler) where
 
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import Control.Lens ((^.))
+import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -27,7 +28,7 @@ documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req re
         lift $ fetchDocumentSymbols entry
     responder $ Right $ J.InL $ J.List $ fromMaybe [] symbols
 
-fetchDocumentSymbols :: (MonadIO m, MonadLsp c m) => I.ModuleStoreEntry -> m [J.DocumentSymbol]
+fetchDocumentSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.DocumentSymbol]
 fetchDocumentSymbols entry = do
     let symbols = maybe [] documentSymbols $ I.mseModuleAST entry
     debugM $ "Found document symbols " <> T.pack (show symbols)

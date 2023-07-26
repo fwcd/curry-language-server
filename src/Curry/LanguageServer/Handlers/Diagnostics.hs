@@ -1,8 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics, fetchDiagnostics) where
 
 import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO (..))
+import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Index.Store (ModuleStoreEntry (..))
 import Curry.LanguageServer.Utils.Convert (curryMsg2Diagnostic)
 import Curry.LanguageServer.Utils.Uri (normalizedUriToFilePath)
@@ -27,7 +28,7 @@ emitDiagnostics normUri entry = do
         version = Just 0
     S.publishDiagnostics maxDiags normUri version diagsBySrc
 
-fetchDiagnostics :: (MonadIO m, MonadLsp c m) => J.NormalizedUri -> ModuleStoreEntry -> m [J.Diagnostic]
+fetchDiagnostics :: (MonadIO m, MonadLsp CFG.Config m) => J.NormalizedUri -> ModuleStoreEntry -> m [J.Diagnostic]
 fetchDiagnostics normUri entry = do
     let warnings = map (curryMsg2Diagnostic J.DsWarning) $ mseWarningMessages entry
         errors = map (curryMsg2Diagnostic J.DsError) $ mseErrorMessages entry
