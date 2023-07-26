@@ -21,7 +21,7 @@ import System.FilePath (takeBaseName)
 emitDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> LSM ()
 emitDiagnostics normUri entry = do
     diags <- fetchDiagnostics normUri entry
-    let -- Workaround for empty diagnostics: https://github.com/alanz/haskell-lsp/issues/139
+    let -- Workaround for empty diagnostics: https://github.com/haskell/lsp/issues/139
         diagsBySrc | null diags = M.singleton Nothing (SL.toSortedList [])
                    | otherwise  = D.partitionBySource diags
         maxDiags = 500
