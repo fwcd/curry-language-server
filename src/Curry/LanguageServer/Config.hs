@@ -13,6 +13,7 @@ import Data.Aeson
     , KeyValue (..)
     )
 import Data.Default (Default(..))
+import qualified Data.Text as T
 
 newtype LogLevel = LogLevel { llSeverity :: Severity }
     deriving (Show, Eq)
@@ -64,7 +65,7 @@ instance ToJSON Config where
 instance FromJSON LogLevel where
     parseJSON v = do
         s <- parseJSON v
-        return $ case s :: String of
+        return $ case s :: T.Text of
             "debug"   -> LogLevel Debug
             "info"    -> LogLevel Info
             "warning" -> LogLevel Warning
@@ -72,7 +73,7 @@ instance FromJSON LogLevel where
             _         -> undefined
 
 instance ToJSON LogLevel where
-    toJSON (LogLevel sev) = toJSON @String $ case sev of
+    toJSON (LogLevel sev) = toJSON @T.Text $ case sev of
         Debug   -> "debug"
         Info    -> "info"
         Warning -> "warning"
