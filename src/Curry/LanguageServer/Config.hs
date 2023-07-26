@@ -1,6 +1,7 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, TypeApplications #-}
 module Curry.LanguageServer.Config (Config (..)) where
 
+import Colog.Core (Severity (..))
 import Data.Aeson
     ( FromJSON (..)
     , ToJSON (..)
@@ -13,10 +14,13 @@ import Data.Aeson
     )
 import Data.Default (Default(..))
 
+newtype LogLevel = LogLevel { llSeverity :: Severity }
+    deriving (Show, Eq)
+
 data Config = Config { cfgForceRecompilation :: Bool
                      , cfgImportPaths :: [FilePath]
                      , cfgLibraryPaths :: [FilePath]
-                     , cfgLogLevel :: String
+                     , cfgLogLevel :: LogLevel
                      , cfgCurryPath :: String
                      , cfgUseSnippetCompletions :: Bool
                      }
@@ -26,7 +30,7 @@ instance Default Config where
     def = Config { cfgForceRecompilation = False
                  , cfgImportPaths = []
                  , cfgLibraryPaths = []
-                 , cfgLogLevel = "info"
+                 , cfgLogLevel = LogLevel Info
                  , cfgCurryPath = "pakcs"
                  , cfgUseSnippetCompletions = False
                  }
@@ -57,3 +61,19 @@ instance ToJSON Config where
             ]
         ]
         
+instance FromJSON LogLevel where
+    parseJSON v = do
+        s <- parseJSON v
+        return $ case s :: String of
+            "debug"   -> LogLevel Debug
+            "info"    -> LogLevel Info
+            "warning" -> LogLevel Warning
+            "error"   -> LogLevel Error
+            _         -> undefined
+
+instance ToJSON LogLevel where
+    toJSON (LogLevel sev) = toJSON @String $ case sev of
+        Debug   -> "debug"
+        Info    -> "info"
+        Warning -> "warning"
+        Error   -> "error"
