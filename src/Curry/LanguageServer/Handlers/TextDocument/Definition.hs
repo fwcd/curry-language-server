@@ -21,8 +21,6 @@ import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
 import Language.LSP.Server (MonadLsp)
 
-import Debug.Trace
-
 definitionHandler :: S.Handlers LSM
 definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder -> do
     debugM "Processing definition request"
@@ -47,8 +45,6 @@ fetchDefinitions store entry pos = do
 definitions :: MonadIO m => I.IndexStore -> ModuleAST -> J.Position -> MaybeT m [J.LocationLink]
 definitions store ast pos = do
     -- Look up qualified identifier under cursor
-    traceM "Resolving ident"
     (symbols, srcRange) <- liftMaybe $ resolveQualIdentAtPos store ast pos
-    traceM $ "Resolved to " ++ show symbols ++ " at " ++ show srcRange
     let locations = mapMaybe I.sLocation symbols
     return [J.LocationLink (Just srcRange) destUri destRange destRange | J.Location destUri destRange <- locations]
