@@ -24,9 +24,8 @@ import Language.LSP.Server (MonadLsp)
 definitionHandler :: S.Handlers LSM
 definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder -> do
     debugM "Processing definition request"
-    -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
-    let J.DefinitionParams doc pos _ _ = req ^. J.params
-        uri = doc ^. J.uri
+    let pos = req ^. J.params . J.position
+        uri = req ^. J.params . J.textDocument . J.uri
     normUri <- normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do

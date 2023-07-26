@@ -29,9 +29,8 @@ import Language.LSP.Server (MonadLsp)
 hoverHandler :: S.Handlers LSM
 hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
     debugM "Processing hover request"
-    -- TODO: Update once https://github.com/haskell/lsp/issues/303 is fixed
-    let J.HoverParams doc pos _ = req ^. J.params
-        uri = doc ^. J.uri
+    let pos = req ^. J.params . J.position
+        uri = req ^. J.params . J.textDocument . J.uri
     normUri <- normalizeUriWithPath uri
     store <- getStore
     hover <- runMaybeT $ do
