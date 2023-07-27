@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, OverloadedStrings #-}
 module Curry.LanguageServer.Monad
     ( LSState (..)
     , newLSStateVar
@@ -19,13 +19,24 @@ import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.Trans (lift, liftIO)
 import Curry.LanguageServer.Utils.Concurrent (Debouncer, debounce)
 import Data.Default (Default(..))
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
 import qualified Language.LSP.Types as J
 
+data DirtyModuleHandlers = DirtyModuleHandlers { dmhRecompileHandler :: IO ()
+                                               , dmhAuxiliaryHandler :: IO ()
+                                               }
+
+instance Default DirtyModuleHandlers where
+    def = DirtyModuleHandlers
+        { dmhRecompileHandler = return ()
+        , dmhAuxiliaryHandler = return ()
+        }
+
 -- The language server's state, e.g. holding loaded/compiled modules.
 data LSState = LSState { lssIndexStore :: I.IndexStore
-                       , lssDirtyModuleHandlers :: M.Map J.Uri (IO ())
+                       , lssDirtyModuleHandlers :: M.Map J.Uri DirtyModuleHandlers
                        , lssDebouncer :: Debouncer (IO ()) IO
                        }
 
@@ -80,24 +91,34 @@ putStore i = modifyLSState $ \s -> s { lssIndexStore = i }
 modifyStore :: (I.IndexStore -> I.IndexStore) -> LSM ()
 modifyStore m = modifyLSState $ \s -> s { lssIndexStore = m $ lssIndexStore s }
 
+-- | Updates the dirty module handlers for a module.
+updateDirtyModuleHandlers :: J.Uri -> (DirtyModuleHandlers -> DirtyModuleHandlers) -> LSM ()
+updateDirtyModuleHandlers uri f = modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.alter (Just . f . fromMaybe def) uri $ lssDirtyModuleHandlers s }
+
+-- | Runs all dirty module handlers.
+runDirtyModuleHandlers :: LSM ()
+runDirtyModuleHandlers = do
+    hs <- lssDirtyModuleHandlers <$> getLSState
+    liftIO $ M.foldl' (>>) (return ()) $ M.map (\dmh -> dmhRecompileHandler dmh >> dmhAuxiliaryHandler dmh) hs
+
+-- | Clears all dirty module handlers.
+clearDirtyModuleHandlers :: LSM ()
+clearDirtyModuleHandlers = modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.empty }
+
 -- | Triggers the debouncer that (eventually) executes and removes all dirty module handlers.
 triggerDebouncer :: LSM ()
 triggerDebouncer = do
     (db, _) <- lssDebouncer <$> getLSState
     runInIO <- askRunInIO
     liftIO $ db $ runInIO $ do
-        -- Execute handlers
-        hs <- lssDirtyModuleHandlers <$> getLSState
-        liftIO $ M.foldl' (>>) (return ()) hs
+        runDirtyModuleHandlers
+        clearDirtyModuleHandlers
 
-        -- Clear handlers
-        modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.empty }
-
--- | Marks a module as dirty (= edited, but not compiled yet) and attaches a new handler to be executed once the module becomes compiled (clean) again.
+-- | Marks a module as dirty (= edited, but not compiled yet) and replaces the recompilation handler with the given handler.
 markModuleDirty :: J.Uri -> LSM () -> LSM ()
 markModuleDirty uri h = do
     runInIO <- askRunInIO
-    modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.insertWith (>>) uri (runInIO h) $ lssDirtyModuleHandlers s }
+    updateDirtyModuleHandlers uri $ \dmh -> dmh { dmhRecompileHandler = runInIO h }
     triggerDebouncer
 
 -- | Adds a handler that either executes directly if the module is clean (= compiled, unedited) or defers its execution to the next compilation.
@@ -105,8 +126,10 @@ scheduleModuleHandler :: J.Uri -> LSM () -> LSM ()
 scheduleModuleHandler uri h = do
     hs <- lssDirtyModuleHandlers <$> getLSState
     if M.member uri hs then do
-        -- Module is dirty (edited since the last compilation), defer execution
-        markModuleDirty uri h
+        -- Module is dirty (edited since the last compilation), defer execution by attaching it as an auxiliary handler
+        runInIO <- askRunInIO
+        updateDirtyModuleHandlers uri $ \dmh -> dmh { dmhAuxiliaryHandler = dmhAuxiliaryHandler dmh >> runInIO h }
+        triggerDebouncer
     else do
         -- Module is clean (unedited since the last compilation), execute directly
         h

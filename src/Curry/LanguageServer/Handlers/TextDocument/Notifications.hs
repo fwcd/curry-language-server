@@ -16,6 +16,7 @@ import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad (markModuleDirty, LSM)
 import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -43,9 +44,11 @@ didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \_nt -> do
     debugM "Processing close notification"
     -- TODO: Remove file from LSM state?
 
--- | Recompiles and stores the updated compilation, (re)using a debounced version of the function.
+-- | Schedules recompilation by marking the module as dirty.
 updateIndexStoreDebounced :: J.Uri -> LSM ()
-updateIndexStoreDebounced uri = markModuleDirty uri $ updateIndexStore uri
+updateIndexStoreDebounced uri = do
+    debugM $ "Scheduling recompilation for " <> T.pack (show uri)
+    markModuleDirty uri $ updateIndexStore uri
 
 -- | Recompiles and stores the updated compilation for a given URI.
 updateIndexStore :: J.Uri -> LSM ()

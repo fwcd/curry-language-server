@@ -11,7 +11,7 @@ import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Monad (LSM)
+import Curry.LanguageServer.Monad (LSM, scheduleModuleHandler)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, currySpanInfo2Uri, ppToText)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
@@ -30,10 +30,13 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
     let J.CodeLensParams _ _ doc = req ^. J.params
         uri = doc ^. J.uri
     normUri <- normalizeUriWithPath uri
-    lenses <- runMaybeT $ do
-        entry <- I.getModule normUri
-        lift $ fetchCodeLenses entry
-    responder $ Right $ J.List $ fromMaybe [] lenses
+
+    debugM $ "Scheduling code lenses for " <> T.pack (show uri)
+    scheduleModuleHandler uri $ do
+        lenses <- runMaybeT $ do
+            entry <- I.getModule normUri
+            lift $ fetchCodeLenses entry
+        responder $ Right $ J.List $ fromMaybe [] lenses
 
 fetchCodeLenses :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.CodeLens]
 fetchCodeLenses entry = do
