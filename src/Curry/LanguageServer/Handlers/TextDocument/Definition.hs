@@ -8,7 +8,7 @@ import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
+import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
@@ -45,7 +45,7 @@ fetchDefinitions store entry pos = do
 
 definitions :: MonadIO m => I.IndexStore -> ModuleAST -> J.Position -> MaybeT m [J.LocationLink]
 definitions store ast pos = do
-    -- Look up qualified identifier under cursor
-    (symbols, srcRange) <- liftMaybe $ resolveQualIdentAtPos store ast pos
+    -- Look up identifier under cursor
+    (symbols, srcRange) <- liftMaybe $ resolveAtPos store ast pos
     let locations = mapMaybe I.sLocation symbols
     return [J.LocationLink (Just srcRange) destUri destRange destRange | J.Location destUri destRange <- locations]

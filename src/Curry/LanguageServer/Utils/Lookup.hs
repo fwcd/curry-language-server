@@ -2,6 +2,7 @@
 -- | Position lookup in the AST.
 module Curry.LanguageServer.Utils.Lookup
     ( findQualIdentAtPos
+    , findModuleIdentAtPos
     , findTypeAtPos
     , findScopeAtPos
     , Scope
@@ -12,7 +13,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
-import Control.Applicative
+import Control.Applicative (Alternative ((<|>)))
 import Control.Monad.State (State, when, execState, gets, modify)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
@@ -22,6 +23,7 @@ import Curry.LanguageServer.Utils.Syntax
     , HasIdentifiers(..)
     , HasQualIdentifier(..)
     , HasQualIdentifiers(..)
+    , HasModuleIdentifiers(..)
     )
 import Curry.LanguageServer.Utils.Sema
     ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
@@ -37,6 +39,10 @@ findQualIdentAtPos ast pos = qualIdent <|> exprIdent <|> basicIdent
     where qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
           exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
           basicIdent = CI.qualify <.$> withSpanInfo <$> elementAt pos (identifiers ast)
+
+-- | Finds module identifier and (occurrence) span info at a given position.
+findModuleIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.ModuleIdent, CSPI.SpanInfo)
+findModuleIdentAtPos ast pos = withSpanInfo <$> elementAt pos (moduleIdentifiers ast)
 
 -- | Finds the type at the given position.
 findTypeAtPos :: CS.Module a -> J.Position -> Maybe (TypedSpanInfo a)

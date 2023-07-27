@@ -5,6 +5,7 @@ module Curry.LanguageServer.Utils.Syntax
     , HasTypeExpressions (..)
     , HasDeclarations (..)
     , HasQualIdentifiers (..)
+    , HasModuleIdentifiers (..)
     , HasIdentifiers (..)
     , HasQualIdentifier (..)
     , HasIdentifier (..)
@@ -321,6 +322,21 @@ instance HasQualIdentifiers a => HasQualIdentifiers [a] where
 
 instance HasQualIdentifiers a => HasQualIdentifiers (Maybe a) where
     qualIdentifiers = qualIdentifiers . maybeToList
+
+class HasModuleIdentifiers e where
+    moduleIdentifiers :: e -> [CI.ModuleIdent]
+
+instance HasModuleIdentifiers (CS.Module a) where
+    moduleIdentifiers (CS.Module _ _ _ m _ imps _) = m : moduleIdentifiers imps
+
+instance HasModuleIdentifiers CS.ImportDecl where
+    moduleIdentifiers (CS.ImportDecl _ m _ _ _) = [m]
+
+instance HasModuleIdentifiers a => HasModuleIdentifiers [a] where
+    moduleIdentifiers = (moduleIdentifiers =<<)
+
+instance HasModuleIdentifiers a => HasModuleIdentifiers (Maybe a) where
+    moduleIdentifiers = moduleIdentifiers . maybeToList
 
 class HasIdentifiers e where
     identifiers :: e -> [CI.Ident]

@@ -10,9 +10,9 @@ module Curry.LanguageServer.Index.Store
     , storedModuleByIdent
     , storedModules
     , storedSymbols
-    , storedSymbolsByIdent
     , storedSymbolsWithPrefix
     , storedSymbolsByQualIdent
+    , storedModuleSymbolsByModuleIdent
     , storedModuleSymbolsWithPrefix
     , addWorkspaceDir
     , recompileModule
@@ -44,13 +44,14 @@ import Curry.LanguageServer.Utils.Convert
 import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Logging (infoM, debugM, warnM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
+import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Uri
 import Data.Default
 import Data.Function (on)
 import Data.List (unionBy, isPrefixOf, foldl')
 import Data.List.Extra (nubOrdOn, nubOrd)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, maybeToList, mapMaybe, catMaybes)
+import Data.Maybe (fromMaybe, maybeToList, catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -124,8 +125,8 @@ storedSymbols :: IndexStore -> [Symbol]
 storedSymbols = join . TR.toListBy (const id) . idxSymbols
 
 -- | Fetches the given (unqualified) symbol names in the store.
-storedSymbolsByIdent :: T.Text -> IndexStore -> [Symbol]
-storedSymbolsByIdent t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
+storedSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
+storedSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
@@ -133,8 +134,16 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByIdent name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByKey name
     where name = T.pack $ CI.idName $ CI.qidIdent q
+
+-- | Fetches the given (qualified) module symbol names in the store.
+storedModuleSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
+storedModuleSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxModuleSymbols
+
+-- | Fetches stored symbols by qualified identifier.
+storedModuleSymbolsByModuleIdent :: CI.ModuleIdent -> IndexStore -> [Symbol]
+storedModuleSymbolsByModuleIdent = storedModuleSymbolsByKey . ppToText
 
 -- | Fetches stored module symbols starting with the given prefix.
 storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
@@ -297,7 +306,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         -- Update symbol store
         valueSymbols <- join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
         typeSymbols  <- join <$> mapM toSymbols (CT.allBindings $ CE.tyConsEnv env)
-        modSymbols   <- join <$> mapM toSymbols (nubOrdOn ppToText $ mapMaybe (CI.qidModule . fst) $ CT.allImports (CE.valueEnv env))
+        modSymbols   <- toSymbols (moduleIdentifier ast)
 
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
             combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))
