@@ -25,7 +25,7 @@ data SymbolKind = ValueFunction
                 | Other
     deriving (Show, Eq)
 
--- | A type or value. If it's a type, the 'printed type' will be the printed kind.
+-- | A module, type or value. If it's a type, the 'printed type' will be the printed kind.
 data Symbol = Symbol
     { sKind :: SymbolKind
     , sQualIdent :: T.Text

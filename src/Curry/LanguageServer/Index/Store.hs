@@ -10,9 +10,9 @@ module Curry.LanguageServer.Index.Store
     , storedModuleByIdent
     , storedModules
     , storedSymbols
-    , storedSymbolsByIdent
     , storedSymbolsWithPrefix
     , storedSymbolsByQualIdent
+    , storedModuleSymbolsByModuleIdent
     , storedModuleSymbolsWithPrefix
     , addWorkspaceDir
     , recompileModule
@@ -124,8 +124,8 @@ storedSymbols :: IndexStore -> [Symbol]
 storedSymbols = join . TR.toListBy (const id) . idxSymbols
 
 -- | Fetches the given (unqualified) symbol names in the store.
-storedSymbolsByIdent :: T.Text -> IndexStore -> [Symbol]
-storedSymbolsByIdent t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
+storedSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
+storedSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
@@ -133,8 +133,16 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByIdent name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByKey name
     where name = T.pack $ CI.idName $ CI.qidIdent q
+
+-- | Fetches the given (qualified) module symbol names in the store.
+storedModuleSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
+storedModuleSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxModuleSymbols
+
+-- | Fetches stored symbols by qualified identifier.
+storedModuleSymbolsByModuleIdent :: CI.ModuleIdent -> IndexStore -> [Symbol]
+storedModuleSymbolsByModuleIdent = storedModuleSymbolsByKey . ppToText
 
 -- | Fetches stored module symbols starting with the given prefix.
 storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
