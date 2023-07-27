@@ -12,7 +12,7 @@ import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
-import Curry.LanguageServer.Index.Resolve (resolveQualIdentAtPos)
+import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
@@ -48,7 +48,7 @@ fetchHover store entry pos = runMaybeT $ do
 
 qualIdentHover :: I.IndexStore -> ModuleAST -> J.Position -> Maybe J.Hover
 qualIdentHover store ast pos = do
-    (symbols, range) <- resolveQualIdentAtPos store ast pos
+    (symbols, range) <- resolveAtPos store ast pos
     s <- listToMaybe symbols
 
     let contents = J.HoverContents $ J.markedUpContent "curry" $ I.sQualIdent s <> maybe "" (" :: " <>) (I.sPrintedType s)
