@@ -12,7 +12,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
-import Control.Applicative
+import Control.Applicative (Alternative ((<|>)))
 import Control.Monad.State (State, when, execState, gets, modify)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
