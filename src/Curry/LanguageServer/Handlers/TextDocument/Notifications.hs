@@ -7,19 +7,16 @@ module Curry.LanguageServer.Handlers.TextDocument.Notifications
     ) where
 
 import Control.Lens ((^.))
-import Control.Monad (void, when)
-import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad (void)
 import Control.Monad.Trans (lift)
-import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
 import qualified Curry.LanguageServer.Index.Store as I
-import Curry.LanguageServer.Monad (getDebouncers, modifyDebouncers, LSM)
-import Curry.LanguageServer.Utils.Concurrent (debounceConst)
-import Curry.LanguageServer.Utils.Logging (infoM, debugM)
+import Curry.LanguageServer.Monad (markModuleDirty, LSM)
+import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import qualified Data.Map as M
-import Data.Maybe (fromJust)
+import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Types as J
 import qualified Language.LSP.Types.Lens as J
@@ -43,43 +40,19 @@ didSaveHandler = S.notificationHandler J.STextDocumentDidSave $ \nt -> do
     updateIndexStoreDebounced uri
 
 didCloseHandler :: S.Handlers LSM
-didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \nt -> do
+didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \_nt -> do
     debugM "Processing close notification"
     -- TODO: Remove file from LSM state?
-    let uri = nt ^. J.params . J.textDocument . J.uri
-    removeDebouncer uri
 
--- | Recompiles and stores the updated compilation, (re)using a debounced version of the function.
+-- | Schedules recompilation by marking the module as dirty.
 updateIndexStoreDebounced :: J.Uri -> LSM ()
 updateIndexStoreDebounced uri = do
-    dbs <- getDebouncers
-
-    when (M.notMember uri dbs) $ do
-        -- TODO: Make this delay configurable, e.g. through a config option
-        let delayMs = 500
-        infoM $ "Creating debouncer for " <> J.getUri uri
-        fresh <- debounceConst (delayMs * 1000) (void $ runMaybeT $ updateIndexStore uri)
-        modifyDebouncers $ M.insert uri fresh
-
-    (db, _) <- fromJust . M.lookup uri <$> getDebouncers
-    liftIO db
-
--- | Removes the debouncer for the given URI.
-removeDebouncer :: J.Uri -> LSM ()
-removeDebouncer uri = do
-    dbs <- getDebouncers
-    infoM $ "Removing debouncer for " <> J.getUri uri
-
-    -- Cancel old debouncer
-    case M.lookup uri dbs of
-        Just (_, canceller) -> liftIO canceller
-        _                   -> return ()
-
-    modifyDebouncers $ M.delete uri
+    debugM $ "Scheduling recompilation for " <> T.pack (show uri)
+    markModuleDirty uri $ updateIndexStore uri
 
 -- | Recompiles and stores the updated compilation for a given URI.
-updateIndexStore :: J.Uri -> MaybeT LSM ()
-updateIndexStore uri = do
+updateIndexStore :: J.Uri -> LSM ()
+updateIndexStore uri = void $ runMaybeT $ do
     fl <- lift fileLoader
     cfg <- lift S.getConfig
     normUri <- normalizeUriWithPath uri
