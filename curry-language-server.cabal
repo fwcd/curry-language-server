@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.35.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -13,7 +13,7 @@ homepage:       https://github.com/fwcd/curry-language-server#readme
 bug-reports:    https://github.com/fwcd/curry-language-server/issues
 author:         fwcd
 maintainer:     fwcd
-copyright:      2020 fwcd
+copyright:      2020-2024 fwcd
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
