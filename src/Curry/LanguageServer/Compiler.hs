@@ -118,6 +118,7 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
                                  , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
+                                 , CO.optOriginPragmas = True
                                  }
     -- Resolve dependencies
     deps <- liftCYIO $ CD.flatDeps opts filePath
