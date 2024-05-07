@@ -7,38 +7,38 @@ packages:
 - completed:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84,533
     pantry-tree:
-      size: 268
       sha256: 3b6f94160b9d868f341d841de0e3e9f354ae90b5817b171e2bb68fd67cf2790c
+      size: 268
   original:
     hackage: set-extra-1.4.1@sha256:c58aa620704f609f289953e7c1f9c1653fd1498f0984b0f03a3f8f38f7ed5a84
 - completed:
     hackage: lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
     pantry-tree:
-      size: 1044
       sha256: 43a82c501ec3074d888f2bf4960e4b447028c1537abbca4cf65e74944604bf62
+      size: 1044
   original:
     hackage: lsp-1.6.0.0
 - completed:
     hackage: co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456,3850
     pantry-tree:
-      size: 584
       sha256: af9c807ce50a126706bd99983ec71c060a489ab2b914de8dbccf756adccc2a43
+      size: 584
   original:
     hackage: co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456
 - completed:
+    commit: d61f3cf3604332fff026056ab22937203a5420f1
+    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
-    version: 2.0.0
-    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     pantry-tree:
-      size: 16480
       sha256: 2961c26a8307c515ef47a8381b6d10e07737bf123fddce3b4696d84ef0ec8d5a
-    commit: d61f3cf3604332fff026056ab22937203a5420f1
+      size: 16480
+    version: 2.0.0
   original:
-    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     commit: d61f3cf3604332fff026056ab22937203a5420f1
+    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
 snapshots:
 - completed:
-    size: 649598
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/17.yaml
-    sha256: 14ca51a9a597c32dd7804c10d079feea3d0ae40c5fbbb346cbd67b3ae49f6d01
-  original: lts-20.17
+    sha256: dcf4fc28f12d805480ddbe8eb8c370e11db12f0461d0110a4240af27ac88d725
+    size: 650255
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/22.yaml
+  original: lts-20.22

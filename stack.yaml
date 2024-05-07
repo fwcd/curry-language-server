@@ -7,7 +7,7 @@
 # Resolver to choose a 'specific' stackage snapshot or a compiler version.
 # A snapshot resolver dictates the compiler version and the set of packages
 # to be used for project dependencies.
-resolver: lts-20.17
+resolver: lts-20.22
 
 # User packages to be built.
 packages:
