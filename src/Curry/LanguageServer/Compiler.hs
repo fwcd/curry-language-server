@@ -146,8 +146,8 @@ compileCurryModule opts outDirPath m fp = do
     mdl <- loadAndCheckCurryModule opts m fp
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
-    let interf = uncurry CEX.exportInterface $ CT.qual mdl'
-        interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
+    interf <- liftCYIO $ uncurry (CEX.exportInterface opts) $ CT.qual mdl'
+    let interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
     liftToCM $ debugM $ "Writing interface file to " <> T.pack interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
