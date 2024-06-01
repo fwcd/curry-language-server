@@ -118,6 +118,7 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
                                  , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
+                                 , CO.optOriginPragmas = True
                                  }
     -- Resolve dependencies
     deps <- liftCYIO $ CD.flatDeps opts filePath
@@ -146,8 +147,8 @@ compileCurryModule opts outDirPath m fp = do
     mdl <- loadAndCheckCurryModule opts m fp
     -- Generate and store an on-disk interface file
     mdl' <- CC.expandExports opts mdl
-    let interf = uncurry CEX.exportInterface $ CT.qual mdl'
-        interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
+    interf <- liftCYIO $ uncurry (CEX.exportInterface opts) $ CT.qual mdl'
+    let interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
         generated = PP.render $ CS.pPrint interf
     liftToCM $ debugM $ "Writing interface file to " <> T.pack interfFilePath
     liftIO $ CF.writeModule interfFilePath generated 
