@@ -20,7 +20,7 @@ extra-deps:
   - lsp-1.6.0.0
   - co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: ec11193bb41e71f3f0ec7ebdd116b9b04d7a6b10
+    commit: 43cde910f9e6ab717aa26eebd0792f69a9c2ddcd
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

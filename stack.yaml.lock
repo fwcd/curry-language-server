@@ -26,15 +26,15 @@ packages:
   original:
     hackage: co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456
 - completed:
-    commit: ec11193bb41e71f3f0ec7ebdd116b9b04d7a6b10
+    commit: 43cde910f9e6ab717aa26eebd0792f69a9c2ddcd
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
     pantry-tree:
-      sha256: 04f6cc0c503b005649d028434ad9c076f24d018dcd8ba8f877c2d7dd75f3f774
+      sha256: d9d78779af2be61839956ea08f3c629aa7942e3c901f247c2a006a974622890f
       size: 17097
     version: 2.1.0
   original:
-    commit: ec11193bb41e71f3f0ec7ebdd116b9b04d7a6b10
+    commit: 43cde910f9e6ab717aa26eebd0792f69a9c2ddcd
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
 snapshots:
 - completed:
