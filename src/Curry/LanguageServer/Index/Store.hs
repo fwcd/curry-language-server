@@ -285,8 +285,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     -- Ignore parses from interface files, only consider source files for now
     asts <- mapM (\(fp, mdl) -> (, mdl) <$> filePathToNormalizedUri fp) $ filter ((".curry" `T.isSuffixOf`) . T.pack . fst) co
 
-    warns  <- groupIntoMapByM msgNormUri $ C.csWarnings cs
-    errors <- groupIntoMapByM msgNormUri $ C.csErrors cs
+    warns  <- groupIntoMapByM msgNormUri cs.warnings
+    errors <- groupIntoMapByM msgNormUri cs.errors
 
     debugM $ "Recompiled module paths: " <> T.pack (show (fst <$> asts))
 
