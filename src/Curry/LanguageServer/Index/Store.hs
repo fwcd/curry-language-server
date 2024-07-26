@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 module Curry.LanguageServer.Index.Store
     ( ModuleStoreEntry (..)
     , IndexStore (..)
@@ -184,7 +185,7 @@ findCurrySourcesInWorkspace cfg dirPath = do
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInProject cfg dirPath = do
-    let curryPath = CFG.cfgCurryPath cfg
+    let curryPath = cfg.curryPath
         cpmPath = curryPath ++ " cypm"
         libPath binPath = takeDirectory (takeDirectory binPath) </> "lib"
 

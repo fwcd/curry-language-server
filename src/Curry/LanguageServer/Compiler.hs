@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings, OverloadedRecordDot, FlexibleContexts #-}
 module Curry.LanguageServer.Compiler
     ( CompileAuxiliary (..)
     , CompileState (..)
@@ -113,9 +113,9 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
     let defOpts = CO.defaultOptions
         cppOpts = CO.optCppOpts defOpts
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
-                                 , CO.optImportPaths = importPaths ++ CFG.cfgImportPaths cfg
-                                 , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
+        opts = CO.defaultOptions { CO.optForce = cfg.forceRecompilation
+                                 , CO.optImportPaths = importPaths ++ cfg.importPaths
+                                 , CO.optLibraryPaths = cfg.libraryPaths
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
                                  , CO.optOriginPragmas = True

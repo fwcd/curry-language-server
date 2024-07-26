@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings, TypeApplications #-}
+{-# LANGUAGE NoFieldSelectors, OverloadedRecordDot, RecordWildCards, OverloadedStrings, TypeApplications #-}
 module Curry.LanguageServer.Config
     ( Config (..)
     , LogLevel (..)
@@ -18,49 +18,49 @@ import Data.Aeson
 import Data.Default (Default(..))
 import qualified Data.Text as T
 
-newtype LogLevel = LogLevel { llSeverity :: Severity }
+newtype LogLevel = LogLevel { severity :: Severity }
     deriving (Show, Eq)
 
-data Config = Config { cfgForceRecompilation :: Bool
-                     , cfgImportPaths :: [FilePath]
-                     , cfgLibraryPaths :: [FilePath]
-                     , cfgLogLevel :: LogLevel
-                     , cfgCurryPath :: String
-                     , cfgUseSnippetCompletions :: Bool
+data Config = Config { forceRecompilation :: Bool
+                     , importPaths :: [FilePath]
+                     , libraryPaths :: [FilePath]
+                     , logLevel :: LogLevel
+                     , curryPath :: String
+                     , useSnippetCompletions :: Bool
                      }
     deriving (Show, Eq)
 
 instance Default Config where
-    def = Config { cfgForceRecompilation = False
-                 , cfgImportPaths = []
-                 , cfgLibraryPaths = []
-                 , cfgLogLevel = LogLevel Info
-                 , cfgCurryPath = "pakcs"
-                 , cfgUseSnippetCompletions = False
+    def = Config { forceRecompilation = False
+                 , importPaths = []
+                 , libraryPaths = []
+                 , logLevel = LogLevel Info
+                 , curryPath = "pakcs"
+                 , useSnippetCompletions = False
                  }
 
 instance FromJSON Config where
     parseJSON = withObject "Config" $ \o -> do
         c <- o .: "curry"
         l <- c .: "languageServer"
-        cfgForceRecompilation    <- l .:? "forceRecompilation"    .!= cfgForceRecompilation def
-        cfgImportPaths           <- l .:? "importPaths"           .!= cfgImportPaths def
-        cfgLibraryPaths          <- l .:? "libraryPaths"          .!= cfgLibraryPaths def
-        cfgLogLevel              <- l .:? "logLevel"              .!= cfgLogLevel def
-        cfgCurryPath             <- l .:? "curryPath"             .!= cfgCurryPath def
-        cfgUseSnippetCompletions <- l .:? "useSnippetCompletions" .!= cfgUseSnippetCompletions def
+        forceRecompilation    <- l .:? "forceRecompilation"    .!= (def @Config).forceRecompilation
+        importPaths           <- l .:? "importPaths"           .!= (def @Config).importPaths
+        libraryPaths          <- l .:? "libraryPaths"          .!= (def @Config).libraryPaths
+        logLevel              <- l .:? "logLevel"              .!= (def @Config).logLevel
+        curryPath             <- l .:? "curryPath"             .!= (def @Config).curryPath
+        useSnippetCompletions <- l .:? "useSnippetCompletions" .!= (def @Config).useSnippetCompletions
         return Config {..}
 
 instance ToJSON Config where
     toJSON Config {..} = object
         ["curry" .= object
             [ "languageServer" .= object
-                [ "forceRecompilation"    .= cfgForceRecompilation
-                , "importPaths"           .= cfgImportPaths
-                , "libraryPaths"          .= cfgLibraryPaths
-                , "logLevel"              .= cfgLogLevel
-                , "curryPath"             .= cfgCurryPath
-                , "useSnippetCompletions" .= cfgUseSnippetCompletions
+                [ "forceRecompilation"    .= forceRecompilation
+                , "importPaths"           .= importPaths
+                , "libraryPaths"          .= libraryPaths
+                , "logLevel"              .= logLevel
+                , "curryPath"             .= curryPath
+                , "useSnippetCompletions" .= useSnippetCompletions
                 ]
             ]
         ]

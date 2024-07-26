@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings, OverloadedRecordDot, FlexibleContexts #-}
 module Curry.LanguageServer.Utils.Logging
     ( logAt, showAt
     , errorM, warnM, infoM, debugM
@@ -6,7 +6,7 @@ module Curry.LanguageServer.Utils.Logging
 
 import Colog.Core (Severity (..), WithSeverity (..), (<&))
 import Control.Monad (when)
-import Curry.LanguageServer.Config (Config (cfgLogLevel), LogLevel (llSeverity))
+import Curry.LanguageServer.Config (Config (..), LogLevel (..))
 import qualified Data.Text as T
 import Language.LSP.Logging (logToLogMessage, logToShowMessage)
 import Language.LSP.Server (MonadLsp, getConfig)
@@ -15,7 +15,7 @@ import Language.LSP.Server (MonadLsp, getConfig)
 logAt :: MonadLsp Config m => Severity -> T.Text -> m ()
 logAt sev msg = do
     cfg <- getConfig
-    when (sev >= llSeverity (cfgLogLevel cfg)) $
+    when (sev >= cfg.logLevel.severity) $
         logToLogMessage <& WithSeverity msg sev
 
 -- | Presents a log message in a notification to the user (window/showMessage).

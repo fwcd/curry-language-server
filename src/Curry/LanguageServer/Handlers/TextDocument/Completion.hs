@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings, OverloadedRecordDot, FlexibleContexts, FlexibleInstances, MultiWayIf #-}
 module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -48,7 +48,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
 
         let opts = CompletionOptions
-                { cmoUseSnippets = CFG.cfgUseSnippetCompletions cfg && fromMaybe False (do
+                { cmoUseSnippets = cfg.useSnippetCompletions && fromMaybe False (do
                     docCapabilities <- capabilities ^. J.textDocument
                     cmCapabilities <- docCapabilities ^. J.completion
                     ciCapabilities <- cmCapabilities ^. J.completionItem
