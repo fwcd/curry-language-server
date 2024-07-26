@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, OverloadedRecordDot, FlexibleContexts, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE NoFieldSelectors, OverloadedStrings, OverloadedRecordDot, FlexibleContexts, FlexibleInstances, MultiWayIf #-}
 module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -48,7 +48,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
         query <- MaybeT $ VFS.getCompletionPrefix pos vfile
 
         let opts = CompletionOptions
-                { cmoUseSnippets = cfg.useSnippetCompletions && fromMaybe False (do
+                { useSnippets = cfg.useSnippetCompletions && fromMaybe False (do
                     docCapabilities <- capabilities ^. J.textDocument
                     cmCapabilities <- docCapabilities ^. J.completion
                     ciCapabilities <- cmCapabilities ^. J.completionItem
@@ -125,15 +125,15 @@ data Tagged a = Tagged [J.CompletionItemTag] a
 
 data CompletionSymbol = CompletionSymbol
     { -- The index symbol
-      cmsSymbol :: I.Symbol
+      symbol :: I.Symbol
       -- The, possibly aliased, module name. Nothing means that the symbol is available unqualified.
-    , cmsModuleName :: Maybe T.Text
+    , moduleName :: Maybe T.Text
       -- Import edits to apply after the completion has been selected. Nothing means that the symbol does not require an import.
-    , cmsImportEdits :: Maybe [J.TextEdit]
+    , importEdits :: Maybe [J.TextEdit]
     }
 
 newtype CompletionOptions = CompletionOptions
-    { cmoUseSnippets :: Bool
+    { useSnippets :: Bool
     }
 
 -- | Turns an index symbol into completion symbols by analyzing the module's imports.
@@ -144,16 +144,16 @@ toCompletionSymbols entry s = do
         impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
 
     if | I.sKind s == I.Module -> return CompletionSymbol
-            { cmsSymbol = s
-            , cmsModuleName = Nothing
-            , cmsImportEdits = Nothing
+            { symbol = s
+            , moduleName = Nothing
+            , importEdits = Nothing
             }
        | (I.sParentIdent s == pre && pre `S.notMember` impNames) || I.sParentIdent s == ppToText mid -> do
             m <- [Nothing, Just $ I.sParentIdent s]
             return CompletionSymbol
-                { cmsSymbol = s
-                , cmsModuleName = m
-                , cmsImportEdits = Nothing
+                { symbol = s
+                , moduleName = m
+                , importEdits = Nothing
                 }
        | otherwise -> do
             CS.ImportDecl _ mid' isQual alias spec <- imps
@@ -167,9 +167,9 @@ toCompletionSymbols entry s = do
 
             m <- moduleNames
             return CompletionSymbol
-                { cmsSymbol = s
-                , cmsModuleName = m
-                , cmsImportEdits = if isImported $ I.sIdent s
+                { symbol = s
+                , moduleName = m
+                , importEdits = if isImported $ I.sIdent s
                     then Nothing
                     else case spec of
                         Just (CS.Importing _ is) -> do
@@ -187,8 +187,8 @@ toCompletionSymbols entry s = do
 fullName :: CompletionSymbol -> T.Text
 fullName cms | I.sKind s == I.Module = I.sQualIdent s
              | otherwise             = maybe "" (<> ".") moduleName <> I.sIdent s
-    where s = cmsSymbol cms
-          moduleName = cmsModuleName cms
+    where s = cms.symbol
+          moduleName = cms.moduleName
 
 -- | The fully qualified prefix of the completion query.
 fullPrefix :: VFS.PosPrefixInfo -> T.Text
@@ -219,8 +219,8 @@ class ToCompletionItems a where
 instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
     toCompletionItems opts query cms = [makeCompletion name ciKind detail doc insertText insertTextFormat edits]
-        where s = cmsSymbol cms
-              edits = cmsImportEdits cms
+        where s = cms.symbol
+              edits = cms.importEdits
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
               ciKind = case I.sKind s of
                   I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
@@ -235,10 +235,10 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeClass                                    -> J.CiInterface
                   I.TypeVar                                      -> J.CiVariable
                   I.Other                                        -> J.CiText
-              insertText | cmoUseSnippets opts = Just $ makeSnippet name $ I.sPrintedArgumentTypes s
-                         | otherwise           = Just name
-              insertTextFormat | cmoUseSnippets opts = Just J.Snippet
-                               | otherwise           = Just J.PlainText
+              insertText | opts.useSnippets = Just $ makeSnippet name $ I.sPrintedArgumentTypes s
+                         | otherwise        = Just name
+              insertTextFormat | opts.useSnippets = Just J.Snippet
+                               | otherwise        = Just J.PlainText
               detail = I.sPrintedType s
               doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
@@ -264,10 +264,10 @@ instance ToCompletionItems Local where
               detail = ppToText <$> t
               doc = Just "Local"
               argTypes = (ppToText <$>) $ CT.arrowArgs . CT.unpredType =<< maybeToList t
-              insertText | cmoUseSnippets opts = Just $ makeSnippet i argTypes
-                         | otherwise           = Just i
-              insertTextFormat | cmoUseSnippets opts = Just J.Snippet
-                               | otherwise           = Just J.PlainText
+              insertText | opts.useSnippets = Just $ makeSnippet i argTypes
+                         | otherwise        = Just i
+              insertTextFormat | opts.useSnippets = Just J.Snippet
+                               | otherwise        = Just J.PlainText
               edits = Nothing
 
 instance ToCompletionItems T.Text where
