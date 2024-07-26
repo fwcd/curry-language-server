@@ -5,7 +5,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
 import qualified Curry.Syntax as CS
 import qualified Base.Types as CT
 
-import Control.Lens ((^.), (.~))
+import Control.Lens ((^.), (?~))
 import Control.Monad (join, guard)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans (lift)
@@ -281,7 +281,7 @@ instance ToCompletionItems T.Text where
               edits = Nothing
 
 instance ToCompletionItems a => ToCompletionItems (Tagged a) where
-    toCompletionItems opts query (Tagged tags x) = (J.tags .~ Just (J.List tags)) <$> toCompletionItems opts query x
+    toCompletionItems opts query (Tagged tags x) = (J.tags ?~ J.List tags) <$> toCompletionItems opts query x
 
 -- | Creates a snippet with VSCode-style syntax.
 makeSnippet :: T.Text -> [T.Text] -> T.Text
