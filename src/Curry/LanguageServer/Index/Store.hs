@@ -34,6 +34,7 @@ import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
 import Control.Exception (SomeException)
+import Control.Monad (forM_, join, void, unless, filterM)
 import Control.Monad.Catch (MonadCatch (..))
 import Control.Monad.Extra (whenM)
 import Control.Monad.State
