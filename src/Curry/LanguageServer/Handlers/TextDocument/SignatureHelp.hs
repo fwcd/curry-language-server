@@ -32,8 +32,8 @@ import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
 import qualified Data.List.NonEmpty as N
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.VFS as VFS
 import Language.LSP.Server (MonadLsp)
 

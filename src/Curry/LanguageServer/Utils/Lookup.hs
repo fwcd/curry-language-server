@@ -28,7 +28,7 @@ import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Sema
     ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
 import qualified Data.Map as M
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 -- | A collectScope of bound identifiers.
 type Scope a = M.Map CI.Ident (Maybe a)

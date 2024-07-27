@@ -15,7 +15,7 @@ import qualified Data.Text as T
 import qualified Language.LSP.Diagnostics as D
 import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import System.FilePath (takeBaseName)
 
 emitDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> LSM ()

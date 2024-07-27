@@ -22,7 +22,7 @@ import Data.Default (Default(..))
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 data DirtyModuleHandlers = DirtyModuleHandlers { recompileHandler :: IO ()
                                                , auxiliaryHandler :: IO ()

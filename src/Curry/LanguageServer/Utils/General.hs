@@ -50,7 +50,7 @@ import qualified Data.Text as T
 import qualified Data.Trie as TR
 import qualified Data.Map as M
 import qualified Data.Set as S
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import System.FilePath
 import System.IO.Unsafe (unsafeInterleaveIO)
 import System.Directory

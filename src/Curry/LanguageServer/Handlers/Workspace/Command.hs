@@ -8,8 +8,8 @@ import Curry.LanguageServer.Utils.Logging (debugM, infoM, warnM)
 import qualified Data.Aeson as A
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 
 executeCommandHandler :: S.Handlers LSM
 executeCommandHandler = S.requestHandler J.SWorkspaceExecuteCommand $ \req responder -> do

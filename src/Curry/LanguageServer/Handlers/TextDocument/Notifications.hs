@@ -18,8 +18,8 @@ import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 
 didOpenHandler :: S.Handlers LSM
 didOpenHandler = S.notificationHandler J.STextDocumentDidOpen $ \nt -> do

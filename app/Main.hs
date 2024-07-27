@@ -7,7 +7,7 @@ import qualified Data.Aeson as A
 import Data.Default (Default (..))
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Handlers.Workspace.Command (commands)

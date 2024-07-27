@@ -29,8 +29,8 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.VFS as VFS
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 import Language.LSP.Server (MonadLsp)
 
 completionHandler :: S.Handlers LSM

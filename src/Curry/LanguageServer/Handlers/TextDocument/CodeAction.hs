@@ -23,8 +23,8 @@ import Data.Maybe (fromMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 
 codeActionHandler :: S.Handlers LSM
 codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder -> do

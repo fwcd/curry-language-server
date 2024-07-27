@@ -9,7 +9,7 @@ import Curry.LanguageServer.Monad (LSM)
 import Data.Maybe (maybeToList, fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 initializedHandler :: S.Handlers LSM
 initializedHandler = S.notificationHandler J.SInitialized $ \_nt -> do

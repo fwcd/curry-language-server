@@ -47,7 +47,7 @@ import Curry.LanguageServer.Utils.General
 import Curry.LanguageServer.Utils.Uri (filePathToUri, uriToFilePath)
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 -- Curry Compiler -> Language Server Protocol
 
