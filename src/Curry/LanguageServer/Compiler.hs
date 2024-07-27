@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE LambdaCase, NoFieldSelectors, OverloadedStrings, OverloadedRecordDot, FlexibleContexts #-}
 module Curry.LanguageServer.Compiler
     ( CompileAuxiliary (..)
     , CompileState (..)
@@ -63,20 +63,20 @@ newtype CompileAuxiliary = CompileAuxiliary
 
 -- | Read/write state used during compilation.
 data CompileState = CompileState
-    { csWarnings :: [CM.Message]
-    , csErrors :: [CM.Message]
+    { warnings :: [CM.Message]
+    , errors :: [CM.Message]
     }
 
 instance Semigroup CompileState where
     x <> y = CompileState
-        { csWarnings = csWarnings x ++ csWarnings y
-        , csErrors = csErrors x ++ csErrors y
+        { warnings = x.warnings ++ y.warnings
+        , errors = x.errors ++ y.errors
         }
 
 instance Monoid CompileState where
     mempty = CompileState
-        { csWarnings = []
-        , csErrors = []
+        { warnings = []
+        , errors = []
         }
 
 -- | A custom monad for compilation state as a CYIO-replacement that doesn't track errors in an ExceptT.
@@ -88,10 +88,10 @@ runCMT cm aux = flip runReaderT aux . flip runStateT mempty . runMaybeT $ cm
 catchCYIO :: MonadIO m => CYIO a -> CMT m (Maybe a)
 catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
     Left es       -> do
-        modify $ \s -> s { csErrors = csErrors s ++ es }
+        modify $ \s -> s { errors = s.errors ++ es }
         return Nothing
     Right (x, ws) -> do
-        modify $ \s -> s { csWarnings = csWarnings s ++ ws }
+        modify $ \s -> s { warnings = s.warnings ++ ws }
         return $ Just x
 
 liftToCM :: Monad m => m a -> CMT m a
@@ -113,9 +113,9 @@ compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe me
     let defOpts = CO.defaultOptions
         cppOpts = CO.optCppOpts defOpts
         cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = CFG.cfgForceRecompilation cfg
-                                 , CO.optImportPaths = importPaths ++ CFG.cfgImportPaths cfg
-                                 , CO.optLibraryPaths = CFG.cfgLibraryPaths cfg
+        opts = CO.defaultOptions { CO.optForce = cfg.forceRecompilation
+                                 , CO.optImportPaths = importPaths ++ cfg.importPaths
+                                 , CO.optLibraryPaths = cfg.libraryPaths
                                  , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
                                  , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
                                  , CO.optOriginPragmas = True
@@ -170,7 +170,7 @@ compileCurryModule opts outDirPath m fp = do
 loadAndCheckCurryModule :: MonadIO m => CO.Options -> CI.ModuleIdent -> FilePath -> CMT m (CE.CompEnv ModuleAST)
 loadAndCheckCurryModule opts m fp = do
     -- Read source file (possibly from VFS)
-    fl <- asks fileLoader
+    fl <- asks (.fileLoader)
     src <- liftIO $ fl fp
     -- Load and check module
     loaded <- liftCYIO $ loadCurryModule opts m src fp
@@ -231,7 +231,7 @@ parseCurryModule opts _ src fp = do
     return (lexed, ast)
 
 failedCompilation :: String -> (CompileOutput, CompileState)
-failedCompilation msg = (mempty, mempty { csErrors = [makeFailMessage msg] })
+failedCompilation msg = (mempty, mempty { errors = [makeFailMessage msg] })
 
 makeFailMessage :: String -> CM.Message
 makeFailMessage = CM.message . PP.text

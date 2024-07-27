@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Handlers.TextDocument.Definition (definitionHandler) where
 
 import Control.Lens ((^.))
@@ -30,7 +30,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
     normUri <- normalizeUriWithPath uri
     store <- getStore
     defs <- runMaybeT $ do
-        lift $ debugM $ "Looking up " <> J.getUri (J.fromNormalizedUri normUri) <> " in " <> T.pack (show (M.keys $ I.idxModules store))
+        lift $ debugM $ "Looking up " <> J.getUri (J.fromNormalizedUri normUri) <> " in " <> T.pack (show (M.keys store.modules))
         entry <- I.getModule normUri
         lift $ fetchDefinitions store entry pos
     responder $ Right $ J.InR $ J.InR $ J.List $ fromMaybe [] defs
@@ -38,7 +38,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
 fetchDefinitions :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m [J.LocationLink]
 fetchDefinitions store entry pos = do
     defs <- (fromMaybe [] <$>) $ runMaybeT $ do
-        ast <- liftMaybe $ I.mseModuleAST entry
+        ast <- liftMaybe entry.moduleAST
         definitions store ast pos
     infoM $ "Found " <> T.pack (show (length defs)) <> " definition(s)"
     return defs

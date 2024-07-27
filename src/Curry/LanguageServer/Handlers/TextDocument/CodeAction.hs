@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -39,7 +39,7 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
 
 fetchCodeActions :: (MonadIO m, MonadLsp CFG.Config m) => J.Range -> I.ModuleStoreEntry -> m [J.CodeAction]
 fetchCodeActions range entry = do
-    actions <- maybe (pure []) (codeActions range) $ I.mseModuleAST entry
+    actions <- maybe (pure []) (codeActions range) entry.moduleAST
     debugM $ "Found " <> T.pack (show (length actions)) <> " code action(s)"
     return actions
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -41,7 +41,7 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
 
 fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
 fetchHover store entry pos = runMaybeT $ do
-    ast <- liftMaybe $ I.mseModuleAST entry
+    ast <- liftMaybe entry.moduleAST
     hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover

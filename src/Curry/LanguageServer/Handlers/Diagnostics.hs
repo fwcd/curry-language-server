@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics, fetchDiagnostics) where
 
 import Control.Monad (unless)
@@ -30,8 +30,8 @@ emitDiagnostics normUri entry = do
 
 fetchDiagnostics :: (MonadIO m, MonadLsp CFG.Config m) => J.NormalizedUri -> ModuleStoreEntry -> m [J.Diagnostic]
 fetchDiagnostics normUri entry = do
-    let warnings = map (curryMsg2Diagnostic J.DsWarning) $ mseWarningMessages entry
-        errors = map (curryMsg2Diagnostic J.DsError) $ mseErrorMessages entry
+    let warnings = map (curryMsg2Diagnostic J.DsWarning) entry.warningMessages
+        errors = map (curryMsg2Diagnostic J.DsError) entry.errorMessages
         diags = warnings ++ errors
         name = maybe "?" takeBaseName $ normalizedUriToFilePath normUri
     

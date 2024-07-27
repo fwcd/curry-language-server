@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Handlers.TextDocument.CodeLens (codeLensHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -40,7 +40,7 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
 
 fetchCodeLenses :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.CodeLens]
 fetchCodeLenses entry = do
-    lenses <- maybe (pure []) codeLenses $ I.mseModuleAST entry
+    lenses <- maybe (pure []) codeLenses entry.moduleAST
     infoM $ "Found " <> T.pack (show (length lenses)) <> " code lens(es)"
     return lenses
 

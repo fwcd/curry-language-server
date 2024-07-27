@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances, NoFieldSelectors, OverloadedRecordDot, MultiParamTypeClasses, OverloadedStrings #-}
 module Curry.LanguageServer.Monad
     ( LSState (..)
     , newLSStateVar
@@ -24,20 +24,20 @@ import qualified Data.Map as M
 import Language.LSP.Server (LspT, LanguageContextEnv, runLspT)
 import qualified Language.LSP.Types as J
 
-data DirtyModuleHandlers = DirtyModuleHandlers { dmhRecompileHandler :: IO ()
-                                               , dmhAuxiliaryHandler :: IO ()
+data DirtyModuleHandlers = DirtyModuleHandlers { recompileHandler :: IO ()
+                                               , auxiliaryHandler :: IO ()
                                                }
 
 instance Default DirtyModuleHandlers where
     def = DirtyModuleHandlers
-        { dmhRecompileHandler = return ()
-        , dmhAuxiliaryHandler = return ()
+        { recompileHandler = return ()
+        , auxiliaryHandler = return ()
         }
 
 -- The language server's state, e.g. holding loaded/compiled modules.
-data LSState = LSState { lssIndexStore :: I.IndexStore
-                       , lssDirtyModuleHandlers :: M.Map J.Uri DirtyModuleHandlers
-                       , lssDebouncer :: Debouncer (IO ()) IO
+data LSState = LSState { indexStore :: I.IndexStore
+                       , dirtyModuleHandlers :: M.Map J.Uri DirtyModuleHandlers
+                       , debouncer :: Debouncer (IO ()) IO
                        }
 
 newLSState :: IO LSState
@@ -46,9 +46,9 @@ newLSState = do
     let delayMs = 500
     debouncer <- debounce (delayMs * 1000) id
     return LSState
-        { lssIndexStore = def
-        , lssDirtyModuleHandlers = M.empty
-        , lssDebouncer = debouncer
+        { indexStore = def
+        , dirtyModuleHandlers = M.empty
+        , debouncer = debouncer
         }
 
 newLSStateVar :: IO (MVar LSState)
@@ -81,34 +81,34 @@ modifyLSState m = do
 
 -- | Fetches the index store holding compiled modules.
 getStore :: LSM I.IndexStore
-getStore = lssIndexStore <$> getLSState
+getStore = (.indexStore) <$> getLSState
 
 -- | Replaces the index store holding compiled modules.
 putStore :: I.IndexStore -> LSM ()
-putStore i = modifyLSState $ \s -> s { lssIndexStore = i }
+putStore i = modifyLSState $ \s -> s { indexStore = i }
 
 -- | Updates the index store holding compiled modules.
 modifyStore :: (I.IndexStore -> I.IndexStore) -> LSM ()
-modifyStore m = modifyLSState $ \s -> s { lssIndexStore = m $ lssIndexStore s }
+modifyStore m = modifyLSState $ \s -> s { indexStore = m s.indexStore }
 
 -- | Updates the dirty module handlers for a module.
 updateDirtyModuleHandlers :: J.Uri -> (DirtyModuleHandlers -> DirtyModuleHandlers) -> LSM ()
-updateDirtyModuleHandlers uri f = modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.alter (Just . f . fromMaybe def) uri $ lssDirtyModuleHandlers s }
+updateDirtyModuleHandlers uri f = modifyLSState $ \s -> s { dirtyModuleHandlers = M.alter (Just . f . fromMaybe def) uri s.dirtyModuleHandlers }
 
 -- | Runs all dirty module handlers.
 runDirtyModuleHandlers :: LSM ()
 runDirtyModuleHandlers = do
-    hs <- lssDirtyModuleHandlers <$> getLSState
-    liftIO $ M.foldl' (>>) (return ()) $ M.map (\dmh -> dmhRecompileHandler dmh >> dmhAuxiliaryHandler dmh) hs
+    hs <- (.dirtyModuleHandlers) <$> getLSState
+    liftIO $ M.foldl' (>>) (return ()) $ M.map (\dmh -> dmh.recompileHandler >> dmh.auxiliaryHandler) hs
 
 -- | Clears all dirty module handlers.
 clearDirtyModuleHandlers :: LSM ()
-clearDirtyModuleHandlers = modifyLSState $ \s -> s { lssDirtyModuleHandlers = M.empty }
+clearDirtyModuleHandlers = modifyLSState $ \s -> s { dirtyModuleHandlers = M.empty }
 
 -- | Triggers the debouncer that (eventually) executes and removes all dirty module handlers.
 triggerDebouncer :: LSM ()
 triggerDebouncer = do
-    (db, _) <- lssDebouncer <$> getLSState
+    (db, _) <- (.debouncer) <$> getLSState
     runInIO <- askRunInIO
     liftIO $ db $ runInIO $ do
         runDirtyModuleHandlers
@@ -118,17 +118,17 @@ triggerDebouncer = do
 markModuleDirty :: J.Uri -> LSM () -> LSM ()
 markModuleDirty uri h = do
     runInIO <- askRunInIO
-    updateDirtyModuleHandlers uri $ \dmh -> dmh { dmhRecompileHandler = runInIO h }
+    updateDirtyModuleHandlers uri $ \dmh -> dmh { recompileHandler = runInIO h }
     triggerDebouncer
 
 -- | Adds a handler that either executes directly if the module is clean (= compiled, unedited) or defers its execution to the next compilation.
 scheduleModuleHandler :: J.Uri -> LSM () -> LSM ()
 scheduleModuleHandler uri h = do
-    hs <- lssDirtyModuleHandlers <$> getLSState
+    hs <- (.dirtyModuleHandlers) <$> getLSState
     if M.member uri hs then do
         -- Module is dirty (edited since the last compilation), defer execution by attaching it as an auxiliary handler
         runInIO <- askRunInIO
-        updateDirtyModuleHandlers uri $ \dmh -> dmh { dmhAuxiliaryHandler = dmhAuxiliaryHandler dmh >> runInIO h }
+        updateDirtyModuleHandlers uri $ \dmh -> dmh { auxiliaryHandler = dmh.auxiliaryHandler >> runInIO h }
         triggerDebouncer
     else do
         -- Module is clean (unedited since the last compilation), execute directly

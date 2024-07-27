@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbolHandler) where
 
 import Control.Monad.IO.Class (MonadIO (..))
@@ -30,6 +30,6 @@ documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req re
 
 fetchDocumentSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.DocumentSymbol]
 fetchDocumentSymbols entry = do
-    let symbols = maybe [] documentSymbols $ I.mseModuleAST entry
+    let symbols = maybe [] documentSymbols entry.moduleAST
     debugM $ "Found document symbols " <> T.pack (show symbols)
     return symbols
