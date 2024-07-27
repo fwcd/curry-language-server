@@ -25,9 +25,10 @@ import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
 import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 
 codeActionHandler :: S.Handlers LSM
-codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder -> do
+codeActionHandler = S.requestHandler J.SMethod_TextDocumentCodeAction $ \req responder -> do
     debugM "Processing code action request"
     let J.CodeActionParams _ _ doc range _ = req ^. J.params
         uri = doc ^. J.uri
@@ -35,7 +36,7 @@ codeActionHandler = S.requestHandler J.STextDocumentCodeAction $ \req responder 
     actions <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchCodeActions range entry
-    responder $ Right $ J.InR <$> fromMaybe [] actions
+    responder $ Right $ J.InL $ J.InR <$> fromMaybe [] actions
 
 fetchCodeActions :: (MonadIO m, MonadLsp CFG.Config m) => J.Range -> I.ModuleStoreEntry -> m [J.CodeAction]
 fetchCodeActions range entry = do
@@ -64,7 +65,7 @@ instance HasCodeActions (CS.Module (Maybe CT.PredType)) where
                 let text = ppToText i <> " :: " <> ppToText t
                     args = [A.toJSON uri, A.toJSON $ range' ^. J.start, A.toJSON text]
                     command = J.Command text "decl.applyTypeHint" $ Just args
-                    caKind = J.CodeActionQuickFix
+                    caKind = J.CodeActionKind_QuickFix
                     isPreferred = True
                     lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing (Just isPreferred) Nothing Nothing (Just command) Nothing
                 return lens

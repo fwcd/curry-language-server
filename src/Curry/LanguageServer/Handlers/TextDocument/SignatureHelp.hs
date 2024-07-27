@@ -28,7 +28,7 @@ import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Utils.Logging (infoM, debugM)
 import Data.Bifunctor (bimap)
 import Data.Foldable (find)
-import Data.Maybe (fromMaybe, listToMaybe, maybeToList)
+import Data.Maybe (listToMaybe, maybeToList)
 import qualified Data.List.NonEmpty as N
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
@@ -36,9 +36,10 @@ import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.VFS as VFS
 import Language.LSP.Server (MonadLsp)
+import qualified Language.LSP.Protocol.Message as J
 
 signatureHelpHandler :: S.Handlers LSM
-signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req responder -> do
+signatureHelpHandler = S.requestHandler J.SMethod_TextDocumentSignatureHelp $ \req responder -> do
     debugM "Processing signature help request"
     let J.SignatureHelpParams doc pos _ _ = req ^. J.params
         uri = doc ^. J.uri
@@ -48,8 +49,7 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
         MaybeT $ fetchSignatureHelp store entry vfile pos
-    responder $ Right $ fromMaybe emptyHelp sigHelp
-    where emptyHelp = J.SignatureHelp [] Nothing Nothing
+    responder $ Right $ maybe (J.InR J.Null) J.InL sigHelp
 
 fetchSignatureHelp :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
@@ -70,7 +70,7 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
         paramSep = " -> "
         paramLabels = sym.printedArgumentTypes
         paramOffsets = reverse $ snd $ foldl (\(n, offs) lbl -> let n' = n + T.length lbl in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
-        params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset . bimap fromIntegral fromIntegral <$> paramOffsets
+        params = flip J.ParameterInformation Nothing . J.InR . bimap fromIntegral fromIntegral <$> paramOffsets
         label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList sym.printedResultType)
         sig = J.SignatureInformation label Nothing (Just params) (Just activeParam)
         sigs = [sig]

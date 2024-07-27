@@ -23,9 +23,10 @@ import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
 import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 
 codeLensHandler :: S.Handlers LSM
-codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> do
+codeLensHandler = S.requestHandler J.SMethod_TextDocumentCodeLens $ \req responder -> do
     debugM "Processing code lens request"
     let J.CodeLensParams _ _ doc = req ^. J.params
         uri = doc ^. J.uri
@@ -36,7 +37,7 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
         lenses <- runMaybeT $ do
             entry <- I.getModule normUri
             lift $ fetchCodeLenses entry
-        responder $ Right $ fromMaybe [] lenses
+        responder $ Right $ J.InL $ fromMaybe [] lenses
 
 fetchCodeLenses :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.CodeLens]
 fetchCodeLenses entry = do

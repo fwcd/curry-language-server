@@ -31,10 +31,11 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.VFS as VFS
 import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
 
 completionHandler :: S.Handlers LSM
-completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder -> do
+completionHandler = S.requestHandler J.SMethod_TextDocumentCompletion $ \req responder -> do
     debugM "Processing completion request"
     let uri = req ^. J.params . J.textDocument . J.uri
         pos = req ^. J.params . J.position
@@ -58,8 +59,8 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
     let maxCompletions = 25
         items = take maxCompletions completions
         incomplete = length completions > maxCompletions
-        result = J.CompletionList incomplete items
-    responder $ Right $ J.InR result
+        result = J.CompletionList incomplete Nothing items
+    responder $ Right $ J.InR $ J.InL result
 
 fetchCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 fetchCompletions opts entry store query
@@ -83,7 +84,7 @@ pragmaCompletions opts query
           optionPragmas      = makeToolOptionKeyword <$> knownTools
           makeToolOptionKeyword tool = Tagged tags $ Keyword $ optionPragmaPrefix <> T.pack (show tool)
             where tags = case tool of
-                    CS.CYMAKE -> [J.CitDeprecated]
+                    CS.CYMAKE -> [J.CompletionItemTag_Deprecated]
                     _         -> []
           isLanguagePragma = languagePragmaName `T.isInfixOf` line
           isOptionPragma   = optionPragmaPrefix `T.isInfixOf` line
@@ -223,22 +224,22 @@ instance ToCompletionItems CompletionSymbol where
               edits = cms.importEdits
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
               ciKind = case s.kind of
-                  I.ValueFunction    | s.arrowArity == Just 0 -> J.CiConstant
-                                     | otherwise              -> J.CiFunction
-                  I.ValueConstructor | s.arrowArity == Just 0 -> J.CiEnumMember
-                                     | otherwise              -> J.CiConstructor
-                  I.Module                                    -> J.CiModule
-                  I.TypeData | length s.constructors == 1   -> J.CiStruct
-                             | otherwise                    -> J.CiEnum
-                  I.TypeNew                                 -> J.CiStruct
-                  I.TypeAlias                               -> J.CiInterface
-                  I.TypeClass                               -> J.CiInterface
-                  I.TypeVar                                 -> J.CiVariable
-                  I.Other                                   -> J.CiText
+                  I.ValueFunction    | s.arrowArity == Just 0 -> J.CompletionItemKind_Constant
+                                     | otherwise              -> J.CompletionItemKind_Function
+                  I.ValueConstructor | s.arrowArity == Just 0 -> J.CompletionItemKind_EnumMember
+                                     | otherwise              -> J.CompletionItemKind_Constructor
+                  I.Module                                    -> J.CompletionItemKind_Module
+                  I.TypeData | length s.constructors == 1     -> J.CompletionItemKind_Struct
+                             | otherwise                      -> J.CompletionItemKind_Enum
+                  I.TypeNew                                   -> J.CompletionItemKind_Struct
+                  I.TypeAlias                                 -> J.CompletionItemKind_Interface
+                  I.TypeClass                                 -> J.CompletionItemKind_Interface
+                  I.TypeVar                                   -> J.CompletionItemKind_Variable
+                  I.Other                                     -> J.CompletionItemKind_Text
               insertText | opts.useSnippets = Just $ makeSnippet name s.printedArgumentTypes
                          | otherwise        = Just name
-              insertTextFormat | opts.useSnippets = Just J.Snippet
-                               | otherwise        = Just J.PlainText
+              insertTextFormat | opts.useSnippets = Just J.InsertTextFormat_Snippet
+                               | otherwise        = Just J.InsertTextFormat_PlainText
               detail = s.printedType
               doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
@@ -249,39 +250,39 @@ instance ToCompletionItems Keyword where
     -- | Creates a completion item from a keyword.
     toCompletionItems _ _ (Keyword kw) = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = kw
-              ciKind = J.CiKeyword
+              ciKind = J.CompletionItemKind_Keyword
               detail = Nothing
               doc = Just "Keyword"
               insertText = Just kw
-              insertTextFormat = Just J.PlainText
+              insertTextFormat = Just J.InsertTextFormat_PlainText
               edits = Nothing
 
 instance ToCompletionItems Local where
     -- | Creates a completion item from a local variable.
     toCompletionItems opts _ (Local i t) = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = i
-              ciKind = J.CiVariable
+              ciKind = J.CompletionItemKind_Variable
               detail = ppToText <$> t
               doc = Just "Local"
               argTypes = (ppToText <$>) $ CT.arrowArgs . CT.unpredType =<< maybeToList t
               insertText | opts.useSnippets = Just $ makeSnippet i argTypes
                          | otherwise        = Just i
-              insertTextFormat | opts.useSnippets = Just J.Snippet
-                               | otherwise        = Just J.PlainText
+              insertTextFormat | opts.useSnippets = Just J.InsertTextFormat_Snippet
+                               | otherwise        = Just J.InsertTextFormat_PlainText
               edits = Nothing
 
 instance ToCompletionItems T.Text where
     toCompletionItems _ _ txt = [makeCompletion label ciKind detail doc insertText insertTextFormat edits]
         where label = txt
-              ciKind = J.CiText
+              ciKind = J.CompletionItemKind_Text
               detail = Nothing
               doc = Nothing
               insertText = Just txt
-              insertTextFormat = Just J.PlainText
+              insertTextFormat = Just J.InsertTextFormat_PlainText
               edits = Nothing
 
 instance ToCompletionItems a => ToCompletionItems (Tagged a) where
-    toCompletionItems opts query (Tagged tags x) = (J.tags ?~ J.List tags) <$> toCompletionItems opts query x
+    toCompletionItems opts query (Tagged tags x) = (J.tags ?~ tags) <$> toCompletionItems opts query x
 
 -- | Creates a snippet with VSCode-style syntax.
 makeSnippet :: T.Text -> [T.Text] -> T.Text
@@ -289,15 +290,16 @@ makeSnippet name ts = T.intercalate " " $ name : ((\(i, t) -> "${" <> T.pack (sh
 
 -- | Creates a completion item using the given label, kind, a detail and doc.
 makeCompletion :: T.Text -> J.CompletionItemKind -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe J.InsertTextFormat -> Maybe [J.TextEdit] -> J.CompletionItem
-makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc deprecated
+makeCompletion l k d c it itf es = J.CompletionItem label labelDetails kind tags detail doc deprecated
                                           preselect sortText filterText insertText
-                                          insertTextFormat insertTextMode textEdit
+                                          insertTextFormat insertTextMode textEdit textEditText
                                           additionalTextEdits commitChars command xdata
   where label = l
+        labelDetails = Nothing
         kind = Just k
         tags = Nothing
         detail = d
-        doc = J.CompletionDocMarkup . J.MarkupContent J.MkMarkdown <$> c
+        doc = J.InR . J.MarkupContent J.MarkupKind_Markdown <$> c
         deprecated = Just False
         preselect = Nothing
         sortText = Nothing
@@ -306,6 +308,7 @@ makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc d
         insertTextFormat = itf
         insertTextMode = Nothing
         textEdit = Nothing
+        textEditText = Nothing
         additionalTextEdits = es
         commitChars = Nothing
         command = Nothing

@@ -13,16 +13,17 @@ import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
 
 workspaceSymbolHandler :: S.Handlers LSM
-workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder -> do
+workspaceSymbolHandler = S.requestHandler J.SMethod_WorkspaceSymbol $ \req responder -> do
     debugM "Processing workspace symbols request"
     let query = req ^. J.params . J.query
     store <- getStore
     symbols <- fetchWorkspaceSymbols store query
     let maxSymbols = 150
-    responder $ Right $ take maxSymbols symbols
+    responder $ Right $ J.InL $ take maxSymbols symbols
 
 fetchWorkspaceSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> T.Text -> m [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do
@@ -32,21 +33,21 @@ fetchWorkspaceSymbols store query = do
     return symbols
 
 toWorkspaceSymbol :: I.Symbol -> Maybe J.SymbolInformation
-toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind tags deprecated loc containerName) <$> s.location
+toWorkspaceSymbol s = J.SymbolInformation name kind tags containerName deprecated <$> s.location
     where name = s.ident
           kind = case s.kind of
-              I.ValueFunction    | s.arrowArity == Just 0 -> J.SkConstant
-                                 | otherwise              -> J.SkFunction
-              I.ValueConstructor | s.arrowArity == Just 0 -> J.SkEnumMember
-                                 | otherwise              -> J.SkConstructor
-              I.Module                                    -> J.SkModule
-              I.TypeData | length s.constructors == 1     -> J.SkStruct
-                         | otherwise                      -> J.SkEnum
-              I.TypeNew                                   -> J.SkStruct
-              I.TypeAlias                                 -> J.SkInterface
-              I.TypeClass                                 -> J.SkInterface
-              I.TypeVar                                   -> J.SkVariable
-              I.Other                                     -> J.SkNamespace
+              I.ValueFunction    | s.arrowArity == Just 0 -> J.SymbolKind_Constant
+                                 | otherwise              -> J.SymbolKind_Function
+              I.ValueConstructor | s.arrowArity == Just 0 -> J.SymbolKind_EnumMember
+                                 | otherwise              -> J.SymbolKind_Constructor
+              I.Module                                    -> J.SymbolKind_Module
+              I.TypeData | length s.constructors == 1     -> J.SymbolKind_Struct
+                         | otherwise                      -> J.SymbolKind_Enum
+              I.TypeNew                                   -> J.SymbolKind_Struct
+              I.TypeAlias                                 -> J.SymbolKind_Interface
+              I.TypeClass                                 -> J.SymbolKind_Interface
+              I.TypeVar                                   -> J.SymbolKind_Variable
+              I.Other                                     -> J.SymbolKind_Namespace
           tags = Nothing
           deprecated = Nothing
           containerName = Just $ I.symbolParentIdent s
