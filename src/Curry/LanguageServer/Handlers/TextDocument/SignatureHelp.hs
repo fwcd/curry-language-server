@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, MonadComprehensions #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, MonadComprehensions #-}
 module Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -53,7 +53,7 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
 
 fetchSignatureHelp :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
-    ast <- liftMaybe $ I.mseModuleAST entry
+    ast <- liftMaybe entry.moduleAST
     let line = VFS.rangeLinesFromVfs vfile $ J.Range (J.Position l 0) (J.Position (l + 1) 0)
         c'   = snapToLastTokenEnd (T.unpack line) c
         pos' = J.Position l c'

@@ -101,7 +101,7 @@ importCompletions opts store query = do
 
 generalCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 generalCompletions opts entry store query = do
-    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) (I.mseModuleAST entry)
+    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) entry.moduleAST
         localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
         localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
         symbols            = filter (flip M.notMember localIdentifiers' . I.sIdent) $ nubOrdOn I.sQualIdent
@@ -139,7 +139,7 @@ newtype CompletionOptions = CompletionOptions
 -- | Turns an index symbol into completion symbols by analyzing the module's imports.
 toCompletionSymbols :: I.ModuleStoreEntry -> I.Symbol -> [CompletionSymbol]
 toCompletionSymbols entry s = do
-    CS.Module _ _ _ mid _ imps _ <- maybeToList $ I.mseModuleAST entry
+    CS.Module _ _ _ mid _ imps _ <- maybeToList entry.moduleAST
     let pre = "Prelude"
         impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
 

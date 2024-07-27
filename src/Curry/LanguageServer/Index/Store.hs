@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NoFieldSelectors #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TypeApplications #-}
 module Curry.LanguageServer.Index.Store
     ( ModuleStoreEntry (..)
     , IndexStore (..)
@@ -68,11 +71,11 @@ import Language.LSP.Server (MonadLsp)
 
 -- | An index store entry containing the parsed AST, the compilation environment
 -- and diagnostic messages.
-data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
-                                         , mseErrorMessages :: [CM.Message]
-                                         , mseWarningMessages :: [CM.Message]
-                                         , mseProjectDir :: Maybe FilePath
-                                         , mseImportPaths :: [FilePath]
+data ModuleStoreEntry = ModuleStoreEntry { moduleAST :: Maybe ModuleAST
+                                         , errorMessages :: [CM.Message]
+                                         , warningMessages :: [CM.Message]
+                                         , projectDir :: Maybe FilePath
+                                         , importPaths :: [FilePath]
                                          }
 
 
@@ -81,35 +84,35 @@ data ModuleStoreEntry = ModuleStoreEntry { mseModuleAST :: Maybe ModuleAST
 -- unqualified symbol names to actual symbols/symbol information.
 -- Since (unqualified) symbol names can be ambiguous, a trie leaf
 -- holds a list of symbol entries rather than just a single one.
-data IndexStore = IndexStore { idxModules :: M.Map J.NormalizedUri ModuleStoreEntry
+data IndexStore = IndexStore { modules :: M.Map J.NormalizedUri ModuleStoreEntry
                                -- Symbols keyed by unqualified name
-                             , idxSymbols :: TR.Trie [Symbol]
+                             , symbols :: TR.Trie [Symbol]
                                -- Module symbols keyed by qualified name
-                             , idxModuleSymbols :: TR.Trie [Symbol]
+                             , moduleSymbols :: TR.Trie [Symbol]
                              }
 
 instance Default ModuleStoreEntry where
-    def = ModuleStoreEntry { mseModuleAST = Nothing
-                           , mseWarningMessages = []
-                           , mseErrorMessages = []
-                           , mseProjectDir = Nothing
-                           , mseImportPaths = []
+    def = ModuleStoreEntry { moduleAST = Nothing
+                           , warningMessages = []
+                           , errorMessages = []
+                           , projectDir = Nothing
+                           , importPaths = []
                            }
 
 instance Default IndexStore where
-    def = IndexStore { idxModules = M.empty, idxSymbols = TR.empty, idxModuleSymbols = TR.empty }
+    def = IndexStore { modules = M.empty, symbols = TR.empty, moduleSymbols = TR.empty }
 
 -- | Fetches the number of stored modules.
 storedModuleCount :: IndexStore -> Int
-storedModuleCount = M.size . idxModules
+storedModuleCount = M.size . (.modules)
 
 -- | Fetches the number of stored symbols.
 storedSymbolCount :: IndexStore -> Int
-storedSymbolCount = TR.size . idxSymbols
+storedSymbolCount = TR.size . (.symbols)
 
 -- | Fetches the given entry in the store.
 storedModule :: J.NormalizedUri -> IndexStore -> Maybe ModuleStoreEntry
-storedModule uri = M.lookup uri . idxModules
+storedModule uri = M.lookup uri . (.modules)
 
 -- | Fetches an entry in the store by module identifier.
 storedModuleByIdent :: CI.ModuleIdent -> IndexStore -> IO (Maybe ModuleStoreEntry)
@@ -119,19 +122,19 @@ storedModuleByIdent mident store = flip storedModule store <$> uri
 
 -- | Fetches the entries in the store as a list.
 storedModules :: IndexStore -> [(J.NormalizedUri, ModuleStoreEntry)]
-storedModules = M.toList . idxModules
+storedModules = M.toList . (.modules)
 
 -- | Fetches all symbols.
 storedSymbols :: IndexStore -> [Symbol]
-storedSymbols = join . TR.toListBy (const id) . idxSymbols
+storedSymbols = join . TR.toListBy (const id) . (.symbols)
 
 -- | Fetches the given (unqualified) symbol names in the store.
 storedSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
-storedSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxSymbols
+storedSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . (.symbols)
 
 -- | Fetches the list of symbols starting with the given prefix.
 storedSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
-storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxSymbols
+storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . (.symbols)
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
@@ -140,7 +143,7 @@ storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbo
 
 -- | Fetches the given (qualified) module symbol names in the store.
 storedModuleSymbolsByKey :: T.Text -> IndexStore -> [Symbol]
-storedModuleSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . idxModuleSymbols
+storedModuleSymbolsByKey t = join . maybeToList . TR.lookup (TE.encodeUtf8 t) . (.moduleSymbols)
 
 -- | Fetches stored symbols by qualified identifier.
 storedModuleSymbolsByModuleIdent :: CI.ModuleIdent -> IndexStore -> [Symbol]
@@ -148,14 +151,14 @@ storedModuleSymbolsByModuleIdent = storedModuleSymbolsByKey . ppToText
 
 -- | Fetches stored module symbols starting with the given prefix.
 storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
-storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . idxModuleSymbols
+storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . (.moduleSymbols)
 
 -- | Compiles the given directory recursively and stores its entries.
 addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
 addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
     files <- lift $ findCurrySourcesInWorkspace cfg dirPath
     lift $ do
-        mapM_ (\(i, file) -> recompileFile i (length files) cfg fl (csfImportPaths file) (Just (csfProjectDir file)) (csfPath file)) (zip [1..] files)
+        mapM_ (\(i, file) -> recompileFile i (length files) cfg fl file.importPaths (Just file.projectDir) file.path) (zip [1..] files)
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
@@ -166,9 +169,9 @@ recompileModule cfg fl uri = void $ runMaybeT $ do
         recompileFile 1 1 cfg fl [] Nothing filePath
         debugM $ "Recompiled entry " <> T.pack (show uri)
 
-data CurrySourceFile = CurrySourceFile { csfProjectDir :: FilePath
-                                       , csfImportPaths :: [FilePath]
-                                       , csfPath :: FilePath
+data CurrySourceFile = CurrySourceFile { projectDir :: FilePath
+                                       , importPaths :: [FilePath]
+                                       , path :: FilePath
                                        }
 
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
@@ -180,7 +183,7 @@ findCurrySourcesInWorkspace cfg dirPath = do
     pathsJsonProjPaths <- walkCurryProjects [".curry", "language-server", "paths.json"] dirPath
     -- If nothing is found, default to the workspace directory
     let projPaths = fromMaybe [dirPath] $ nothingIfNull $ nubOrd $ cpmProjPaths ++ pathsJsonProjPaths
-    nubOrdOn csfPath <$> join <$> mapM (findCurrySourcesInProject cfg) projPaths
+    nubOrdOn (.path) . join <$> mapM (findCurrySourcesInProject cfg) projPaths
 
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
@@ -267,11 +270,12 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     infoM $ "[" <> T.pack (show i) <> " of " <> T.pack (show total) <> "] (Re)compiling file " <> T.pack (takeFileName filePath)
 
     uri <- filePathToNormalizedUri filePath
-    ms <- gets idxModules
+    ms <- gets (.modules)
 
-    let defEntry = def { mseProjectDir = dirPath, mseImportPaths = importPaths }
+    -- Regarding the ambiguous-fields warning, perhaps this is https://gitlab.haskell.org/ghc/ghc/-/issues/21443 ?
+    let defEntry = (def { projectDir = dirPath, importPaths = importPaths }) :: ModuleStoreEntry
         outDirPath = CFN.defaultOutDir </> "language-server"
-        importPaths' = outDirPath : mseImportPaths (M.findWithDefault defEntry uri ms)
+        importPaths' = outDirPath : (M.findWithDefault defEntry uri ms).importPaths
         aux = C.CompileAuxiliary { C.fileLoader = fl }
 
     (co, cs) <- catch
@@ -297,12 +301,12 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     forM_ asts $ \(uri', (env, ast)) -> do
         -- Update module store
         let updateEntry e = e
-                { mseWarningMessages = M.findWithDefault [] uri' warns
-                , mseErrorMessages = M.findWithDefault [] uri' errors
-                , mseModuleAST = Just ast
+                { warningMessages = M.findWithDefault [] uri' warns
+                , errorMessages = M.findWithDefault [] uri' errors
+                , moduleAST = Just ast
                 -- , mseCompilerEnv = Just env
                 }
-        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+        modify $ \s -> s { modules = modifyEntry updateEntry uri' s.modules }
 
         -- Update symbol store
         valueSymbols <- join <$> mapM toSymbols (CT.allBindings $ CE.valueEnv env)
@@ -312,8 +316,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
             combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))
         modify $ \s -> s
-            { idxSymbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) $ idxSymbols s
-            , idxModuleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) $ idxModuleSymbols s
+            { symbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) s.symbols
+            , moduleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) s.moduleSymbols
             }
 
     -- Update store with messages from files that were not successfully compiled
@@ -322,12 +326,12 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         other = filter ((`S.notMember` uris) . fst) . M.toList
 
     forM_ (other warns) $ \(uri', msgs) -> do
-        let updateEntry e = e { mseWarningMessages = msgs }
-        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+        let updateEntry e = e { warningMessages = msgs }
+        modify $ \s -> s { modules = modifyEntry updateEntry uri' s.modules }
 
     forM_ (other errors) $ \(uri', msgs) -> do
-        let updateEntry e = e { mseErrorMessages = msgs }
-        modify $ \s -> s { idxModules = modifyEntry updateEntry uri' $ idxModules s }
+        let updateEntry e = e { errorMessages = msgs }
+        modify $ \s -> s { modules = modifyEntry updateEntry uri' s.modules }
 
 -- | Fetches the number of module entries in the store in a monadic way.
 getModuleCount :: (MonadState IndexStore m) => m Int
@@ -343,4 +347,4 @@ getModuleList = gets storedModules
 
 -- | Fetches the AST for a given URI in the store in a monadic way.
 getModuleAST :: (MonadState IndexStore m) => J.NormalizedUri -> MaybeT m ModuleAST
-getModuleAST uri = (liftMaybe . mseModuleAST) =<< getModule uri
+getModuleAST uri = (liftMaybe . (.moduleAST)) =<< getModule uri
