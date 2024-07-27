@@ -36,7 +36,7 @@ codeLensHandler = S.requestHandler J.STextDocumentCodeLens $ \req responder -> d
         lenses <- runMaybeT $ do
             entry <- I.getModule normUri
             lift $ fetchCodeLenses entry
-        responder $ Right $ J.List $ fromMaybe [] lenses
+        responder $ Right $ fromMaybe [] lenses
 
 fetchCodeLenses :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.CodeLens]
 fetchCodeLenses entry = do
@@ -60,7 +60,7 @@ instance HasCodeLenses (CS.Module (Maybe CT.PredType)) where
                 --       central place to avoid repetition.
                 let text = ppToText i <> " :: " <> ppToText t
                     args = [A.toJSON uri, A.toJSON $ range ^. J.start, A.toJSON text]
-                    command = J.Command text "decl.applyTypeHint" $ Just $ J.List args
+                    command = J.Command text "decl.applyTypeHint" $ Just args
                     lens = J.CodeLens range (Just command) Nothing
                 return lens
 

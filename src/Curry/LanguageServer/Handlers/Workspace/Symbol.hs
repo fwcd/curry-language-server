@@ -22,7 +22,7 @@ workspaceSymbolHandler = S.requestHandler J.SWorkspaceSymbol $ \req responder ->
     store <- getStore
     symbols <- fetchWorkspaceSymbols store query
     let maxSymbols = 150
-    responder $ Right $ J.List $ take maxSymbols symbols
+    responder $ Right $ take maxSymbols symbols
 
 fetchWorkspaceSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> T.Text -> m [J.SymbolInformation]
 fetchWorkspaceSymbols store query = do

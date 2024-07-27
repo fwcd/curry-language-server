@@ -49,7 +49,7 @@ signatureHelpHandler = S.requestHandler J.STextDocumentSignatureHelp $ \req resp
         vfile <- MaybeT $ S.getVirtualFile normUri
         MaybeT $ fetchSignatureHelp store entry vfile pos
     responder $ Right $ fromMaybe emptyHelp sigHelp
-    where emptyHelp = J.SignatureHelp (J.List []) Nothing Nothing
+    where emptyHelp = J.SignatureHelp [] Nothing Nothing
 
 fetchSignatureHelp :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> VFS.VirtualFile -> J.Position -> m (Maybe J.SignatureHelp)
 fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
@@ -72,9 +72,9 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
         paramOffsets = reverse $ snd $ foldl (\(n, offs) lbl -> let n' = n + T.length lbl in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
         params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset . bimap fromIntegral fromIntegral <$> paramOffsets
         label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList sym.printedResultType)
-        sig = J.SignatureInformation label Nothing (Just $ J.List params) (Just activeParam)
+        sig = J.SignatureInformation label Nothing (Just params) (Just activeParam)
         sigs = [sig]
-    return $ J.SignatureHelp (J.List sigs) (Just activeSig) (Just activeParam)
+    return $ J.SignatureHelp sigs (Just activeSig) (Just activeParam)
 
 findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findExpressionApplication store ast pos = lastSafe $ do

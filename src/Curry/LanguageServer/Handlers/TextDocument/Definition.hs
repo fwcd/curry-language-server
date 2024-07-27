@@ -33,7 +33,7 @@ definitionHandler = S.requestHandler J.STextDocumentDefinition $ \req responder 
         lift $ debugM $ "Looking up " <> J.getUri (J.fromNormalizedUri normUri) <> " in " <> T.pack (show (M.keys store.modules))
         entry <- I.getModule normUri
         lift $ fetchDefinitions store entry pos
-    responder $ Right $ J.InR $ J.InR $ J.List $ fromMaybe [] defs
+    responder $ Right $ J.InR $ J.InR $ fromMaybe [] defs
 
 fetchDefinitions :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m [J.LocationLink]
 fetchDefinitions store entry pos = do

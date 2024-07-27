@@ -52,16 +52,18 @@ import qualified Language.LSP.Protocol.Types as J
 -- Curry Compiler -> Language Server Protocol
 
 curryMsg2Diagnostic :: J.DiagnosticSeverity -> CM.Message -> J.Diagnostic
-curryMsg2Diagnostic s msg = J.Diagnostic range severity code src text tags related
+curryMsg2Diagnostic s msg = J.Diagnostic range severity code codeDesc src text tags related dataValue
     where range = fromMaybe emptyRange $ currySpanInfo2Range $ CM.msgSpanInfo msg
           severity = Just s
           code = Nothing
+          codeDesc = Nothing
           src = Nothing
           text = T.pack $ PP.render $ CM.msgTxt msg
           -- TODO: It would be better to have the frontend expose this as a flag/tag instead.
-          tags | "Unused" `T.isPrefixOf` text || "Unreferenced" `T.isPrefixOf` text = Just $ J.List [J.DtUnnecessary]
-               | otherwise                                                          = Just $ J.List []
+          tags | "Unused" `T.isPrefixOf` text || "Unreferenced" `T.isPrefixOf` text = Just [J.DiagnosticTag_Unnecessary]
+               | otherwise                                                          = Just []
           related = Nothing
+          dataValue = Nothing
 
 curryPos2Pos :: CP.Position -> Maybe J.Position
 curryPos2Pos CP.NoPos = Nothing
@@ -187,7 +189,7 @@ ppPatternToName pat = case pat of
     _ -> "?"
 
 makeDocumentSymbol :: T.Text -> J.SymbolKind -> Maybe J.Range -> Maybe [J.DocumentSymbol] -> J.DocumentSymbol
-makeDocumentSymbol n k r cs = J.DocumentSymbol n Nothing k Nothing Nothing r' r' $ J.List <$> cs
+makeDocumentSymbol n k r cs = J.DocumentSymbol n Nothing k Nothing Nothing r' r' cs
     where r' = fromMaybe emptyRange r
 
 class HasDocumentSymbols s where
@@ -196,7 +198,7 @@ class HasDocumentSymbols s where
 instance HasDocumentSymbols (CS.Module a) where
     documentSymbols (CS.Module spi _ _ ident _ _ decls) = [makeDocumentSymbol name symKind range $ Just childs]
         where name = ppToText ident
-              symKind = J.SkModule
+              symKind = J.SymbolKind_Module
               range = currySpanInfo2Range spi
               childs = documentSymbols =<< decls
 
@@ -204,41 +206,41 @@ instance HasDocumentSymbols (CS.Decl a) where
     documentSymbols decl = case decl of
         CS.InfixDecl _ _ _ idents -> [makeDocumentSymbol name symKind range Nothing]
             where name = maybe "<infix operator>" ppToText $ listToMaybe idents
-                  symKind = J.SkOperator
+                  symKind = J.SymbolKind_Operator
         CS.DataDecl _ ident _ cs _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
-                  symKind = if length cs > 1 then J.SkEnum
-                                             else J.SkStruct
+                  symKind = if length cs > 1 then J.SymbolKind_Enum
+                                             else J.SymbolKind_Struct
                   childs = documentSymbols =<< cs
         CS.NewtypeDecl _ ident _ c _ -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
-                  symKind = J.SkStruct
+                  symKind = J.SymbolKind_Struct
                   childs = documentSymbols c
         CS.ExternalDataDecl _ ident _ -> [makeDocumentSymbol name symKind range Nothing]
             where name = ppToText ident
-                  symKind = J.SkStruct
+                  symKind = J.SymbolKind_Struct
         CS.FunctionDecl _ _ ident eqs -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
-                  symKind = if eqsArity eqs > 0 then J.SkFunction
-                                                else J.SkConstant
+                  symKind = if eqsArity eqs > 0 then J.SymbolKind_Function
+                                                else J.SymbolKind_Constant
                   childs = documentSymbols =<< eqs
         CS.TypeDecl _ ident _ _ -> [makeDocumentSymbol name symKind range Nothing]
             where name = ppToText ident
-                  symKind = J.SkInterface
+                  symKind = J.SymbolKind_Interface
         CS.ExternalDecl _ vars -> documentSymbols =<< vars
         CS.FreeDecl _ vars -> documentSymbols =<< vars
         CS.PatternDecl _ pat rhs -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppPatternToName pat
-                  symKind = if patArity pat > 0 then J.SkFunction
-                                                else J.SkConstant
+                  symKind = if patArity pat > 0 then J.SymbolKind_Function
+                                                else J.SymbolKind_Constant
                   childs = documentSymbols rhs
         CS.ClassDecl _ _ _ ident _ decls -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
-                  symKind = J.SkInterface
+                  symKind = J.SymbolKind_Interface
                   childs = documentSymbols =<< decls
         CS.InstanceDecl _ _ _ qident t decls -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText qident <> " (" <> (T.pack $ PP.render $ CPP.pPrintPrec 2 t) <> ")"
-                  symKind = J.SkNamespace
+                  symKind = J.SymbolKind_Namespace
                   childs = documentSymbols =<< decls
         _ -> []
         where lhsArity :: CS.Lhs a -> Int
@@ -255,14 +257,14 @@ instance HasDocumentSymbols (CS.Decl a) where
               range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Var a) where
-    documentSymbols (CS.Var _ ident) = [makeDocumentSymbol (ppToText ident) J.SkVariable range Nothing]
+    documentSymbols (CS.Var _ ident) = [makeDocumentSymbol (ppToText ident) J.SymbolKind_Variable range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo ident
 
 instance HasDocumentSymbols CS.ConstrDecl where
     documentSymbols decl = case decl of
-        CS.ConstrDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SkEnumMember range Nothing]
-        CS.ConOpDecl _ _ ident _ -> [makeDocumentSymbol (ppToText ident) J.SkOperator range Nothing]
-        CS.RecordDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SkEnumMember range Nothing]
+        CS.ConstrDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SymbolKind_EnumMember range Nothing]
+        CS.ConOpDecl _ _ ident _ -> [makeDocumentSymbol (ppToText ident) J.SymbolKind_Operator range Nothing]
+        CS.RecordDecl _ ident _  -> [makeDocumentSymbol (ppToText ident) J.SymbolKind_EnumMember range Nothing]
         where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Equation a) where
@@ -314,7 +316,7 @@ instance HasDocumentSymbols CS.NewConstrDecl where
     documentSymbols decl = case decl of
         CS.NewConstrDecl spi ident _ -> [makeDocumentSymbol (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
         CS.NewRecordDecl spi ident _ -> [makeDocumentSymbol (ppToText ident) symKind (currySpanInfo2Range spi) Nothing]
-        where symKind = J.SkEnumMember
+        where symKind = J.SymbolKind_EnumMember
 
 class HasWorkspaceSymbols s where
     workspaceSymbols :: s -> IO [J.SymbolInformation]
@@ -323,8 +325,8 @@ instance (HasDocumentSymbols s, CSPI.HasSpanInfo s) => HasWorkspaceSymbols s whe
     workspaceSymbols s = do
         loc <- runMaybeT $ currySpanInfo2Location $ CSPI.getSpanInfo s
         let documentSymbolToInformations :: J.DocumentSymbol -> [J.SymbolInformation]
-            documentSymbolToInformations (J.DocumentSymbol n _ k ts d _ _ cs) = ((\l -> J.SymbolInformation n k ts d l Nothing) <$> loc) `maybeCons` cis
-                where cs' = maybe [] (\(J.List cs'') -> cs'') cs
+            documentSymbolToInformations (J.DocumentSymbol n _ k ts d _ _ cs) = ((\l -> J.SymbolInformation n k ts Nothing d l) <$> loc) `maybeCons` cis
+                where cs' = maybe [] id cs
                       cis = documentSymbolToInformations =<< cs'
         return $ documentSymbolToInformations =<< documentSymbols s
 

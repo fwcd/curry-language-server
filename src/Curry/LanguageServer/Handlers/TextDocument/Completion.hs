@@ -58,7 +58,7 @@ completionHandler = S.requestHandler J.STextDocumentCompletion $ \req responder 
     let maxCompletions = 25
         items = take maxCompletions completions
         incomplete = length completions > maxCompletions
-        result = J.CompletionList incomplete $ J.List items
+        result = J.CompletionList incomplete items
     responder $ Right $ J.InR result
 
 fetchCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
@@ -306,7 +306,7 @@ makeCompletion l k d c it itf es = J.CompletionItem label kind tags detail doc d
         insertTextFormat = itf
         insertTextMode = Nothing
         textEdit = Nothing
-        additionalTextEdits = J.List <$> es
+        additionalTextEdits = es
         commitChars = Nothing
         command = Nothing
         xdata = Nothing

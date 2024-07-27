@@ -26,7 +26,7 @@ documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req re
     symbols <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchDocumentSymbols entry
-    responder $ Right $ J.InL $ J.List $ fromMaybe [] symbols
+    responder $ Right $ J.InL $ fromMaybe [] symbols
 
 fetchDocumentSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.DocumentSymbol]
 fetchDocumentSymbols entry = do
