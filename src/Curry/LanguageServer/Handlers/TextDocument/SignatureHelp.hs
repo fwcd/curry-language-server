@@ -72,9 +72,9 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
         paramOffsets = reverse $ snd $ foldl (\(n, offs) lbl -> let n' = n + T.length lbl in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
         params = flip J.ParameterInformation Nothing . J.InR . bimap fromIntegral fromIntegral <$> paramOffsets
         label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList sym.printedResultType)
-        sig = J.SignatureInformation label Nothing (Just params) (Just activeParam)
+        sig = J.SignatureInformation label Nothing (Just params) (Just (J.InL activeParam))
         sigs = [sig]
-    return $ J.SignatureHelp sigs (Just activeSig) (Just activeParam)
+    return $ J.SignatureHelp sigs (Just activeSig) (Just (J.InL activeParam))
 
 findExpressionApplication :: I.IndexStore -> ModuleAST -> J.Position -> Maybe (I.Symbol, CSPI.SpanInfo, [CSPI.SpanInfo])
 findExpressionApplication store ast pos = lastSafe $ do
