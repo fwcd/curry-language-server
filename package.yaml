@@ -25,6 +25,7 @@ dependencies:
   - exceptions      >= 0.10 && < 0.11
   - stm             >= 2.5  && < 2.6
   - text            >= 2.0  && < 2.1
+  - text-rope       >= 0.2  && < 0.3
   - lens            >= 5.1  && < 5.3
   - co-log-core     >= 0.3  && < 0.4
   - filepath        >= 1.4  && < 1.5
