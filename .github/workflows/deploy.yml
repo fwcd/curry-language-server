@@ -48,4 +48,4 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         GH_REPO: ${{ github.repository }}
       shell: bash
-      run: gh release upload "${{ needs.release.outputs.tag }}" bindists/*
+      run: gh release upload "${{ needs.release.outputs.tag }}" bindists/*.{tar.gz,zip}
