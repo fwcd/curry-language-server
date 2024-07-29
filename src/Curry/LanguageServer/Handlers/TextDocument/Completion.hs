@@ -20,6 +20,7 @@ import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Syntax (HasIdentifiers (..))
 import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Curry.LanguageServer.Utils.VFS (PosPrefixInfo (..), getCompletionPrefix)
 import Curry.LanguageServer.Monad (LSM)
 import Data.Bifunctor (first)
 import Data.List.Extra (nubOrdOn)
@@ -28,7 +29,6 @@ import Data.Maybe (maybeToList, fromMaybe, isNothing)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.VFS as VFS
 import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.Protocol.Message as J
@@ -46,9 +46,9 @@ completionHandler = S.requestHandler J.SMethod_TextDocumentCompletion $ \req res
         store <- get
         entry <- I.getModule normUri
         vfile <- MaybeT $ S.getVirtualFile normUri
-        query <- MaybeT $ VFS.getCompletionPrefix pos vfile
 
-        let opts = CompletionOptions
+        let query = getCompletionPrefix pos vfile
+            opts = CompletionOptions
                 { useSnippets = cfg.useSnippetCompletions && fromMaybe False (do
                     docCapabilities <- capabilities ^. J.textDocument
                     cmCapabilities <- docCapabilities ^. J.completion
@@ -62,21 +62,21 @@ completionHandler = S.requestHandler J.SMethod_TextDocumentCompletion $ \req res
         result = J.CompletionList incomplete Nothing items
     responder $ Right $ J.InR $ J.InL result
 
-fetchCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+fetchCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> PosPrefixInfo -> m [J.CompletionItem]
 fetchCompletions opts entry store query
     | isPragma  = pragmaCompletions opts query
     | isImport  = importCompletions opts store query
     | otherwise = generalCompletions opts entry store query
-    where line = VFS.fullLine query
+    where line = query.fullLine
           isPragma = "{-#" `T.isPrefixOf` line
           isImport = "import " `T.isPrefixOf` line
 
-pragmaCompletions :: MonadIO m => CompletionOptions -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+pragmaCompletions :: MonadIO m => CompletionOptions -> PosPrefixInfo -> m [J.CompletionItem]
 pragmaCompletions opts query
     | isLanguagePragma = return $ toMatchingCompletions opts query knownExtensions
     | isOptionPragma   = return []
     | otherwise        = return $ toMatchingCompletions opts query pragmaKeywords
-    where line               = VFS.fullLine query
+    where line               = query.fullLine
           languagePragmaName = "LANGUAGE"
           optionPragmaPrefix = "OPTIONS_"
           languagePragma     = Tagged [] $ Keyword languagePragmaName
@@ -91,7 +91,7 @@ pragmaCompletions opts query
           pragmaKeywords   = languagePragma : optionPragmas
           knownExtensions  = Keyword . T.pack . show <$> ([minBound..maxBound] :: [CS.KnownExtension])
 
-importCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+importCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.IndexStore -> PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
     let modules            = nubOrdOn (.qualIdent) $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
         moduleCompletions  = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
@@ -100,22 +100,22 @@ importCompletions opts store query = do
     infoM $ "Found " <> T.pack (show (length completions)) <> " import completion(s)"
     return completions
 
-generalCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
+generalCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> PosPrefixInfo -> m [J.CompletionItem]
 generalCompletions opts entry store query = do
-    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) entry.moduleAST
+    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` query.cursorPos) entry.moduleAST
         localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
         localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
         symbols            = filter (flip M.notMember localIdentifiers' . (.ident)) $ nubOrdOn (.qualIdent)
-                                                                                    $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
+                                                                                    $ I.storedSymbolsWithPrefix query.prefixText store
         symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< symbols
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
     infoM $ "Local identifiers in scope: " <> T.pack (show (M.keys localIdentifiers'))
-    infoM $ "Found " <> T.pack (show (length completions)) <> " completion(s) with prefix '" <> T.pack (show (VFS.prefixText query)) <> "'"
+    infoM $ "Found " <> T.pack (show (length completions)) <> " completion(s) with prefix '" <> T.pack (show query.prefixText) <> "'"
     return completions
     where keywords = Keyword <$> ["case", "class", "data", "default", "deriving", "do", "else", "external", "fcase", "free", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where", "as", "ccall", "forall", "hiding", "interface", "primitive", "qualified"]
 
-toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a, Foldable t) => CompletionOptions -> VFS.PosPrefixInfo -> t a -> [J.CompletionItem]
+toMatchingCompletions :: (ToCompletionItems a, CompletionQueryFilter a, Foldable t) => CompletionOptions -> PosPrefixInfo -> t a -> [J.CompletionItem]
 toMatchingCompletions opts query = (toCompletionItems opts query =<<) . filterF (matchesCompletionQuery query)
 
 newtype Keyword = Keyword T.Text
@@ -192,21 +192,21 @@ fullName cms | s.kind == I.Module = s.qualIdent
           moduleName = cms.moduleName
 
 -- | The fully qualified prefix of the completion query.
-fullPrefix :: VFS.PosPrefixInfo -> T.Text
-fullPrefix query | T.null (VFS.prefixModule query) = VFS.prefixText query
-                 | otherwise                       = VFS.prefixModule query <> "." <> VFS.prefixText query
+fullPrefix :: PosPrefixInfo -> T.Text
+fullPrefix query | T.null query.prefixScope = query.prefixText
+                 | otherwise                = query.prefixScope <> "." <> query.prefixText
 
 class CompletionQueryFilter a where
-    matchesCompletionQuery :: VFS.PosPrefixInfo -> a -> Bool
+    matchesCompletionQuery :: PosPrefixInfo -> a -> Bool
 
 instance CompletionQueryFilter T.Text where
-    matchesCompletionQuery query txt = VFS.prefixText query `T.isPrefixOf` txt && T.null (VFS.prefixModule query)
+    matchesCompletionQuery query txt = query.prefixText `T.isPrefixOf` txt && T.null query.prefixScope
 
 instance CompletionQueryFilter Keyword where
     matchesCompletionQuery query (Keyword txt) = matchesCompletionQuery query txt
 
 instance CompletionQueryFilter Local where
-    matchesCompletionQuery query (Local i _) = VFS.prefixText query `T.isPrefixOf` i
+    matchesCompletionQuery query (Local i _) = query.prefixText `T.isPrefixOf` i
 
 instance CompletionQueryFilter a => CompletionQueryFilter (Tagged a) where
     matchesCompletionQuery query (Tagged _ x) = matchesCompletionQuery query x
@@ -215,14 +215,14 @@ instance CompletionQueryFilter CompletionSymbol where
     matchesCompletionQuery query cms = fullPrefix query `T.isPrefixOf` fullName cms
 
 class ToCompletionItems a where
-    toCompletionItems :: CompletionOptions -> VFS.PosPrefixInfo -> a -> [J.CompletionItem]
+    toCompletionItems :: CompletionOptions -> PosPrefixInfo -> a -> [J.CompletionItem]
 
 instance ToCompletionItems CompletionSymbol where
     -- | Converts a Curry value binding to a completion item.
     toCompletionItems opts query cms = [makeCompletion name ciKind detail doc insertText insertTextFormat edits]
         where s = cms.symbol
               edits = cms.importEdits
-              name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
+              name = fromMaybe (fullName cms) $ T.stripPrefix (query.prefixScope <> ".") $ fullName cms
               ciKind = case s.kind of
                   I.ValueFunction    | s.arrowArity == Just 0 -> J.CompletionItemKind_Constant
                                      | otherwise              -> J.CompletionItemKind_Function
