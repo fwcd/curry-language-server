@@ -82,7 +82,7 @@ library
     , extra ==1.7.*
     , filepath ==1.4.*
     , lens >=5.1 && <5.3
-    , lsp ==2.3.*
+    , lsp ==2.7.*
     , mtl >=2.2 && <2.4
     , parsec >=3.1 && <4
     , pretty ==1.1.*
@@ -119,7 +119,7 @@ executable curry-language-server
     , extra ==1.7.*
     , filepath ==1.4.*
     , lens >=5.1 && <5.3
-    , lsp ==2.3.*
+    , lsp ==2.7.*
     , mtl >=2.2 && <2.4
     , parsec >=3.1 && <4
     , pretty ==1.1.*
@@ -157,7 +157,7 @@ test-suite curry-language-server-test
     , extra ==1.7.*
     , filepath ==1.4.*
     , lens >=5.1 && <5.3
-    , lsp ==2.3.*
+    , lsp ==2.7.*
     , mtl >=2.2 && <2.4
     , parsec >=3.1 && <4
     , pretty ==1.1.*

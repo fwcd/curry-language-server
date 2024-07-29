@@ -16,6 +16,8 @@ packages:
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
 extra-deps:
+  - lsp-2.7.0.0
+  - lsp-types-2.3.0.0
   - set-extra-1.4.2
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     commit: dd346c0c8c72979b8d195d241a8a19258745b134
