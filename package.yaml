@@ -1,5 +1,5 @@
 name:                curry-language-server
-version:             1.0.0.3
+version:             1.0.0.4
 github:              "fwcd/curry-language-server"
 license:             BSD3
 author:              "fwcd"
