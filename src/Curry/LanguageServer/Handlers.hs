@@ -14,10 +14,11 @@ import Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler)
 import Curry.LanguageServer.Handlers.Workspace.Notifications (didChangeConfigurationHandler)
 import Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
+import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Server as S
 
-handlers :: S.Handlers LSM
-handlers = mconcat
+handlers :: J.ClientCapabilities -> S.Handlers LSM
+handlers _caps = mconcat
     [ -- Request handlers
       completionHandler
     , executeCommandHandler
