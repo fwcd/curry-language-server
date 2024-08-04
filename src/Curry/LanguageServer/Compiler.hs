@@ -45,7 +45,7 @@ import Control.Monad.State.Class (modify)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.Convert (ppToText)
 import Curry.LanguageServer.Utils.General ((<.$>))
-import Curry.LanguageServer.Utils.Logging (debugM)
+import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Data.List (nub)
 import qualified Data.Map as M
@@ -131,7 +131,7 @@ compileCurryModules :: (MonadIO m, MonadLsp CFG.Config m) => CO.Options -> FileP
 compileCurryModules opts outDirPath deps = case deps of
     [] -> liftCYIO $ failMessages [makeFailMessage "Language Server: No module found"]
     ((m, CD.Source fp ps _is):ds) -> do
-        liftToCM $ debugM $ "Actually compiling " <> T.pack fp
+        liftToCM $ infoM $ "  Compiling " <> T.pack fp
         opts' <- liftCYIO $ CB.processPragmas opts ps
         output <- compileCurryModule opts' outDirPath m fp
         if null ds
