@@ -276,7 +276,8 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
     -- Regarding the ambiguous-fields warning, perhaps this is https://gitlab.haskell.org/ghc/ghc/-/issues/21443 ?
     let defEntry = (def { projectDir = dirPath, importPaths = importPaths }) :: ModuleStoreEntry
         outDirPath = CFN.defaultOutDir </> "language-server"
-        importPaths' = outDirPath : (M.findWithDefault defEntry uri ms).importPaths
+        srcPaths = maybe [] (\dir -> [dir, dir </> "src"]) dirPath
+        importPaths' = outDirPath : srcPaths ++ (M.findWithDefault defEntry uri ms).importPaths
         aux = C.CompileAuxiliary { C.fileLoader = fl }
 
     (co, cs) <- catch
