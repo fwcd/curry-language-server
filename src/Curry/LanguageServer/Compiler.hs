@@ -219,15 +219,21 @@ importCurryPrelude opts m@(CS.Module spi li ps mid es is ds) | needed    = CS.Mo
           needed = not isPrelude && not disabled && not imported
           preludeImpl = CS.ImportDecl CSPI.NoSpanInfo CI.preludeMIdent False Nothing Nothing
 
--- | Parses a single module.
+-- | Parses a single module header.
+parseCurryHeader :: CO.Options -> String -> FilePath -> CYIO (CS.Module ())
+parseCurryHeader opts src fp = do
+    ul <- liftCYM $ CUL.unlit fp src
+    cc <- CNC.condCompile (CO.optCppOpts opts) fp ul
+    hdr <- liftCYM $ CS.parseHeader fp cc
+    return hdr
+
+-- | Lexes and parses a single module.
 parseCurryModule :: CO.Options -> CI.ModuleIdent -> String -> FilePath -> CYIO ([(CSP.Span, CS.Token)], CS.Module ())
 parseCurryModule opts _ src fp = do
     ul <- liftCYM $ CUL.unlit fp src
-    -- TODO: Preprocess
     cc <- CNC.condCompile (CO.optCppOpts opts) fp ul
     lexed <- liftCYM $ silent $ CS.lexSource fp cc
     ast <- liftCYM $ CS.parseModule fp cc
-    -- TODO: Check module/file mismatch?
     return (lexed, ast)
 
 failedCompilation :: String -> (CompileOutput, CompileState)
