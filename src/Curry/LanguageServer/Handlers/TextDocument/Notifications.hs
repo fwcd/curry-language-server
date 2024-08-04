@@ -57,7 +57,7 @@ updateIndexStore uri = void $ runMaybeT $ do
     fl <- lift fileLoader
     cfg <- lift S.getConfig
     normUri <- normalizeUriWithPath uri
-    lift $ I.recompileModule cfg fl normUri
+    lift $ I.recompileModule fl normUri
     entry <- I.getModule normUri
     lift $ emitDiagnostics normUri entry
 

@@ -26,8 +26,7 @@ initializedHandler = S.notificationHandler J.SMethod_Initialized $ \_nt -> do
 addDirToIndexStore :: FilePath -> LSM ()
 addDirToIndexStore dirPath = do
     fl <- fileLoader
-    cfg <- S.getConfig
-    I.addWorkspaceDir cfg fl dirPath
+    I.addWorkspaceDir fl dirPath
     entries <- I.getModuleList
     mapM_ (uncurry emitDiagnostics) entries
     

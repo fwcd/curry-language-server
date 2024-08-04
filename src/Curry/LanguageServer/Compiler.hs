@@ -51,6 +51,7 @@ import Data.List (nub)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
 import System.FilePath ((</>), takeFileName)
 
@@ -108,23 +109,25 @@ type CompileOutput = [(FilePath, CE.CompEnv ModuleAST)]
 -- result will be `Left` and contain error messages.
 -- Otherwise it will be `Right` and contain both the parsed AST and
 -- warning messages.
-compileCurryFileWithDeps :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
-compileCurryFileWithDeps cfg aux importPaths outDirPath filePath = (fromMaybe mempty <.$>) $ flip runCMT aux $ do
-    let defOpts = CO.defaultOptions
-        cppOpts = CO.optCppOpts defOpts
-        cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
-        opts = CO.defaultOptions { CO.optForce = cfg.forceRecompilation
-                                 , CO.optImportPaths = importPaths ++ cfg.importPaths
-                                 , CO.optLibraryPaths = cfg.libraryPaths
-                                 , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
-                                 , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
-                                 , CO.optOriginPragmas = True
-                                 }
-    -- Resolve dependencies
-    deps <- liftCYIO $ CD.flatDeps opts filePath
-    liftToCM $ debugM $ "Compiling " <> T.pack (takeFileName filePath) <> ", found deps: " <> T.intercalate ", " (ppToText . fst <$> deps)
-    -- Compile the module and its dependencies in topological order
-    compileCurryModules opts outDirPath deps
+compileCurryFileWithDeps :: (MonadIO m, MonadLsp CFG.Config m) => CompileAuxiliary -> [FilePath] -> FilePath -> FilePath -> m (CompileOutput, CompileState)
+compileCurryFileWithDeps aux importPaths outDirPath filePath = do
+    cfg <- S.getConfig
+    (fromMaybe mempty <.$>) $ flip runCMT aux $ do
+        let defOpts = CO.defaultOptions
+            cppOpts = CO.optCppOpts defOpts
+            cppDefs = M.insert "__PAKCS__" 300 (CO.cppDefinitions cppOpts)
+            opts = CO.defaultOptions { CO.optForce = cfg.forceRecompilation
+                                    , CO.optImportPaths = importPaths ++ cfg.importPaths
+                                    , CO.optLibraryPaths = cfg.libraryPaths
+                                    , CO.optCppOpts = cppOpts { CO.cppDefinitions = cppDefs }
+                                    , CO.optExtensions = nub $ CSE.kielExtensions ++ CO.optExtensions defOpts
+                                    , CO.optOriginPragmas = True
+                                    }
+        -- Resolve dependencies
+        deps <- liftCYIO $ CD.flatDeps opts filePath
+        liftToCM $ debugM $ "Compiling " <> T.pack (takeFileName filePath) <> ", found deps: " <> T.intercalate ", " (ppToText . fst <$> deps)
+        -- Compile the module and its dependencies in topological order
+        compileCurryModules opts outDirPath deps
 
 -- | Compiles the given list of modules in order.
 compileCurryModules :: (MonadIO m, MonadLsp CFG.Config m) => CO.Options -> FilePath -> [(CI.ModuleIdent, CD.Source)] -> CMT m CompileOutput

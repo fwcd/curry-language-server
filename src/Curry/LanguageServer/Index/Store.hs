@@ -68,6 +68,7 @@ import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)
 import qualified System.FilePath.Glob as G
 import System.Process (readProcessWithExitCode)
+import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
 
 -- | An index store entry containing the parsed AST, the compilation environment
@@ -155,19 +156,19 @@ storedModuleSymbolsWithPrefix :: T.Text -> IndexStore -> [Symbol]
 storedModuleSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . (.moduleSymbols)
 
 -- | Compiles the given directory recursively and stores its entries.
-addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => CFG.Config -> C.FileLoader -> FilePath -> m ()
-addWorkspaceDir cfg fl dirPath = void $ runMaybeT $ do
-    files <- lift $ findCurrySourcesInWorkspace cfg dirPath
+addWorkspaceDir :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => C.FileLoader -> FilePath -> m ()
+addWorkspaceDir fl dirPath = void $ runMaybeT $ do
+    files <- lift $ findCurrySourcesInWorkspace dirPath
     lift $ do
-        mapM_ (\(i, file) -> recompileFile i (length files) cfg fl file.importPaths (Just file.projectDir) file.path) (zip [1..] files)
+        mapM_ (\(i, file) -> recompileFile i (length files) fl file.importPaths (Just file.projectDir) file.path) (zip [1..] files)
         infoM $ "Added workspace directory " <> T.pack dirPath
 
 -- | Recompiles the module entry with the given URI and stores the output.
-recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => CFG.Config -> C.FileLoader -> J.NormalizedUri -> m ()
-recompileModule cfg fl uri = void $ runMaybeT $ do
+recompileModule :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => C.FileLoader -> J.NormalizedUri -> m ()
+recompileModule fl uri = void $ runMaybeT $ do
     filePath <- liftMaybe $ J.uriToFilePath $ J.fromNormalizedUri uri
     lift $ do
-        recompileFile 1 1 cfg fl [] Nothing filePath
+        recompileFile 1 1 fl [] Nothing filePath
         debugM $ "Recompiled entry " <> T.pack (show uri)
 
 data CurrySourceFile = CurrySourceFile { projectDir :: FilePath
@@ -176,8 +177,9 @@ data CurrySourceFile = CurrySourceFile { projectDir :: FilePath
                                        }
 
 -- | Finds the Curry source files along with its import paths in a workspace. Recognizes CPM projects.
-findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
-findCurrySourcesInWorkspace cfg dirPath = do
+findCurrySourcesInWorkspace :: (MonadIO m, MonadLsp CFG.Config m) => FilePath -> m [CurrySourceFile]
+findCurrySourcesInWorkspace dirPath = do
+    cfg <- S.getConfig
     -- First and foremost, the language server tries to locate CPM packages by their 'package.json'
     cpmProjPaths <- walkCurryProjects ["package.json"] dirPath
     -- In addition to that, it also supports non-CPM packages located at '.curry/language-server/paths.json'
@@ -266,8 +268,8 @@ readIgnoreFile = liftIO . (map (G.simplify . G.compile . T.unpack) . filter useL
     where useLine l = not (T.null l) && not ("#" `T.isPrefixOf` l)
 
 -- | Recompiles the entry with its dependencies using explicit paths and stores the output.
-recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => Int -> Int -> CFG.Config -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
-recompileFile i total cfg fl importPaths dirPath filePath = void $ do
+recompileFile :: (MonadState IndexStore m, MonadIO m, MonadLsp CFG.Config m, MonadCatch m) => Int -> Int -> C.FileLoader -> [FilePath] -> Maybe FilePath -> FilePath -> m ()
+recompileFile i total fl importPaths dirPath filePath = void $ do
     infoM $ "[" <> T.pack (show i) <> " of " <> T.pack (show total) <> "] (Re)compiling file " <> T.pack (takeFileName filePath)
 
     uri <- filePathToNormalizedUri filePath
@@ -280,7 +282,7 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         aux = C.CompileAuxiliary { C.fileLoader = fl }
 
     (co, cs) <- catch
-        (C.compileCurryFileWithDeps cfg aux importPaths' outDirPath filePath)
+        (C.compileCurryFileWithDeps aux importPaths' outDirPath filePath)
         (\e -> return $ C.failedCompilation $ "Compilation failed: " ++ show (e :: SomeException))
 
     let msgNormUri msg = (fromMaybe uri <$>) $ runMaybeT $ do
