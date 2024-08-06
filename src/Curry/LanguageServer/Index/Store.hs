@@ -241,13 +241,13 @@ walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkIgnori
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
 walkIgnoringHidden :: (MonadIO m, MonadLsp CFG.Config m) => FilePath -> m [FilePath]
 walkIgnoringHidden = walkFilesWith WalkConfiguration
-    { wcOnEnter            = \fp -> do
+    { onEnter            = \fp -> do
         ignorePaths <- filterM (liftIO . doesFileExist) $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
         unless (null ignored) $
             infoM $ "In '" <> T.pack (takeFileName fp) <> "' ignoring " <> T.pack (show (G.decompile <$> ignored))
         return $ Just ignored
-    , wcShouldIgnore       = \ignored fp -> do
+    , shouldIgnore       = \ignored fp -> do
         isDir <- liftIO $ doesDirectoryExist fp
         let fn              = takeFileName fp
             matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
@@ -255,8 +255,8 @@ walkIgnoringHidden = walkFilesWith WalkConfiguration
         unless (null matchingIgnores) $
             debugM $ "Ignoring '" <> T.pack fn <> "' since it matches " <> T.pack (show (G.decompile <$> matchingIgnores))
         return $ not (null matchingIgnores) || "." `isPrefixOf` fn
-    , wcIncludeDirectories = True
-    , wcIncludeFiles       = True
+    , includeDirectories = True
+    , includeFiles       = True
     }
 
 -- | Reads the given ignore file, fetching the ignored (relative) paths.

@@ -1,4 +1,4 @@
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances, MultiWayIf #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances, MultiWayIf, NoFieldSelectors, OverloadedRecordDot #-}
 -- | General utilities.
 module Curry.LanguageServer.Utils.General
     ( lastSafe
@@ -132,22 +132,22 @@ data WalkConfiguration m a = WalkConfiguration
     { -- | Executed when entering a new directory. Fetches some directory-specific
       --   state for later use during filtering, e.g. an ignore file. Returning
       --   Nothing causes the walker to skip the the directory.
-      wcOnEnter            :: FilePath -> m (Maybe a)
+      onEnter            :: FilePath -> m (Maybe a)
       -- | Tests whether a file or directory should be ignored using the state of
       --   the directory containing the path.
-    , wcShouldIgnore       :: a -> FilePath -> m Bool
+    , shouldIgnore       :: a -> FilePath -> m Bool
       -- | Whether the walk should include directories.
-    , wcIncludeDirectories :: Bool
+    , includeDirectories :: Bool
       -- | Whether the walk should include files.
-    , wcIncludeFiles       :: Bool
+    , includeFiles       :: Bool
     }
 
 instance (Default a, Monad m) => Default (WalkConfiguration m a) where
     def = WalkConfiguration
-        { wcOnEnter            = const $ return $ Just def
-        , wcShouldIgnore       = const $ const $ return False
-        , wcIncludeDirectories = False
-        , wcIncludeFiles       = True
+        { onEnter            = const $ return $ Just def
+        , shouldIgnore       = const $ const $ return False
+        , includeDirectories = False
+        , includeFiles       = True
         }
 
 -- | An empty walk configuration.
@@ -161,7 +161,7 @@ walkFiles = walkFilesWith emptyWalkConfiguration
 -- | Lists files in the directory recursively, ignoring files matching the given predicate.
 walkFilesIgnoring :: MonadIO m => (FilePath -> Bool) -> FilePath -> m [FilePath]
 walkFilesIgnoring ignore = walkFilesWith emptyWalkConfiguration
-    { wcShouldIgnore = const $ return . ignore
+    { shouldIgnore = const $ return . ignore
     }
 
 -- | Lists files in the directory recursively with the given configuration.
@@ -170,11 +170,11 @@ walkFilesWith wc fp = (fromMaybe [] <$>) $ runMaybeT $ do
     isDirectory <- liftIO $ unsafeInterleaveIO $ doesDirectoryExist fp
     isFile      <- liftIO $ unsafeInterleaveIO $ doesFileExist fp
     if | isDirectory -> do
-            state     <- MaybeT $ wcOnEnter wc fp
+            state     <- MaybeT $ wc.onEnter fp
             contents  <- liftIO $ listDirectory fp
-            contents' <- map (fp </>) <$> filterM ((not <$>) . lift . wcShouldIgnore wc state) contents
-            ([fp | wcIncludeDirectories wc] ++) . join <$> mapM (lift . walkFilesWith wc) contents'
-       | isFile      -> return [fp | wcIncludeFiles wc]
+            contents' <- map (fp </>) <$> filterM ((not <$>) . lift . wc.shouldIgnore state) contents
+            ([fp | wc.includeDirectories] ++) . join <$> mapM (lift . walkFilesWith wc) contents'
+       | isFile      -> return [fp | wc.includeFiles]
        | otherwise   -> liftMaybe Nothing
 
 -- | Lifts a Maybe into a Maybe transformer.
