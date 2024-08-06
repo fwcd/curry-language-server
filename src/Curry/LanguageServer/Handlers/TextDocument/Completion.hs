@@ -92,7 +92,7 @@ pragmaCompletions opts query
 
 importCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.IndexStore -> VFS.PosPrefixInfo -> m [J.CompletionItem]
 importCompletions opts store query = do
-    let modules            = nubOrdOn I.sQualIdent $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
+    let modules            = nubOrdOn (.qualIdent) $ I.storedModuleSymbolsWithPrefix (fullPrefix query) store
         moduleCompletions  = toMatchingCompletions opts query $ (\s -> CompletionSymbol s Nothing Nothing) <$> modules
         keywordCompletions = toMatchingCompletions opts query $ Keyword <$> ["qualified", "as", "hiding"]
         completions        = moduleCompletions ++ keywordCompletions
@@ -104,8 +104,8 @@ generalCompletions opts entry store query = do
     let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` VFS.cursorPos query) entry.moduleAST
         localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
         localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
-        symbols            = filter (flip M.notMember localIdentifiers' . I.sIdent) $ nubOrdOn I.sQualIdent
-                                                                                   $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
+        symbols            = filter (flip M.notMember localIdentifiers' . (.ident)) $ nubOrdOn (.qualIdent)
+                                                                                    $ I.storedSymbolsWithPrefix (VFS.prefixText query) store
         symbolCompletions  = toMatchingCompletions opts query $ toCompletionSymbols entry =<< symbols
         keywordCompletions = toMatchingCompletions opts query keywords
         completions        = localCompletions ++ symbolCompletions ++ keywordCompletions
@@ -143,13 +143,13 @@ toCompletionSymbols entry s = do
     let pre = "Prelude"
         impNames = S.fromList [ppToText mid' | CS.ImportDecl _ mid' _ _ _ <- imps]
 
-    if | I.sKind s == I.Module -> return CompletionSymbol
+    if | s.kind == I.Module -> return CompletionSymbol
             { symbol = s
             , moduleName = Nothing
             , importEdits = Nothing
             }
-       | (I.sParentIdent s == pre && pre `S.notMember` impNames) || I.sParentIdent s == ppToText mid -> do
-            m <- [Nothing, Just $ I.sParentIdent s]
+       | (I.symbolParentIdent s == pre && pre `S.notMember` impNames) || I.symbolParentIdent s == ppToText mid -> do
+            m <- [Nothing, Just $ I.symbolParentIdent s]
             return CompletionSymbol
                 { symbol = s
                 , moduleName = m
@@ -157,7 +157,7 @@ toCompletionSymbols entry s = do
                 }
        | otherwise -> do
             CS.ImportDecl _ mid' isQual alias spec <- imps
-            guard $ ppToText mid' == I.sParentIdent s
+            guard $ ppToText mid' == I.symbolParentIdent s
 
             let isImported = case spec of
                     Just (CS.Importing _ is) -> flip S.member $ S.fromList $ ppToText <$> (identifiers =<< is)
@@ -169,14 +169,14 @@ toCompletionSymbols entry s = do
             return CompletionSymbol
                 { symbol = s
                 , moduleName = m
-                , importEdits = if isImported $ I.sIdent s
+                , importEdits = if isImported s.ident
                     then Nothing
                     else case spec of
                         Just (CS.Importing _ is) -> do
                             J.Range _ pos <- currySpanInfo2Range =<< lastSafe is
                             let range = J.Range pos pos
-                                text | null is   = I.sIdent s
-                                     | otherwise = ", " <> I.sIdent s
+                                text | null is   = s.ident
+                                     | otherwise = ", " <> s.ident
                                 edit = J.TextEdit range text
                             return [edit]
                         _                        -> return []
@@ -185,8 +185,8 @@ toCompletionSymbols entry s = do
 
 -- | The fully qualified, possibly aliased, name of the completion symbol.
 fullName :: CompletionSymbol -> T.Text
-fullName cms | I.sKind s == I.Module = I.sQualIdent s
-             | otherwise             = maybe "" (<> ".") moduleName <> I.sIdent s
+fullName cms | s.kind == I.Module = s.qualIdent
+             | otherwise          = maybe "" (<> ".") moduleName <> s.ident
     where s = cms.symbol
           moduleName = cms.moduleName
 
@@ -222,27 +222,27 @@ instance ToCompletionItems CompletionSymbol where
         where s = cms.symbol
               edits = cms.importEdits
               name = fromMaybe (fullName cms) $ T.stripPrefix (VFS.prefixModule query <> ".") $ fullName cms
-              ciKind = case I.sKind s of
-                  I.ValueFunction    | I.sArrowArity s == Just 0 -> J.CiConstant
-                                     | otherwise                 -> J.CiFunction
-                  I.ValueConstructor | I.sArrowArity s == Just 0 -> J.CiEnumMember
-                                     | otherwise                 -> J.CiConstructor
-                  I.Module                                       -> J.CiModule
-                  I.TypeData | length (I.sConstructors s) == 1   -> J.CiStruct
-                             | otherwise                         -> J.CiEnum
-                  I.TypeNew                                      -> J.CiStruct
-                  I.TypeAlias                                    -> J.CiInterface
-                  I.TypeClass                                    -> J.CiInterface
-                  I.TypeVar                                      -> J.CiVariable
-                  I.Other                                        -> J.CiText
-              insertText | opts.useSnippets = Just $ makeSnippet name $ I.sPrintedArgumentTypes s
+              ciKind = case s.kind of
+                  I.ValueFunction    | s.arrowArity == Just 0 -> J.CiConstant
+                                     | otherwise              -> J.CiFunction
+                  I.ValueConstructor | s.arrowArity == Just 0 -> J.CiEnumMember
+                                     | otherwise              -> J.CiConstructor
+                  I.Module                                    -> J.CiModule
+                  I.TypeData | length s.constructors == 1   -> J.CiStruct
+                             | otherwise                    -> J.CiEnum
+                  I.TypeNew                                 -> J.CiStruct
+                  I.TypeAlias                               -> J.CiInterface
+                  I.TypeClass                               -> J.CiInterface
+                  I.TypeVar                                 -> J.CiVariable
+                  I.Other                                   -> J.CiText
+              insertText | opts.useSnippets = Just $ makeSnippet name s.printedArgumentTypes
                          | otherwise        = Just name
               insertTextFormat | opts.useSnippets = Just J.Snippet
                                | otherwise        = Just J.PlainText
-              detail = I.sPrintedType s
+              detail = s.printedType
               doc = Just $ T.intercalate "\n\n" $ filter (not . T.null)
                   [ if isNothing edits then "" else "_requires import_"
-                  , T.intercalate ", " $ I.sConstructors s
+                  , T.intercalate ", " s.constructors
                   ]
 
 instance ToCompletionItems Keyword where

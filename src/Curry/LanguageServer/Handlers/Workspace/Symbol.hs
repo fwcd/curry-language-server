@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE NoFieldSelectors, OverloadedStrings, OverloadedRecordDot, FlexibleContexts #-}
 module Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler) where
 
 import Control.Lens ((^.))
@@ -32,21 +32,21 @@ fetchWorkspaceSymbols store query = do
     return symbols
 
 toWorkspaceSymbol :: I.Symbol -> Maybe J.SymbolInformation
-toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind tags deprecated loc containerName) <$> I.sLocation s
-    where name = I.sIdent s
-          kind = case I.sKind s of
-              I.ValueFunction    | I.sArrowArity s == Just 0 -> J.SkConstant
-                                 | otherwise                 -> J.SkFunction
-              I.ValueConstructor | I.sArrowArity s == Just 0 -> J.SkEnumMember
-                                 | otherwise                 -> J.SkConstructor
-              I.Module                                       -> J.SkModule
-              I.TypeData | length (I.sConstructors s) == 1   -> J.SkStruct
-                         | otherwise                         -> J.SkEnum
-              I.TypeNew                                      -> J.SkStruct
-              I.TypeAlias                                    -> J.SkInterface
-              I.TypeClass                                    -> J.SkInterface
-              I.TypeVar                                      -> J.SkVariable
-              I.Other                                        -> J.SkNamespace
+toWorkspaceSymbol s = (\loc -> J.SymbolInformation name kind tags deprecated loc containerName) <$> s.location
+    where name = s.ident
+          kind = case s.kind of
+              I.ValueFunction    | s.arrowArity == Just 0 -> J.SkConstant
+                                 | otherwise              -> J.SkFunction
+              I.ValueConstructor | s.arrowArity == Just 0 -> J.SkEnumMember
+                                 | otherwise              -> J.SkConstructor
+              I.Module                                    -> J.SkModule
+              I.TypeData | length s.constructors == 1     -> J.SkStruct
+                         | otherwise                      -> J.SkEnum
+              I.TypeNew                                   -> J.SkStruct
+              I.TypeAlias                                 -> J.SkInterface
+              I.TypeClass                                 -> J.SkInterface
+              I.TypeVar                                   -> J.SkVariable
+              I.Other                                     -> J.SkNamespace
           tags = Nothing
           deprecated = Nothing
-          containerName = Just $ I.sParentIdent s
+          containerName = Just $ I.symbolParentIdent s

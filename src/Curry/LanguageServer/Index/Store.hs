@@ -138,7 +138,7 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByKey name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . (.qualIdent)) . storedSymbolsByKey name
     where name = T.pack $ CI.idName $ CI.qidIdent q
 
 -- | Fetches the given (qualified) module symbol names in the store.
@@ -241,13 +241,13 @@ walkCurrySourceFiles = (filter ((== ".curry") . takeExtension) <$>) . walkIgnori
 --         to aggregate the state across recursive calls, perhaps by requiring a Monoid instance?)
 walkIgnoringHidden :: (MonadIO m, MonadLsp CFG.Config m) => FilePath -> m [FilePath]
 walkIgnoringHidden = walkFilesWith WalkConfiguration
-    { wcOnEnter            = \fp -> do
+    { onEnter            = \fp -> do
         ignorePaths <- filterM (liftIO . doesFileExist) $ (fp </>) <$> [".curry-language-server-ignore", ".gitignore"]
         ignored     <- join <$> mapM readIgnoreFile ignorePaths
         unless (null ignored) $
             infoM $ "In '" <> T.pack (takeFileName fp) <> "' ignoring " <> T.pack (show (G.decompile <$> ignored))
         return $ Just ignored
-    , wcShouldIgnore       = \ignored fp -> do
+    , shouldIgnore       = \ignored fp -> do
         isDir <- liftIO $ doesDirectoryExist fp
         let fn              = takeFileName fp
             matchesFn pat   = any (G.match pat) $ catMaybes [Just fn, if isDir then Just (fn ++ "/") else Nothing]
@@ -255,8 +255,8 @@ walkIgnoringHidden = walkFilesWith WalkConfiguration
         unless (null matchingIgnores) $
             debugM $ "Ignoring '" <> T.pack fn <> "' since it matches " <> T.pack (show (G.decompile <$> matchingIgnores))
         return $ not (null matchingIgnores) || "." `isPrefixOf` fn
-    , wcIncludeDirectories = True
-    , wcIncludeFiles       = True
+    , includeDirectories = True
+    , includeFiles       = True
     }
 
 -- | Reads the given ignore file, fetching the ignored (relative) paths.
@@ -314,10 +314,10 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         modSymbols   <- toSymbols (moduleIdentifier ast)
 
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
-            combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))
+            combiner = unionBy ((==) `on` (\s' -> (s'.kind, s'.qualIdent, symbolIsFromCurrySource s')))
         modify $ \s -> s
-            { symbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) s.symbols
-            , moduleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) s.moduleSymbols
+            { symbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 s'.ident, [s'])) <$> symbolDelta) s.symbols
+            , moduleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` (.qualIdent))) ((\s' -> (TE.encodeUtf8 s'.qualIdent, [s'])) <$> modSymbols) s.moduleSymbols
             }
 
     -- Update store with messages from files that were not successfully compiled

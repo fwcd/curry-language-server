@@ -51,5 +51,5 @@ resolveModuleIdent store mid = tryFilterFromCurrySource $ I.storedModuleSymbolsB
 
 -- | Tries filtering symbols from a Curry source file.
 tryFilterFromCurrySource :: [I.Symbol] -> [I.Symbol]
-tryFilterFromCurrySource symbols | any I.sIsFromCurrySource symbols = filter I.sIsFromCurrySource symbols
-                                 | otherwise                        = symbols
+tryFilterFromCurrySource symbols | any I.symbolIsFromCurrySource symbols = filter I.symbolIsFromCurrySource symbols
+                                 | otherwise                             = symbols
