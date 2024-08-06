@@ -51,7 +51,7 @@ qualIdentHover store ast pos = do
     (symbols, range) <- resolveAtPos store ast pos
     s <- listToMaybe symbols
 
-    let contents = J.HoverContents $ J.markedUpContent "curry" $ I.sQualIdent s <> maybe "" (" :: " <>) (I.sPrintedType s)
+    let contents = J.HoverContents $ J.markedUpContent "curry" $ s.qualIdent <> maybe "" (" :: " <>) s.printedType
 
     return $ J.Hover contents $ Just range
 

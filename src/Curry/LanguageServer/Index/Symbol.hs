@@ -1,9 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoFieldSelectors, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Index.Symbol
     ( SymbolKind (..)
     , Symbol (..)
-    , sParentIdent
-    , sIsFromCurrySource
+    , symbolParentIdent
+    , symbolIsFromCurrySource
     ) where
 
 import Control.Lens ((^.))
@@ -27,33 +27,33 @@ data SymbolKind = ValueFunction
 
 -- | A module, type or value. If it's a type, the 'printed type' will be the printed kind.
 data Symbol = Symbol
-    { sKind :: SymbolKind
-    , sQualIdent :: T.Text
-    , sIdent :: T.Text
-    , sPrintedType :: Maybe T.Text
-    , sPrintedArgumentTypes :: [T.Text]
-    , sPrintedResultType :: Maybe T.Text
-    , sArrowArity :: Maybe Int
-    , sConstructors :: [T.Text]
-    , sLocation :: Maybe J.Location
+    { kind :: SymbolKind
+    , qualIdent :: T.Text
+    , ident :: T.Text
+    , printedType :: Maybe T.Text
+    , printedArgumentTypes :: [T.Text]
+    , printedResultType :: Maybe T.Text
+    , arrowArity :: Maybe Int
+    , constructors :: [T.Text]
+    , location :: Maybe J.Location
     }
     deriving (Show, Eq)
 
 instance Default Symbol where
     def = Symbol
-        { sKind = Other
-        , sQualIdent = ""
-        , sIdent = ""
-        , sPrintedType = Nothing
-        , sPrintedArgumentTypes = []
-        , sPrintedResultType = Nothing
-        , sArrowArity = Nothing
-        , sConstructors = []
-        , sLocation = Nothing
+        { kind = Other
+        , qualIdent = ""
+        , ident = ""
+        , printedType = Nothing
+        , printedArgumentTypes = []
+        , printedResultType = Nothing
+        , arrowArity = Nothing
+        , constructors = []
+        , location = Nothing
         }
 
-sParentIdent :: Symbol -> T.Text
-sParentIdent s = fromMaybe "" $ T.stripSuffix ("." <> sIdent s) $ sQualIdent s
+symbolParentIdent :: Symbol -> T.Text
+symbolParentIdent s = fromMaybe "" $ T.stripSuffix ("." <> s.ident) s.qualIdent
 
-sIsFromCurrySource :: Symbol -> Bool
-sIsFromCurrySource s = maybe False ((".curry" `T.isSuffixOf`) . J.getUri . (^. J.uri)) $ sLocation s
+symbolIsFromCurrySource :: Symbol -> Bool
+symbolIsFromCurrySource s = maybe False ((".curry" `T.isSuffixOf`) . J.getUri . (^. J.uri)) s.location

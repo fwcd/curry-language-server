@@ -138,7 +138,7 @@ storedSymbolsWithPrefix pre = join . TR.elems . TR.submap (TE.encodeUtf8 pre) . 
 
 -- | Fetches stored symbols by qualified identifier.
 storedSymbolsByQualIdent :: CI.QualIdent -> IndexStore -> [Symbol]
-storedSymbolsByQualIdent q = filter ((== ppToText q) . sQualIdent) . storedSymbolsByKey name
+storedSymbolsByQualIdent q = filter ((== ppToText q) . (.qualIdent)) . storedSymbolsByKey name
     where name = T.pack $ CI.idName $ CI.qidIdent q
 
 -- | Fetches the given (qualified) module symbol names in the store.
@@ -314,10 +314,10 @@ recompileFile i total cfg fl importPaths dirPath filePath = void $ do
         modSymbols   <- toSymbols (moduleIdentifier ast)
 
         let symbolDelta = valueSymbols ++ typeSymbols ++ modSymbols
-            combiner = unionBy ((==) `on` (\s' -> (sKind s', sQualIdent s', sIsFromCurrySource s')))
+            combiner = unionBy ((==) `on` (\s' -> (s'.kind, s'.qualIdent, symbolIsFromCurrySource s')))
         modify $ \s -> s
-            { symbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 $ sIdent s', [s'])) <$> symbolDelta) s.symbols
-            , moduleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` sQualIdent)) ((\s' -> (TE.encodeUtf8 $ sQualIdent s', [s'])) <$> modSymbols) s.moduleSymbols
+            { symbols = insertAllIntoTrieWith combiner ((\s' -> (TE.encodeUtf8 s'.ident, [s'])) <$> symbolDelta) s.symbols
+            , moduleSymbols = insertAllIntoTrieWith (unionBy ((==) `on` (.qualIdent))) ((\s' -> (TE.encodeUtf8 s'.qualIdent, [s'])) <$> modSymbols) s.moduleSymbols
             }
 
     -- Update store with messages from files that were not successfully compiled

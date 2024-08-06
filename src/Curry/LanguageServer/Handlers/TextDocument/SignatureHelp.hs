@@ -60,18 +60,18 @@ fetchSignatureHelp store entry vfile pos@(J.Position l c) = runMaybeT $ do
     (sym, spi, args) <- liftMaybe
         $  findExpressionApplication store ast pos'
        <|> findTypeApplication       store ast pos'
-    lift $ infoM $ "Found symbol " <> I.sQualIdent sym
+    lift $ infoM $ "Found symbol " <> sym.qualIdent
     symEnd <- liftMaybe [end | J.Range _ end <- currySpanInfo2Range spi]
     let defaultParam | pos >= symEnd = fromIntegral $ length args
                      | otherwise     = 0
         activeParam = maybe defaultParam fst $ find (elementContains pos . snd) (zip [0..] args)
         activeSig = 0
-        labelStart = I.sQualIdent sym <> " :: "
+        labelStart = sym.qualIdent <> " :: "
         paramSep = " -> "
-        paramLabels = I.sPrintedArgumentTypes sym
+        paramLabels = sym.printedArgumentTypes
         paramOffsets = reverse $ snd $ foldl (\(n, offs) lbl -> let n' = n + T.length lbl in (n' + T.length paramSep, (n, n') : offs)) (T.length labelStart, []) paramLabels
         params = flip J.ParameterInformation Nothing . uncurry J.ParameterLabelOffset . bimap fromIntegral fromIntegral <$> paramOffsets
-        label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList (I.sPrintedResultType sym))
+        label = labelStart <> T.intercalate paramSep (paramLabels ++ maybeToList sym.printedResultType)
         sig = J.SignatureInformation label Nothing (Just $ J.List params) (Just activeParam)
         sigs = [sig]
     return $ J.SignatureHelp (J.List sigs) (Just activeSig) (Just activeParam)

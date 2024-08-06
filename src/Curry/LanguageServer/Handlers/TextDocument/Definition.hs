@@ -47,5 +47,5 @@ definitions :: MonadIO m => I.IndexStore -> ModuleAST -> J.Position -> MaybeT m 
 definitions store ast pos = do
     -- Look up identifier under cursor
     (symbols, srcRange) <- liftMaybe $ resolveAtPos store ast pos
-    let locations = mapMaybe I.sLocation symbols
+    let locations = mapMaybe (.location) symbols
     return [J.LocationLink (Just srcRange) destUri destRange destRange | J.Location destUri destRange <- locations]

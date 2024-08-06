@@ -30,7 +30,7 @@ class ToSymbols s where
 instance ToSymbols (CI.QualIdent, CEV.ValueInfo) where
     toSymbols (q, vinfo)
         | CI.isQualified q' = pure <$> case vinfo of
-            CEV.DataConstructor _ _ ls t  -> (\s -> s { sConstructors = ppToText <$> ls })
+            CEV.DataConstructor _ _ ls t  -> (\s -> s { constructors = ppToText <$> ls })
                                         <$> makeValueSymbol ValueConstructor q' t
             CEV.NewtypeConstructor _ _ t  -> makeValueSymbol ValueConstructor q' t
             CEV.Value _ _ _ t             -> makeValueSymbol ValueFunction q' t
@@ -55,10 +55,10 @@ instance ToSymbols CI.ModuleIdent where
         return $ do
             quals <- tail $ inits $ T.pack <$> CI.midQualifiers mid
             return def
-                { sKind = Module
-                , sQualIdent = T.intercalate "." quals
-                , sIdent = fromMaybe "" $ lastSafe quals
-                , sLocation = loc
+                { kind = Module
+                , qualIdent = T.intercalate "." quals
+                , ident = fromMaybe "" $ lastSafe quals
+                , location = loc
                 }
 
 qualifyWithModuleFrom :: CTE.Entity a => a -> CI.QualIdent -> CI.QualIdent
@@ -68,32 +68,32 @@ makeValueSymbol :: MonadIO m => SymbolKind -> CI.QualIdent -> CT.TypeScheme -> m
 makeValueSymbol k q t = do
     loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
-        { sKind = k
-        , sQualIdent = ppToText q
-        , sIdent = ppToText $ CI.qidIdent q
-        , sPrintedType = Just $ ppToText t
+        { kind = k
+        , qualIdent = ppToText q
+        , ident = ppToText $ CI.qidIdent q
+        , printedType = Just $ ppToText t
         -- We explicitly perform the Type -> TypeExpr conversion here since
         -- the Pretty Type instance ignores the precedence.
-        , sPrintedArgumentTypes = ppToTextPrec 2 . CTS.fromType CI.identSupply <$> CT.arrowArgs (CT.rawType t)
-        , sPrintedResultType = Just $ ppToText $ CT.arrowBase (CT.rawType t)
-        , sArrowArity = Just $ CT.arrowArity $ CT.rawType t
-        , sLocation = loc
+        , printedArgumentTypes = ppToTextPrec 2 . CTS.fromType CI.identSupply <$> CT.arrowArgs (CT.rawType t)
+        , printedResultType = Just $ ppToText $ CT.arrowBase (CT.rawType t)
+        , arrowArity = Just $ CT.arrowArity $ CT.rawType t
+        , location = loc
         }
 
 makeTypeSymbol :: MonadIO m => SymbolKind -> CI.QualIdent -> CK.Kind -> m Symbol
 makeTypeSymbol k q k' = do
     loc <- runMaybeT $ currySpanInfo2Location $ CI.qidIdent q
     return def
-        { sKind = k
-        , sQualIdent = ppToText q
-        , sIdent = ppToText $ CI.qidIdent q
-        , sPrintedType = Just $ ppToText k'
+        { kind = k
+        , qualIdent = ppToText q
+        , ident = ppToText $ CI.qidIdent q
+        , printedType = Just $ ppToText k'
         -- We explicitly perform the Kind conversion here since
         -- the Pretty Kind instance ignores the precedence.
-        , sPrintedArgumentTypes = ppToTextPrec 2 . CKS.fromKind <$> CK.kindArgs k'
-        , sPrintedResultType = Just $ ppToText $ kindBase k'
-        , sArrowArity = Just $ CK.kindArity k'
-        , sLocation = loc
+        , printedArgumentTypes = ppToTextPrec 2 . CKS.fromKind <$> CK.kindArgs k'
+        , printedResultType = Just $ ppToText $ kindBase k'
+        , arrowArity = Just $ CK.kindArity k'
+        , location = loc
         }
     where kindBase (CK.KindArrow _ k'') = kindBase k''
           kindBase k''                  = k''
