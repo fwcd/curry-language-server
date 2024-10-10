@@ -10,8 +10,8 @@ import Control.Lens ((^.))
 import Data.Default (Default (..))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 
 -- | The 'kind' of the symbol in the LSP sense.
 data SymbolKind = ValueFunction

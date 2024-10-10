@@ -15,7 +15,7 @@ import qualified Data.Text as T
 import qualified Language.LSP.Diagnostics as D
 import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import System.FilePath (takeBaseName)
 
 emitDiagnostics :: J.NormalizedUri -> ModuleStoreEntry -> LSM ()
@@ -30,8 +30,8 @@ emitDiagnostics normUri entry = do
 
 fetchDiagnostics :: (MonadIO m, MonadLsp CFG.Config m) => J.NormalizedUri -> ModuleStoreEntry -> m [J.Diagnostic]
 fetchDiagnostics normUri entry = do
-    let warnings = map (curryMsg2Diagnostic J.DsWarning) entry.warningMessages
-        errors = map (curryMsg2Diagnostic J.DsError) entry.errorMessages
+    let warnings = map (curryMsg2Diagnostic J.DiagnosticSeverity_Warning) entry.warningMessages
+        errors = map (curryMsg2Diagnostic J.DiagnosticSeverity_Error) entry.errorMessages
         diags = warnings ++ errors
         name = maybe "?" takeBaseName $ normalizedUriToFilePath normUri
     

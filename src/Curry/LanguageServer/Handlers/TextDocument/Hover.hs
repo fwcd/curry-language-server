@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, TypeOperators, ViewPatterns #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -23,12 +23,13 @@ import Curry.LanguageServer.Monad (LSM, getStore)
 import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
 
 hoverHandler :: S.Handlers LSM
-hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
+hoverHandler = S.requestHandler J.SMethod_TextDocumentHover $ \req responder -> do
     debugM "Processing hover request"
     let pos = req ^. J.params . J.position
         uri = req ^. J.params . J.textDocument . J.uri
@@ -37,7 +38,7 @@ hoverHandler = S.requestHandler J.STextDocumentHover $ \req responder -> do
     hover <- runMaybeT $ do
         entry <- I.getModule normUri
         MaybeT $ fetchHover store entry pos
-    responder $ Right hover
+    responder $ Right $ maybe (J.InR J.Null) J.InL hover
 
 fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
 fetchHover store entry pos = runMaybeT $ do
@@ -51,7 +52,7 @@ qualIdentHover store ast pos = do
     (symbols, range) <- resolveAtPos store ast pos
     s <- listToMaybe symbols
 
-    let contents = J.HoverContents $ J.markedUpContent "curry" $ s.qualIdent <> maybe "" (" :: " <>) s.printedType
+    let contents = J.InL $ J.mkMarkdownCodeBlock "curry" $ s.qualIdent <> maybe "" (" :: " <>) s.printedType
 
     return $ J.Hover contents $ Just range
 
@@ -59,14 +60,14 @@ typedSpanInfoHover :: ModuleAST -> J.Position -> Maybe J.Hover
 typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     TypedSpanInfo txt t spi <- findTypeAtPos ast pos
 
-    let contents = J.HoverContents $ J.markedUpContent "curry" $ txt <> " :: " <> maybe "?" (ppPredTypeToText mid) t
+    let contents = J.InL $ J.mkMarkdownCodeBlock "curry" $ txt <> " :: " <> maybe "?" (ppPredTypeToText mid) t
         range = currySpanInfo2Range spi
 
     return $ J.Hover contents range
 
 previewHover :: J.Hover -> T.Text
-previewHover ((^. J.contents) -> J.HoverContents (J.MarkupContent k t)) = case k of J.MkMarkdown  -> markdownToPlain t
-                                                                                    J.MkPlainText -> t
+previewHover ((^. J.contents) -> J.InL (J.MarkupContent k t)) = case k of J.MarkupKind_Markdown  -> markdownToPlain t
+                                                                          J.MarkupKind_PlainText -> t
 previewHover _                                                          = "?"
 
 markdownToPlain :: T.Text -> T.Text

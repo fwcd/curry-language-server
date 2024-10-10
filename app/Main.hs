@@ -7,7 +7,7 @@ import qualified Data.Aeson as A
 import Data.Default (Default (..))
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
 import Curry.LanguageServer.Handlers.Workspace.Command (commands)
@@ -25,18 +25,22 @@ runLanguageServer = do
     state <- newLSStateVar
     S.runServerWithHandles logger logger stdin stdout $ S.ServerDefinition
         { S.defaultConfig = def
-        , S.onConfigurationChange = \_old v -> case A.fromJSON v of
+        , S.parseConfig = \_old v -> case A.fromJSON v of
                                             A.Error e -> Left $ T.pack e
                                             A.Success cfg -> Right (cfg :: CFG.Config)
+        , S.configSection = "curry"
+        -- TODO: Handle configuration changes (ideally from here, not in the didChangeConfiguration handler)
+        -- See https://hackage.haskell.org/package/lsp-2.7.0.0/docs/Language-LSP-Server.html#t:ServerDefinition
+        , S.onConfigChange = const $ pure ()
         , S.doInitialize = const . pure . Right
         , S.staticHandlers = handlers
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
         , S.options = S.defaultOptions
-            { S.textDocumentSync = Just syncOptions
-            , S.completionTriggerCharacters = Just ['.']
-            , S.signatureHelpTriggerCharacters = Just [' ', '(', ')']
-            , S.executeCommandCommands = Just $ fst <$> commands
-            , S.serverInfo = Just $ J.ServerInfo "Curry Language Server" Nothing
+            { S.optTextDocumentSync = Just syncOptions
+            , S.optCompletionTriggerCharacters = Just ['.']
+            , S.optSignatureHelpTriggerCharacters = Just [' ', '(', ')']
+            , S.optExecuteCommandCommands = Just $ fst <$> commands
+            , S.optServerInfo = Just $ J.ServerInfo "Curry Language Server" Nothing
             }
         }
     where
@@ -50,7 +54,7 @@ runLanguageServer = do
         logger = LogAction $ const $ return ()
         syncOptions = J.TextDocumentSyncOptions
                         (Just True) -- open/close notifications
-                        (Just J.TdSyncIncremental) -- changes
+                        (Just J.TextDocumentSyncKind_Incremental) -- changes
                         (Just False) -- will save
                         (Just False) -- will save (wait until requests are sent to server)
                         (Just $ J.InR $ J.SaveOptions $ Just False) -- save

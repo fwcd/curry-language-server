@@ -14,7 +14,8 @@ import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
 
 import Control.Applicative (Alternative ((<|>)))
-import Control.Monad.State (State, when, execState, gets, modify)
+import Control.Monad (when)
+import Control.Monad.State (State, execState, gets, modify)
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (rangeElem, joinFst, (<.$>))
 import Curry.LanguageServer.Utils.Syntax
@@ -28,7 +29,7 @@ import Curry.LanguageServer.Utils.Syntax
 import Curry.LanguageServer.Utils.Sema
     ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
 import qualified Data.Map as M
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 -- | A collectScope of bound identifiers.
 type Scope a = M.Map CI.Ident (Maybe a)

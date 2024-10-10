@@ -18,29 +18,30 @@ import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
+import qualified Language.LSP.Protocol.Message as J
 
 didOpenHandler :: S.Handlers LSM
-didOpenHandler = S.notificationHandler J.STextDocumentDidOpen $ \nt -> do
+didOpenHandler = S.notificationHandler J.SMethod_TextDocumentDidOpen $ \nt -> do
     debugM "Processing open notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didChangeHandler :: S.Handlers LSM
-didChangeHandler = S.notificationHandler J.STextDocumentDidChange $ \nt -> do
+didChangeHandler = S.notificationHandler J.SMethod_TextDocumentDidChange $ \nt -> do
     debugM "Processing change notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didSaveHandler :: S.Handlers LSM
-didSaveHandler = S.notificationHandler J.STextDocumentDidSave $ \nt -> do
+didSaveHandler = S.notificationHandler J.SMethod_TextDocumentDidSave $ \nt -> do
     debugM "Processing save notification"
     let uri = nt ^. J.params . J.textDocument . J.uri
     updateIndexStoreDebounced uri
 
 didCloseHandler :: S.Handlers LSM
-didCloseHandler = S.notificationHandler J.STextDocumentDidClose $ \_nt -> do
+didCloseHandler = S.notificationHandler J.SMethod_TextDocumentDidClose $ \_nt -> do
     debugM "Processing close notification"
     -- TODO: Remove file from LSM state?
 

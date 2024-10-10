@@ -34,6 +34,7 @@ import qualified Base.TopEnv as CT
 import qualified CompilerEnv as CE
 
 import Control.Exception (SomeException)
+import Control.Monad (forM_, join, void, unless, filterM)
 import Control.Monad.Catch (MonadCatch (..))
 import Control.Monad.Extra (whenM)
 import Control.Monad.State
@@ -61,7 +62,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as TR
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import System.Directory (doesFileExist, doesDirectoryExist)
 import System.Exit (ExitCode(ExitSuccess))
 import System.FilePath ((<.>), (</>), takeDirectory, takeExtension, takeFileName)

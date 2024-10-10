@@ -11,22 +11,22 @@ import Curry.LanguageServer.Utils.Logging (debugM)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Utils.Convert (HasDocumentSymbols(..))
 import Curry.LanguageServer.Monad (LSM)
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
-import qualified Language.LSP.Types as J
-import qualified Language.LSP.Types.Lens as J
+import qualified Language.LSP.Protocol.Types as J
+import qualified Language.LSP.Protocol.Lens as J
 import Language.LSP.Server (MonadLsp)
+import qualified Language.LSP.Protocol.Message as J
 
 documentSymbolHandler :: S.Handlers LSM
-documentSymbolHandler = S.requestHandler J.STextDocumentDocumentSymbol $ \req responder -> do
+documentSymbolHandler = S.requestHandler J.SMethod_TextDocumentDocumentSymbol $ \req responder -> do
     debugM "Processing document symbols request"
     let uri = req ^. J.params . J.textDocument . J.uri
     normUri <- normalizeUriWithPath uri
     symbols <- runMaybeT $ do
         entry <- I.getModule normUri
         lift $ fetchDocumentSymbols entry
-    responder $ Right $ J.InL $ J.List $ fromMaybe [] symbols
+    responder $ Right $ J.InR $ maybe (J.InR J.Null) J.InL symbols
 
 fetchDocumentSymbols :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.DocumentSymbol]
 fetchDocumentSymbols entry = do

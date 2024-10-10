@@ -8,7 +8,7 @@ module Curry.LanguageServer.Utils.Uri
     ) where
 
 import Control.Monad.IO.Class (MonadIO (..))
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 import System.Directory (canonicalizePath)
 
 filePathToUri :: MonadIO m => FilePath -> m J.Uri

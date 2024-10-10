@@ -28,7 +28,7 @@ import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range)
 import Curry.LanguageServer.Utils.General (lastSafe, rangeElem)
 import qualified Data.List.NonEmpty as N
 import Data.Maybe (maybeToList)
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Protocol.Types as J
 
 -- | Fetches the element at the given position.
 elementAt :: CSPI.HasSpanInfo e => J.Position -> [e] -> Maybe e
