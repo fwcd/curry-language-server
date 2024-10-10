@@ -26,15 +26,15 @@ packages:
   original:
     hackage: set-extra-1.4.2
 - completed:
-    commit: dd346c0c8c72979b8d195d241a8a19258745b134
+    commit: bd1750a68e011e56c176491a558885b5268173b5
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
     pantry-tree:
-      sha256: 3b2f6df898d989bf51fe83ee6bd73383e06fe07d1606dd0c0386ad6375c73109
+      sha256: 911cb32d609278b24516b1412aede02daa88f933dc2935399821d418b881ab46
       size: 17097
     version: 2.1.1
   original:
-    commit: dd346c0c8c72979b8d195d241a8a19258745b134
+    commit: bd1750a68e011e56c176491a558885b5268173b5
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
 snapshots:
 - completed:
