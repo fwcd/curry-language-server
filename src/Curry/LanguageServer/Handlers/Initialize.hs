@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Initialize (initializeHandler) where
+module Curry.LanguageServer.Handlers.Initialize (initializeHandler, initializedHandler) where
 
 import Control.Lens ((^.))
 import Curry.LanguageServer.FileLoader (fileLoader)
@@ -26,12 +26,14 @@ initializeHandler req = do
         count <- I.getModuleCount
         infoM $ "Indexed " <> T.pack (show count) <> " files"
 
+initializedHandler :: S.Handlers LSM
+initializedHandler = S.notificationHandler J.SMethod_Initialized $ \_nt -> do
+    entries <- I.getModuleList
+    mapM_ (uncurry emitDiagnostics) entries
+
 -- | Indexes a workspace folder recursively.
 addDirToIndexStore :: FilePath -> LSM ()
 addDirToIndexStore dirPath = do
     fl <- fileLoader
     cfg <- S.getConfig
     I.addWorkspaceDir cfg fl dirPath
-    entries <- I.getModuleList
-    mapM_ (uncurry emitDiagnostics) entries
-    

@@ -1,6 +1,7 @@
 module Curry.LanguageServer.Handlers (handlers) where
 
 import Curry.LanguageServer.Handlers.Cancel (cancelHandler)
+import Curry.LanguageServer.Handlers.Initialize (initializedHandler)
 import Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler)
 import Curry.LanguageServer.Handlers.TextDocument.CodeLens (codeLensHandler)
 import Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
@@ -29,6 +30,7 @@ handlers _caps = mconcat
     , codeLensHandler
     , signatureHelpHandler
       -- Notification handlers
+    , initializedHandler
     , didOpenHandler
     , didChangeHandler
     , didSaveHandler
