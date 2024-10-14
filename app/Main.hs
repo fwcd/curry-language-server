@@ -10,6 +10,7 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
+import Curry.LanguageServer.Handlers.Initialize (initializeHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (commands)
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
 import System.Exit (ExitCode(ExitFailure), exitSuccess, exitWith)
@@ -32,7 +33,7 @@ runLanguageServer = do
         -- TODO: Handle configuration changes (ideally from here, not in the didChangeConfiguration handler)
         -- See https://hackage.haskell.org/package/lsp-2.7.0.0/docs/Language-LSP-Server.html#t:ServerDefinition
         , S.onConfigChange = const $ pure ()
-        , S.doInitialize = const . pure . Right
+        , S.doInitialize = \env req -> runLSM (initializeHandler req) state env >> return (Right env)
         , S.staticHandlers = handlers
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO
         , S.options = S.defaultOptions
