@@ -9,7 +9,7 @@ import Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbol
 import Curry.LanguageServer.Handlers.TextDocument.Notifications (didOpenHandler, didChangeHandler, didSaveHandler, didCloseHandler)
 import Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler)
 import Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler)
-import Curry.LanguageServer.Handlers.Initialized (initializedHandler)
+import Curry.LanguageServer.Handlers.Initialize (initializedHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler)
 import Curry.LanguageServer.Handlers.Workspace.Notifications (didChangeConfigurationHandler)
 import Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler)

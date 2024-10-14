@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Curry.LanguageServer.Handlers.Initialized (initializedHandler) where
+module Curry.LanguageServer.Handlers.Initialize (initializedHandler) where
 
 import Curry.LanguageServer.FileLoader (fileLoader)
 import Curry.LanguageServer.Handlers.Diagnostics (emitDiagnostics)
