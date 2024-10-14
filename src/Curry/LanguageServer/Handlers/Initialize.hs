@@ -17,7 +17,7 @@ import qualified Language.LSP.Server as S
 initializeHandler :: J.TMessage J.Method_Initialize -> LSM ()
 initializeHandler req = do
     let token = req ^. J.params . J.workDoneToken
-    S.withIndefiniteProgress "Initializing Curry..." token S.NotCancellable $ \updater -> do
+    S.withIndefiniteProgress "Initializing Curry..." token S.NotCancellable $ \_updater -> do
         infoM "Building index store..."
         workspaceFolders <- fromMaybe [] <$> S.getWorkspaceFolders
         let folderToPath (J.WorkspaceFolder uri _) = J.uriToFilePath uri
