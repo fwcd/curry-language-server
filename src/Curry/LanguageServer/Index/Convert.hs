@@ -5,8 +5,6 @@ module Curry.LanguageServer.Index.Convert
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
-import qualified Base.CurryKinds as CKS
-import qualified Base.CurryTypes as CTS
 import qualified Base.TopEnv as CTE
 import qualified Base.Types as CT
 import qualified Base.Kinds as CK
@@ -74,7 +72,7 @@ makeValueSymbol k q t = do
         , printedType = Just $ ppToText t
         -- We explicitly perform the Type -> TypeExpr conversion here since
         -- the Pretty Type instance ignores the precedence.
-        , printedArgumentTypes = ppToTextPrec 2 . CTS.fromType CI.identSupply <$> CT.arrowArgs (CT.rawType t)
+        , printedArgumentTypes = ppToTextPrec 2 . CT.fromType CI.identSupply <$> CT.arrowArgs (CT.rawType t)
         , printedResultType = Just $ ppToText $ CT.arrowBase (CT.rawType t)
         , arrowArity = Just $ CT.arrowArity $ CT.rawType t
         , location = loc
@@ -90,7 +88,7 @@ makeTypeSymbol k q k' = do
         , printedType = Just $ ppToText k'
         -- We explicitly perform the Kind conversion here since
         -- the Pretty Kind instance ignores the precedence.
-        , printedArgumentTypes = ppToTextPrec 2 . CKS.fromKind <$> CK.kindArgs k'
+        , printedArgumentTypes = ppToTextPrec 2 . CK.fromKind <$> CK.kindArgs k'
         , printedResultType = Just $ ppToText $ kindBase k'
         , arrowArity = Just $ CK.kindArity k'
         , location = loc
