@@ -118,7 +118,7 @@ instance CollectScope (LocalDecl a) a where
         CS.FunctionDecl _ t i eqs    -> bind i (Just t) >> collectScope eqs
         CS.PatternDecl _ p rhs       -> collectScope p >> collectScope rhs
         CS.InstanceDecl _ _ _ _ _ ds -> collectScope $ TopDecl <$> ds
-        CS.ClassDecl _ _ _ _ _ ds    -> collectScope $ TopDecl <$> ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> collectScope $ TopDecl <$> ds
         _                            -> return ()
 
 instance CollectScope (CS.Pattern a) a where

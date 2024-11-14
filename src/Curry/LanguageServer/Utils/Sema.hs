@@ -42,7 +42,7 @@ instance HasTypedSpanInfos (CS.Decl a) a where
         CS.ExternalDecl _ vs         -> typedSpanInfos vs
         CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
         CS.FreeDecl _ vs             -> typedSpanInfos vs
-        CS.ClassDecl _ _ _ _ _ ds    -> typedSpanInfos ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> typedSpanInfos ds
         CS.InstanceDecl _ _ _ _ _ ds -> typedSpanInfos ds
         _                            -> []
 

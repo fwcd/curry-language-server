@@ -76,7 +76,7 @@ instance HasExpressions (CS.Module a) a where
 instance HasExpressions (CS.Decl a) a where
     expressions decl = case decl of
         CS.FunctionDecl _ _ _ eqs    -> expressions eqs
-        CS.ClassDecl _ _ _ _ _ ds    -> expressions ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> expressions ds
         CS.InstanceDecl _ _ _ _ _ ds -> expressions ds
         _ -> [] -- TODO
 
@@ -172,7 +172,7 @@ instance HasDeclarations (CS.Module a) a where
 instance HasDeclarations (CS.Decl a) a where
     declarations decl = decl : case decl of
         -- TODO: Fetch declarations inside equations/expressions/...
-        CS.ClassDecl _ _ _ _ _ ds     -> ds
+        CS.ClassDecl _ _ _ _ _ _ ds   -> ds
         CS.InstanceDecl  _ _ _ _ _ ds -> ds
         _                             -> []
 
@@ -207,7 +207,7 @@ instance HasQualIdentifiers (CS.Decl a) where
         CS.FunctionDecl _ _ _ es     -> qualIdentifiers es
         CS.PatternDecl _ p rhs       -> qualIdentifiers p ++ qualIdentifiers rhs
         CS.DefaultDecl _ es          -> qualIdentifiers es
-        CS.ClassDecl _ _ _ _ _ ds    -> qualIdentifiers ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> qualIdentifiers ds
         CS.InstanceDecl _ _ _ q _ ds -> q : qualIdentifiers ds
         _                            -> []
 
@@ -360,19 +360,22 @@ instance HasIdentifiers CS.Import where
 
 instance HasIdentifiers (CS.Decl a) where
     identifiers decl = case decl of
-        CS.InfixDecl _ _ _ is         -> is
-        CS.DataDecl _ i is cdecls _   -> (i : is) ++ identifiers cdecls
-        CS.ExternalDataDecl _ i is    -> i : is
-        CS.NewtypeDecl _ i is cdecl _ -> (i : is) ++ identifiers cdecl
-        CS.TypeDecl _ i is t          -> (i : is) ++ identifiers t
-        CS.TypeSig _ is t             -> is ++ identifiers t
-        CS.FunctionDecl _ _ i es      -> i : identifiers es
-        CS.ExternalDecl _ vs          -> identifiers vs
-        CS.PatternDecl _ p rhs        -> identifiers p ++ identifiers rhs
-        CS.FreeDecl _ vs              -> identifiers vs
-        CS.DefaultDecl _ ts           -> identifiers ts
-        CS.ClassDecl _ _ c i1 i2 ds   -> identifiers c ++ i1 : i2 : identifiers ds
-        CS.InstanceDecl _ _ c _ _ ds  -> identifiers c ++ identifiers ds
+        CS.InfixDecl _ _ _ is             -> is
+        CS.DataDecl _ i is cdecls _       -> (i : is) ++ identifiers cdecls
+        CS.ExternalDataDecl _ i is        -> i : is
+        CS.NewtypeDecl _ i is cdecl _     -> (i : is) ++ identifiers cdecl
+        CS.TypeDecl _ i is t              -> (i : is) ++ identifiers t
+        CS.TypeSig _ is t                 -> is ++ identifiers t
+        CS.FunctionDecl _ _ i es          -> i : identifiers es
+        CS.ExternalDecl _ vs              -> identifiers vs
+        CS.PatternDecl _ p rhs            -> identifiers p ++ identifiers rhs
+        CS.FreeDecl _ vs                  -> identifiers vs
+        CS.DefaultDecl _ ts               -> identifiers ts
+        CS.ClassDecl _ _ c i tvs fdeps ds -> identifiers c ++ i : tvs ++ identifiers fdeps ++ identifiers ds
+        CS.InstanceDecl _ _ c _ _ ds      -> identifiers c ++ identifiers ds
+
+instance HasIdentifiers CS.FunDep where
+    identifiers (CS.FunDep _ is1 is2) = is1 ++ is2
 
 instance HasIdentifiers CS.Constraint where
     identifiers (CS.Constraint _ _ t) = identifiers t
@@ -505,10 +508,10 @@ class HasIdentifier e where
 
 instance HasIdentifier (CS.Decl a) where
     identifier decl = case decl of
-        CS.DataDecl _ ident _ _ _     -> Just ident
-        CS.ExternalDataDecl _ ident _ -> Just ident
-        CS.NewtypeDecl _ ident _ _ _  -> Just ident
-        CS.TypeDecl _ ident _ _       -> Just ident
-        CS.FunctionDecl _ _ ident _   -> Just ident
-        CS.ClassDecl _ _ _ ident _ _  -> Just ident
-        _                             -> Nothing
+        CS.DataDecl _ ident _ _ _      -> Just ident
+        CS.ExternalDataDecl _ ident _  -> Just ident
+        CS.NewtypeDecl _ ident _ _ _   -> Just ident
+        CS.TypeDecl _ ident _ _        -> Just ident
+        CS.FunctionDecl _ _ ident _    -> Just ident
+        CS.ClassDecl _ _ _ ident _ _ _ -> Just ident
+        _                              -> Nothing
