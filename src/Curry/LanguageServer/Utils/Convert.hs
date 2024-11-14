@@ -37,7 +37,6 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
 import qualified Text.PrettyPrint as PP
 
@@ -174,10 +173,10 @@ ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . ppToString
 
 ppTypeSchemeToText :: CI.ModuleIdent -> CT.TypeScheme -> T.Text
-ppTypeSchemeToText mid = T.pack . PP.render . CCT.ppTypeScheme mid
+ppTypeSchemeToText mid = T.pack . PP.render . CT.ppTypeScheme mid
 
 ppPredTypeToText :: CI.ModuleIdent -> CT.PredType -> T.Text
-ppPredTypeToText mid = T.pack . PP.render . CCT.ppPredType mid
+ppPredTypeToText mid = T.pack . PP.render . CT.ppPredType mid
 
 ppPatternToName :: CS.Pattern a -> T.Text
 ppPatternToName pat = case pat of
