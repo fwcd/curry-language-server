@@ -118,7 +118,7 @@ instance CollectScope (LocalDecl a) a where
         CS.FunctionDecl _ t i eqs    -> bind i (Just t) >> collectScope eqs
         CS.PatternDecl _ p rhs       -> collectScope p >> collectScope rhs
         CS.InstanceDecl _ _ _ _ _ ds -> collectScope $ TopDecl <$> ds
-        CS.ClassDecl _ _ _ _ _ ds    -> collectScope $ TopDecl <$> ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> collectScope $ TopDecl <$> ds
         _                            -> return ()
 
 instance CollectScope (CS.Pattern a) a where
@@ -138,7 +138,7 @@ instance CollectScope (CS.Pattern a) a where
 
 
 instance CollectScope (CS.Equation a) a where
-    collectScope eqn@(CS.Equation _ lhs rhs) = withScope $ collectScope lhs >> collectScope rhs >> updateEnvs eqn
+    collectScope eqn@(CS.Equation _ _ lhs rhs) = withScope $ collectScope lhs >> collectScope rhs >> updateEnvs eqn
 
 instance CollectScope (CS.Lhs a) a where
     collectScope lhs = (>> updateEnvs lhs) $ case lhs of

@@ -5,6 +5,62 @@
 
 packages:
 - completed:
+    hackage: aeson-2.2.3.0@sha256:011fa2d67d7a821aa5ec5c825adc919bb067d42dde8fac7c6e5db23239a58866,6589
+    pantry-tree:
+      sha256: e928995a568c7437575160844341219a5b057fc8e27f51162da8595692e2500c
+      size: 83371
+  original:
+    hackage: aeson-2.2.3.0
+- completed:
+    hackage: binary-0.8.9.2@sha256:03381e511429c44d13990c6d76281c4fc2468371cede4fe684b0c98d9b7d5f5a,6611
+    pantry-tree:
+      sha256: 7fac13c81b45416bd082c34e31cc3ac19226dd15354f379156922ad4cfbe6285
+      size: 1976
+  original:
+    hackage: binary-0.8.9.2
+- completed:
+    hackage: bytestring-0.12.1.0@sha256:98e79e1c97117143e4012983509ec95f7e5e4f6adff6914d07812a39f83404b9,9473
+    pantry-tree:
+      sha256: 89aac3892a1f67b0b18fec87ac3eaf417b8698e5f231a25b571ac91d085943d3
+      size: 4650
+  original:
+    hackage: bytestring-0.12.1.0
+- completed:
+    hackage: character-ps-0.1@sha256:b38ed1c07ae49e7461e44ca1d00c9ca24d1dcb008424ccd919916f92fd48d9fe,1315
+    pantry-tree:
+      sha256: 22d98d7c8b4c2bb9cb7fe429adf52bfed0c18269eac146b1e591c5941e26161a
+      size: 382
+  original:
+    hackage: character-ps-0.1
+- completed:
+    hackage: containers-0.7@sha256:e9b5fdcc609159410d408c47e0be13663bb0b4a42a5183b52aa0ac9c99e1dfec,2668
+    pantry-tree:
+      sha256: 265b0a6110df990b5f9f04d21856333ed5ed66f37a4b0a0215901d831f69629b
+      size: 2954
+  original:
+    hackage: containers-0.7
+- completed:
+    hackage: directory-1.3.8.5@sha256:fbeec9ec346e5272167f63dcb86af513b457a7b9fc36dc818e4c7b81608d612b,3166
+    pantry-tree:
+      sha256: d11130a0ca9e7c8720ed1ceef4e2f0d9be4b446e67e7d15d634763a5c952877e
+      size: 3519
+  original:
+    hackage: directory-1.3.8.5
+- completed:
+    hackage: extra-1.8@sha256:57d9200fbea2e88e05e0be35925511764827b1c86d3214106b0b610f331fc40c,2725
+    pantry-tree:
+      sha256: 3aafb822ea6975fa23384ef35d82bd67442b302795bf6a58c98b366e75302a1f
+      size: 1961
+  original:
+    hackage: extra-1.8
+- completed:
+    hackage: filepath-1.4.300.2@sha256:345cbb1afe414a09e47737e4d14cbd51891a734e67c0ef3d77a1439518bb81e8,5900
+    pantry-tree:
+      sha256: 2420f7addc917bf41970a8980f52abe431b1a0fb711b00795effbb289c8ea76c
+      size: 3998
+  original:
+    hackage: filepath-1.4.300.2
+- completed:
     hackage: lsp-2.7.0.0@sha256:2a64b40a69fd9638056ca552d5660203019473061cff1d09dccc0c94e40a275c,3834
     pantry-tree:
       sha256: 630a5e18d7783c35a296268959c8d9348ee6dc94540047ea58146b310d8de941
@@ -19,6 +75,20 @@ packages:
   original:
     hackage: lsp-types-2.3.0.0
 - completed:
+    hackage: parsec-3.1.17.0@sha256:8407cbd428d7f640a0fff8891bd2f7aca13cebe70a5e654856f8abec9a648b56,5149
+    pantry-tree:
+      sha256: 0922d72bd7115bbb590757bd92a827021dfe745ed6c0cd22856f767bee83d91f
+      size: 2810
+  original:
+    hackage: parsec-3.1.17.0
+- completed:
+    hackage: process-1.6.20.0@sha256:2a9393de33f18415fb8f4826957a87a94ffe8840ca8472a9b69dca6de45aca03,2790
+    pantry-tree:
+      sha256: 14d1e9a5ec731766e43c7eb9c2dc59a7da48d98d43374d9d83e725d8891c6173
+      size: 1789
+  original:
+    hackage: process-1.6.20.0
+- completed:
     hackage: set-extra-1.4.2@sha256:a1a3899d7ae01cd72dfd4691ae77cf26e8867731dff70e61307f25ddc7fd875d,564
     pantry-tree:
       sha256: 439f8bd6732a4d250a9e565c5bbcf393f3374e8e346e634494efd62b388fe810
@@ -26,19 +96,47 @@ packages:
   original:
     hackage: set-extra-1.4.2
 - completed:
-    commit: bd1750a68e011e56c176491a558885b5268173b5
+    hackage: text-2.1.1@sha256:78c3fb91055d0607a80453327f087b9dc82168d41d0dca3ff410d21033b5e87d,10653
+    pantry-tree:
+      sha256: 8251d517ceafa2680250ddb939f4a2b89bf231314cf6a218134af900e154d7cd
+      size: 8413
+  original:
+    hackage: text-2.1.1
+- completed:
+    hackage: time-1.9.3@sha256:8f1b5448722a12a952248b356c9eb366e351226543d9086a2da71270522d5f45,5679
+    pantry-tree:
+      sha256: a1043c1719491764f0fa37a1fd70d9451080548a41632fee88d8e1b8db4942d6
+      size: 6558
+  original:
+    hackage: time-1.9.3
+- completed:
+    hackage: unix-2.8.5.1@sha256:3f702a252a313a7bcb56e3908a14e7f9f1b40e41b7bdc8ae8a9605a1a8686f06,9808
+    pantry-tree:
+      sha256: b961320db69795a16c4ef4eebb0a3e7ddbbbe506fa1e22dde95ee8d8501bfbe5
+      size: 5821
+  original:
+    hackage: unix-2.8.5.1
+- completed:
+    hackage: Win32-2.14.1.0@sha256:983e8882ad5663fc3b738044dbebfe42fd4e37f7f3d7c7e0b085702c9ece6d9f,5753
+    pantry-tree:
+      sha256: 3dee6648c08272ef629d7cd045ba05ee28212469ebae72d3b2175c785c677051
+      size: 8300
+  original:
+    hackage: Win32-2.14.1.0
+- completed:
+    commit: 67adff16d1166286db21e2fbddb88724674c95e9
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
     pantry-tree:
-      sha256: 911cb32d609278b24516b1412aede02daa88f933dc2935399821d418b881ab46
-      size: 17097
-    version: 2.1.1
+      sha256: 133ea80a7949bf765a43c7cd571ecd7f94103b9c54f1134d650d1dc2dd70be74
+      size: 20424
+    version: 3.0.0
   original:
-    commit: bd1750a68e011e56c176491a558885b5268173b5
+    commit: 67adff16d1166286db21e2fbddb88724674c95e9
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
 snapshots:
 - completed:
-    sha256: 795b7a893148a42f09956611a0fa1139293fe6ef934d053468d8e53e3e013390
-    size: 719577
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/30.yaml
-  original: lts-22.30
+    sha256: 1e32b51d9082fdf6f3bd92accc9dfffd4ddaf406404427fb10bf76d2bc03cbbb
+    size: 720263
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/41.yaml
+  original: lts-22.41

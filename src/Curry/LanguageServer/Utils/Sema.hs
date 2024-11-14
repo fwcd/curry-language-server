@@ -42,12 +42,12 @@ instance HasTypedSpanInfos (CS.Decl a) a where
         CS.ExternalDecl _ vs         -> typedSpanInfos vs
         CS.PatternDecl _ p rhs       -> typedSpanInfos p ++ typedSpanInfos rhs
         CS.FreeDecl _ vs             -> typedSpanInfos vs
-        CS.ClassDecl _ _ _ _ _ ds    -> typedSpanInfos ds
+        CS.ClassDecl _ _ _ _ _ _ ds  -> typedSpanInfos ds
         CS.InstanceDecl _ _ _ _ _ ds -> typedSpanInfos ds
         _                            -> []
 
 instance HasTypedSpanInfos (CS.Equation a) a where
-    typedSpanInfos (CS.Equation _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
+    typedSpanInfos (CS.Equation _ _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
 
 instance HasTypedSpanInfos (CS.Var a) a where
     typedSpanInfos (CS.Var t i) = [TypedSpanInfo txt t $ CSPI.getSpanInfo i]

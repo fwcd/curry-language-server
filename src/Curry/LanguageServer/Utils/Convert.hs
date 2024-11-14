@@ -37,7 +37,6 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.CurryTypes as CCT
 import qualified Base.Types as CT
 import qualified Text.PrettyPrint as PP
 
@@ -174,10 +173,10 @@ ppToText :: CPP.Pretty p => p -> T.Text
 ppToText = T.pack . ppToString
 
 ppTypeSchemeToText :: CI.ModuleIdent -> CT.TypeScheme -> T.Text
-ppTypeSchemeToText mid = T.pack . PP.render . CCT.ppTypeScheme mid
+ppTypeSchemeToText mid = T.pack . PP.render . CT.ppTypeScheme mid
 
 ppPredTypeToText :: CI.ModuleIdent -> CT.PredType -> T.Text
-ppPredTypeToText mid = T.pack . PP.render . CCT.ppPredType mid
+ppPredTypeToText mid = T.pack . PP.render . CT.ppPredType mid
 
 ppPatternToName :: CS.Pattern a -> T.Text
 ppPatternToName pat = case pat of
@@ -234,7 +233,7 @@ instance HasDocumentSymbols (CS.Decl a) where
                   symKind = if patArity pat > 0 then J.SymbolKind_Function
                                                 else J.SymbolKind_Constant
                   childs = documentSymbols rhs
-        CS.ClassDecl _ _ _ ident _ decls -> [makeDocumentSymbol name symKind range $ Just childs]
+        CS.ClassDecl _ _ _ ident _ _ decls -> [makeDocumentSymbol name symKind range $ Just childs]
             where name = ppToText ident
                   symKind = J.SymbolKind_Interface
                   childs = documentSymbols =<< decls
@@ -253,7 +252,7 @@ instance HasDocumentSymbols (CS.Decl a) where
                   CS.FunctionPattern _ _ _ ps -> length ps
                   _                           -> 0
               eqsArity :: [CS.Equation a] -> Int
-              eqsArity eqs = maybe 1 (\(CS.Equation _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
+              eqsArity eqs = maybe 1 (\(CS.Equation _ _ lhs _) -> lhsArity lhs) $ listToMaybe eqs
               range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Var a) where
@@ -268,7 +267,7 @@ instance HasDocumentSymbols CS.ConstrDecl where
         where range = currySpanInfo2Range $ CSPI.getSpanInfo decl
 
 instance HasDocumentSymbols (CS.Equation a) where
-    documentSymbols (CS.Equation _ _ rhs) = documentSymbols rhs
+    documentSymbols (CS.Equation _ _ _ rhs) = documentSymbols rhs
 
 instance HasDocumentSymbols (CS.Rhs a) where
     documentSymbols rhs = case rhs of
