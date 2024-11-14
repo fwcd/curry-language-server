@@ -138,7 +138,7 @@ instance CollectScope (CS.Pattern a) a where
 
 
 instance CollectScope (CS.Equation a) a where
-    collectScope eqn@(CS.Equation _ lhs rhs) = withScope $ collectScope lhs >> collectScope rhs >> updateEnvs eqn
+    collectScope eqn@(CS.Equation _ _ lhs rhs) = withScope $ collectScope lhs >> collectScope rhs >> updateEnvs eqn
 
 instance CollectScope (CS.Lhs a) a where
     collectScope lhs = (>> updateEnvs lhs) $ case lhs of

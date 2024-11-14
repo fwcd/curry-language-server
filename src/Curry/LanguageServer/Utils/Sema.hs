@@ -47,7 +47,7 @@ instance HasTypedSpanInfos (CS.Decl a) a where
         _                            -> []
 
 instance HasTypedSpanInfos (CS.Equation a) a where
-    typedSpanInfos (CS.Equation _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
+    typedSpanInfos (CS.Equation _ _ lhs rhs) = typedSpanInfos lhs ++ typedSpanInfos rhs
 
 instance HasTypedSpanInfos (CS.Var a) a where
     typedSpanInfos (CS.Var t i) = [TypedSpanInfo txt t $ CSPI.getSpanInfo i]

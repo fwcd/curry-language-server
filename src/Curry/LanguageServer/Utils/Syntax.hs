@@ -81,7 +81,7 @@ instance HasExpressions (CS.Decl a) a where
         _ -> [] -- TODO
 
 instance HasExpressions (CS.Equation a) a where
-    expressions (CS.Equation _ _ rhs) = expressions rhs
+    expressions (CS.Equation _ _ _ rhs) = expressions rhs
 
 instance HasExpressions (CS.Rhs a) a where
     expressions rhs = case rhs of
@@ -226,7 +226,7 @@ instance HasQualIdentifiers CS.NewConstrDecl where
         CS.NewRecordDecl _ _ (_, t) -> qualIdentifiers t
 
 instance HasQualIdentifiers (CS.Equation a) where
-    qualIdentifiers (CS.Equation _ lhs rhs) = qualIdentifiers lhs ++ qualIdentifiers rhs
+    qualIdentifiers (CS.Equation _ _ lhs rhs) = qualIdentifiers lhs ++ qualIdentifiers rhs
 
 instance HasQualIdentifiers (CS.Lhs a) where
     qualIdentifiers lhs = case lhs of
@@ -378,7 +378,7 @@ instance HasIdentifiers CS.Constraint where
     identifiers (CS.Constraint _ _ t) = identifiers t
 
 instance HasIdentifiers (CS.Equation a) where
-    identifiers (CS.Equation _ lhs rhs) = identifiers lhs ++ identifiers rhs
+    identifiers (CS.Equation _ _ lhs rhs) = identifiers lhs ++ identifiers rhs
 
 instance HasIdentifiers (CS.Pattern a) where
     identifiers pat = case pat of
