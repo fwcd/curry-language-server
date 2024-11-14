@@ -117,6 +117,13 @@ packages:
   original:
     hackage: unix-2.8.5.1
 - completed:
+    hackage: Win32-2.14.1.0@sha256:983e8882ad5663fc3b738044dbebfe42fd4e37f7f3d7c7e0b085702c9ece6d9f,5753
+    pantry-tree:
+      sha256: 3dee6648c08272ef629d7cd045ba05ee28212469ebae72d3b2175c785c677051
+      size: 8300
+  original:
+    hackage: Win32-2.14.1.0
+- completed:
     commit: 67adff16d1166286db21e2fbddb88724674c95e9
     git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
     name: curry-frontend
