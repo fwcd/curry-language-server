@@ -10,6 +10,7 @@ import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Handlers
+import Curry.LanguageServer.Handlers.Config (onConfigChange)
 import Curry.LanguageServer.Handlers.Initialize (initializeHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (commands)
 import Curry.LanguageServer.Monad (runLSM, newLSStateVar)
@@ -30,7 +31,7 @@ runLanguageServer = do
                                             A.Error e -> Left $ T.pack e
                                             A.Success cfg -> Right (cfg :: CFG.Config)
         , S.configSection = "curry.languageServer"
-        , S.onConfigChange = const $ pure ()
+        , S.onConfigChange = onConfigChange
         , S.doInitialize = \env req -> runLSM (initializeHandler req) state env >> return (Right env)
         , S.staticHandlers = handlers
         , S.interpretHandler = \env -> S.Iso (\lsm -> runLSM lsm state env) liftIO

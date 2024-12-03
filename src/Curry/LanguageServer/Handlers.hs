@@ -11,7 +11,6 @@ import Curry.LanguageServer.Handlers.TextDocument.Notifications (didOpenHandler,
 import Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler)
 import Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler)
-import Curry.LanguageServer.Handlers.Workspace.Notifications (didChangeConfigurationHandler)
 import Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler)
 import Curry.LanguageServer.Monad (LSM)
 import qualified Language.LSP.Protocol.Types as J
@@ -35,6 +34,5 @@ handlers _caps = mconcat
     , didChangeHandler
     , didSaveHandler
     , didCloseHandler
-    , didChangeConfigurationHandler
     , cancelHandler
     ]

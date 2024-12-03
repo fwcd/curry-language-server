@@ -34,6 +34,7 @@ library
       Curry.LanguageServer.FileLoader
       Curry.LanguageServer.Handlers
       Curry.LanguageServer.Handlers.Cancel
+      Curry.LanguageServer.Handlers.Config
       Curry.LanguageServer.Handlers.Diagnostics
       Curry.LanguageServer.Handlers.Initialize
       Curry.LanguageServer.Handlers.TextDocument.CodeAction
@@ -45,7 +46,6 @@ library
       Curry.LanguageServer.Handlers.TextDocument.Notifications
       Curry.LanguageServer.Handlers.TextDocument.SignatureHelp
       Curry.LanguageServer.Handlers.Workspace.Command
-      Curry.LanguageServer.Handlers.Workspace.Notifications
       Curry.LanguageServer.Handlers.Workspace.Symbol
       Curry.LanguageServer.Index.Convert
       Curry.LanguageServer.Index.Resolve
