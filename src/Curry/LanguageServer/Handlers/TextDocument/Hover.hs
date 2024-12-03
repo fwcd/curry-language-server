@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, TypeOperators, ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
@@ -66,9 +67,23 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     return $ J.Hover contents range
 
 previewHover :: J.Hover -> T.Text
-previewHover ((^. J.contents) -> J.InL (J.MarkupContent k t)) = case k of J.MarkupKind_Markdown  -> markdownToPlain t
-                                                                          J.MarkupKind_PlainText -> t
-previewHover _                                                          = "?"
+previewHover = T.unlines . (previewMarkupContent <$>) . normalizeContent . (^. J.contents)
+
+previewMarkupContent :: J.MarkupContent -> T.Text
+previewMarkupContent (J.MarkupContent k t) = case k of
+    J.MarkupKind_Markdown  -> markdownToPlain t
+    J.MarkupKind_PlainText -> t
+
+normalizeContent :: J.MarkupContent J.|? (J.MarkedString J.|? [J.MarkedString]) -> [J.MarkupContent]
+normalizeContent m = case m of
+    J.InL c          -> [c]
+    J.InR (J.InL s)  -> [markedStringToContent s]
+    J.InR (J.InR ss) -> markedStringToContent <$> ss
+
+markedStringToContent :: J.MarkedString -> J.MarkupContent
+markedStringToContent (J.MarkedString m) = case m of
+    J.InL t                                -> J.MarkupContent J.MarkupKind_PlainText t
+    J.InR (J.MarkedStringWithLanguage l t) -> J.mkMarkdownCodeBlock l t
 
 markdownToPlain :: T.Text -> T.Text
 markdownToPlain t = T.intercalate ", " $ filter includeLine $ T.lines t
