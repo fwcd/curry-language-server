@@ -67,15 +67,35 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     return $ J.Hover contents range
 
 previewHover :: J.Hover -> T.Text
-previewHover = T.unlines . (previewMarkupContent <$>) . normalizeContent . (^. J.contents)
+previewHover = T.unlines . (previewMarkupContent <$>) . normalizeHoverContents . (^. J.contents)
 
 previewMarkupContent :: J.MarkupContent -> T.Text
 previewMarkupContent (J.MarkupContent k t) = case k of
     J.MarkupKind_Markdown  -> markdownToPlain t
     J.MarkupKind_PlainText -> t
 
-normalizeContent :: J.MarkupContent J.|? (J.MarkedString J.|? [J.MarkedString]) -> [J.MarkupContent]
-normalizeContent m = case m of
+mergeHovers :: J.Hover -> J.Hover -> J.Hover
+mergeHovers (J.Hover (normalizeHoverContents -> cs1) r1) (J.Hover (normalizeHoverContents -> cs2) r2) =
+    J.Hover (J.InL (joinMarkupContent (cs1 ++ cs2))) (r1 <|> r2)
+
+joinMarkupContent :: [J.MarkupContent] -> J.MarkupContent
+joinMarkupContent [] = emptyMarkupContent
+joinMarkupContent cs = foldr1 mergeMarkupContent cs
+
+mergeMarkupContent :: J.MarkupContent -> J.MarkupContent -> J.MarkupContent
+mergeMarkupContent (normalizeToMarkdown -> J.MarkupContent _ t1) (normalizeToMarkdown -> J.MarkupContent _ t2) =
+    J.MarkupContent J.MarkupKind_Markdown $ T.unlines [t1, t2]
+
+emptyMarkupContent :: J.MarkupContent
+emptyMarkupContent = J.MarkupContent J.MarkupKind_PlainText ""
+
+normalizeToMarkdown :: J.MarkupContent -> J.MarkupContent
+normalizeToMarkdown (J.MarkupContent k t) = case k of
+    J.MarkupKind_Markdown  -> J.MarkupContent k t
+    J.MarkupKind_PlainText -> J.mkMarkdownCodeBlock "text" t
+
+normalizeHoverContents :: J.MarkupContent J.|? (J.MarkedString J.|? [J.MarkedString]) -> [J.MarkupContent]
+normalizeHoverContents m = case m of
     J.InL c          -> [c]
     J.InR (J.InL s)  -> [markedStringToContent s]
     J.InR (J.InR ss) -> markedStringToContent <$> ss
