@@ -73,6 +73,7 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 extensionHover :: Extension -> ModuleAST -> J.Position -> Maybe J.Hover
 extensionHover e _ _ = case e.extensionPoint of
     ExtensionPointHover -> Nothing -- TODO
+    _                   -> Nothing
 
 previewHover :: J.Hover -> T.Text
 previewHover = T.unlines . (previewMarkupContent <$>) . normalizeHoverContents . (^. J.contents)

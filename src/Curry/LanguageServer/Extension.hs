@@ -8,6 +8,7 @@ import qualified Data.Text as T
 import GHC.Generics (Generic (..))
 
 data ExtensionPoint = ExtensionPointHover
+                    | ExtensionPointUnknown T.Text
     deriving (Show, Eq)
 
 data Extension = Extension
@@ -27,8 +28,9 @@ instance FromJSON ExtensionPoint where
         s <- parseJSON v
         return $ case s :: T.Text of
             "hover" -> ExtensionPointHover
-            _       -> error $ "Could not parse extension point " ++ T.unpack s
+            _       -> ExtensionPointUnknown s
 
 instance ToJSON ExtensionPoint where
     toJSON p = toJSON @T.Text $ case p of
-        ExtensionPointHover -> "hover"
+        ExtensionPointHover     -> "hover"
+        ExtensionPointUnknown s -> s
