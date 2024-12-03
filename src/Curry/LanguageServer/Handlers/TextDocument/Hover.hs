@@ -6,6 +6,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
+import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT (..))
@@ -22,7 +23,7 @@ import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad (LSM, getStore)
-import Data.Maybe (listToMaybe, maybeToList, mapMaybe)
+import Data.Maybe (listToMaybe, maybeToList)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
@@ -47,7 +48,7 @@ fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe entry.moduleAST
     cfg <- lift S.getConfig
     let baseHover = maybeToList $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-        extHovers = mapMaybe (\ext -> extensionHover ext ast pos) cfg.extensions
+    extHovers <- mapMaybeM (\ext -> extensionHover ext ast pos) cfg.extensions
     hover <- liftMaybe . joinHovers $ baseHover ++ extHovers
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
@@ -70,10 +71,10 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 
     return $ J.Hover contents range
 
-extensionHover :: Extension -> ModuleAST -> J.Position -> Maybe J.Hover
+extensionHover :: MonadIO m => Extension -> ModuleAST -> J.Position -> m (Maybe J.Hover)
 extensionHover e _ _ = case e.extensionPoint of
-    ExtensionPointHover -> Nothing -- TODO
-    _                   -> Nothing
+    ExtensionPointHover -> return Nothing -- TODO
+    _                   -> return Nothing
 
 previewHover :: J.Hover -> T.Text
 previewHover = T.unlines . (previewMarkupContent <$>) . normalizeHoverContents . (^. J.contents)
