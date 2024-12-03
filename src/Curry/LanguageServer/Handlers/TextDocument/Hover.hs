@@ -12,6 +12,7 @@ import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
+import Curry.LanguageServer.Extension (ExtensionPoint (..), Extension (..))
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
@@ -21,7 +22,7 @@ import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Monad (LSM, getStore)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, maybeToList, mapMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
@@ -44,7 +45,10 @@ hoverHandler = S.requestHandler J.SMethod_TextDocumentHover $ \req responder -> 
 fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
 fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe entry.moduleAST
-    hover <- liftMaybe $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
+    cfg <- lift S.getConfig
+    let baseHover = maybeToList $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
+        extHovers = mapMaybe (\ext -> extensionHover ext ast pos) cfg.extensions
+    hover <- liftMaybe . joinHovers $ baseHover ++ extHovers
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
 
@@ -66,6 +70,10 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 
     return $ J.Hover contents range
 
+extensionHover :: Extension -> ModuleAST -> J.Position -> Maybe J.Hover
+extensionHover e _ _ = case e.extensionPoint of
+    ExtensionPointHover -> Nothing -- TODO
+
 previewHover :: J.Hover -> T.Text
 previewHover = T.unlines . (previewMarkupContent <$>) . normalizeHoverContents . (^. J.contents)
 
@@ -73,6 +81,10 @@ previewMarkupContent :: J.MarkupContent -> T.Text
 previewMarkupContent (J.MarkupContent k t) = case k of
     J.MarkupKind_Markdown  -> markdownToPlain t
     J.MarkupKind_PlainText -> t
+
+joinHovers :: [J.Hover] -> Maybe J.Hover
+joinHovers [] = Nothing
+joinHovers hs = Just $ foldr1 mergeHovers hs
 
 mergeHovers :: J.Hover -> J.Hover -> J.Hover
 mergeHovers (J.Hover (normalizeHoverContents -> cs1) r1) (J.Hover (normalizeHoverContents -> cs2) r2) =
