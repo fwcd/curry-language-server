@@ -31,6 +31,7 @@ library
       Curry.LanguageServer.CPM.Deps
       Curry.LanguageServer.CPM.Monad
       Curry.LanguageServer.CPM.Process
+      Curry.LanguageServer.Extension
       Curry.LanguageServer.FileLoader
       Curry.LanguageServer.Handlers
       Curry.LanguageServer.Handlers.Cancel

@@ -5,6 +5,7 @@ module Curry.LanguageServer.Config
     ) where
 
 import Colog.Core (Severity (..))
+import Curry.LanguageServer.Extension (Extension (..))
 import Data.Aeson
     ( FromJSON (..)
     , ToJSON (..)
@@ -26,6 +27,7 @@ data Config = Config { forceRecompilation :: Bool
                      , logLevel :: LogLevel
                      , curryPath :: String
                      , useSnippetCompletions :: Bool
+                     , extensions :: [Extension]
                      }
     deriving (Show, Eq)
 
@@ -36,6 +38,7 @@ instance Default Config where
                  , logLevel = LogLevel Info
                  , curryPath = "pakcs"
                  , useSnippetCompletions = False
+                 , extensions = []
                  }
 
 instance FromJSON Config where
@@ -46,6 +49,7 @@ instance FromJSON Config where
         logLevel              <- l .:? "logLevel"              .!= (def @Config).logLevel
         curryPath             <- l .:? "curryPath"             .!= (def @Config).curryPath
         useSnippetCompletions <- l .:? "useSnippetCompletions" .!= (def @Config).useSnippetCompletions
+        extensions            <- l .:? "extensions"            .!= (def @Config).extensions
         return Config {..}
 
 instance ToJSON Config where
@@ -56,6 +60,7 @@ instance ToJSON Config where
         , "logLevel"              .= logLevel
         , "curryPath"             .= curryPath
         , "useSnippetCompletions" .= useSnippetCompletions
+        , "extensions"            .= extensions
         ]
         
 instance FromJSON LogLevel where
