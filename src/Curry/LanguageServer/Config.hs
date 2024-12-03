@@ -9,7 +9,6 @@ import Data.Aeson
     ( FromJSON (..)
     , ToJSON (..)
     , (.!=)
-    , (.:)
     , (.:?)
     , withObject
     , object
@@ -40,9 +39,7 @@ instance Default Config where
                  }
 
 instance FromJSON Config where
-    parseJSON = withObject "Config" $ \o -> do
-        c <- o .: "curry"
-        l <- c .: "languageServer"
+    parseJSON = withObject "Config" $ \l -> do
         forceRecompilation    <- l .:? "forceRecompilation"    .!= (def @Config).forceRecompilation
         importPaths           <- l .:? "importPaths"           .!= (def @Config).importPaths
         libraryPaths          <- l .:? "libraryPaths"          .!= (def @Config).libraryPaths
@@ -53,16 +50,12 @@ instance FromJSON Config where
 
 instance ToJSON Config where
     toJSON Config {..} = object
-        ["curry" .= object
-            [ "languageServer" .= object
-                [ "forceRecompilation"    .= forceRecompilation
-                , "importPaths"           .= importPaths
-                , "libraryPaths"          .= libraryPaths
-                , "logLevel"              .= logLevel
-                , "curryPath"             .= curryPath
-                , "useSnippetCompletions" .= useSnippetCompletions
-                ]
-            ]
+        [ "forceRecompilation"    .= forceRecompilation
+        , "importPaths"           .= importPaths
+        , "libraryPaths"          .= libraryPaths
+        , "logLevel"              .= logLevel
+        , "curryPath"             .= curryPath
+        , "useSnippetCompletions" .= useSnippetCompletions
         ]
         
 instance FromJSON LogLevel where

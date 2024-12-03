@@ -29,9 +29,7 @@ runLanguageServer = do
         , S.parseConfig = \_old v -> case A.fromJSON v of
                                             A.Error e -> Left $ T.pack e
                                             A.Success cfg -> Right (cfg :: CFG.Config)
-        , S.configSection = "curry"
-        -- TODO: Handle configuration changes (ideally from here, not in the didChangeConfiguration handler)
-        -- See https://hackage.haskell.org/package/lsp-2.7.0.0/docs/Language-LSP-Server.html#t:ServerDefinition
+        , S.configSection = "curry.languageServer"
         , S.onConfigChange = const $ pure ()
         , S.doInitialize = \env req -> runLSM (initializeHandler req) state env >> return (Right env)
         , S.staticHandlers = handlers
