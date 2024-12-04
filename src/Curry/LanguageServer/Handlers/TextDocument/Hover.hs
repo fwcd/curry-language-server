@@ -14,7 +14,7 @@ import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Extension (ExtensionPoint (..), ExtensionOutputFormat (..), Extension (..))
-import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
+import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range, ppToText)
 import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
@@ -75,9 +75,9 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
     return $ J.Hover contents range
 
 extensionHover :: MonadIO m => ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
-extensionHover ast pos@(J.Position l c) uri e = case e.extensionPoint of
+extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e.extensionPoint of
     ExtensionPointHover -> runMaybeT $ do
-        TypedSpanInfo _ _ spi <- liftMaybe $ findTypeAtPos ast pos
+        TypedSpanInfo expr ty spi <- liftMaybe $ findTypeAtPos ast pos
 
         let timeoutSecs    = 10
             timeoutMicros  = timeoutSecs * 1_000_000
@@ -85,6 +85,9 @@ extensionHover ast pos@(J.Position l c) uri e = case e.extensionPoint of
                              , ("sourceUri", T.pack (show uri))
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
+                             , ("module", ppToText mid)
+                             , ("expression", expr)
+                             , ("type", maybe "?" (ppPredTypeToText mid) ty)
                              ] :: [(T.Text, T.Text)]
             applyParam p v = T.replace p ("{" <> v <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
