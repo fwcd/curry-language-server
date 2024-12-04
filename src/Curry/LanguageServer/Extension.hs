@@ -17,11 +17,11 @@ data ExtensionOutputFormat = ExtensionOutputFormatPlaintext
     deriving (Show, Eq)
 
 data Extension = Extension
-    { name :: T.Text
+    { name           :: T.Text
     , extensionPoint :: ExtensionPoint
-    , outputFormat :: ExtensionOutputFormat
-    , executable :: T.Text
-    , args :: [T.Text]
+    , outputFormat   :: ExtensionOutputFormat
+    , executable     :: T.Text
+    , args           :: [T.Text]
     }
     deriving (Show, Eq)
 
