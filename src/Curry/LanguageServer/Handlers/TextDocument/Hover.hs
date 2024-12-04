@@ -90,13 +90,15 @@ extensionHover ast pos e = case e.extensionPoint of
         let simpleCodeBlock t
                 | T.null t  = ""
                 | otherwise =  "```\n" <> t <> "\n```"
-            text            = case exitCode of
+            text            = T.unlines $ case exitCode of
                                  ExitSuccess ->
-                                    case e.outputFormat of
+                                    [ "**" <> e.name <> "**"
+                                    , case e.outputFormat of
                                         ExtensionOutputFormatMarkdown  -> T.pack out
                                         _                              -> simpleCodeBlock (T.pack out)
-                                 _           -> T.unlines
-                                    [ "_Extension `" <> e.name <> "` exited with " <> T.pack (show exitCode) <> "_"
+                                    ]
+                                 _           ->
+                                    [ "_Extension **" <> e.name <> "** exited with " <> T.pack (show exitCode) <> "_"
                                     , simpleCodeBlock (T.pack err)
                                     ]
             contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
