@@ -31,7 +31,7 @@ import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
 import System.Exit (ExitCode (..))
-import System.Process (readCreateProcessWithExitCode, shell, CreateProcess (..))
+import System.Process (readCreateProcessWithExitCode, proc)
 import System.Timeout (timeout)
 
 hoverHandler :: S.Handlers LSM
@@ -83,7 +83,7 @@ extensionHover ast pos e = case e.extensionPoint of
             timeoutMicros = timeoutSecs * 1_000_000
             -- TODO: Template parameters
             -- TODO: cwd
-            procOpts      = shell (unwords (T.unpack <$> (e.executable : e.args)))
+            procOpts      = proc (T.unpack e.executable) (T.unpack <$> e.args)
 
         (exitCode, out, err) <- MaybeT $ liftIO $ timeout timeoutMicros $ readCreateProcessWithExitCode procOpts ""
 
