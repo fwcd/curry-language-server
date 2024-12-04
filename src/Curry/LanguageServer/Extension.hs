@@ -1,11 +1,11 @@
-{-# LANGUAGE DeriveGeneric, OverloadedStrings, TypeApplications #-}
+{-# LANGUAGE OverloadedRecordDot, OverloadedStrings, RecordWildCards, TypeApplications #-}
 module Curry.LanguageServer.Extension
     ( ExtensionPoint (..), Extension (..)
     ) where
 
-import Data.Aeson (FromJSON (..), ToJSON (..))
+import Data.Aeson (FromJSON (..), ToJSON (..), (.:?), (.!=), (.=), object, withObject)
+import Data.Default (Default (..))
 import qualified Data.Text as T
-import GHC.Generics (Generic (..))
 
 data ExtensionPoint = ExtensionPointHover
                     | ExtensionPointUnknown T.Text
@@ -17,11 +17,31 @@ data Extension = Extension
     , executable :: T.Text
     , args :: [T.Text]
     }
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq)
+
+instance Default Extension where
+    def = Extension
+        { name           = "Anonymous Extension"
+        , extensionPoint = ExtensionPointHover
+        , executable     = "echo"
+        , args           = []
+        }
 
 instance FromJSON Extension where
+    parseJSON = withObject "Extension" $ \e -> do
+        name           <- e .:? "name"           .!= (def @Extension).name
+        extensionPoint <- e .:? "extensionPoint" .!= (def @Extension).extensionPoint
+        executable     <- e .:? "executable"     .!= (def @Extension).executable
+        args           <- e .:? "args"           .!= (def @Extension).args
+        return Extension {..}
 
 instance ToJSON Extension where
+    toJSON Extension {..} = object
+        [ "name"           .= name
+        , "extensionPoint" .= extensionPoint
+        , "executable"     .= executable
+        , "args"           .= args
+        ]
 
 instance FromJSON ExtensionPoint where
     parseJSON v = do
