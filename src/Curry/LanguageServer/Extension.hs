@@ -17,39 +17,43 @@ data ExtensionOutputFormat = ExtensionOutputFormatPlaintext
     deriving (Show, Eq)
 
 data Extension = Extension
-    { name           :: T.Text
-    , extensionPoint :: ExtensionPoint
-    , outputFormat   :: ExtensionOutputFormat
-    , executable     :: T.Text
-    , args           :: [T.Text]
+    { name              :: T.Text
+    , extensionPoint    :: ExtensionPoint
+    , outputFormat      :: ExtensionOutputFormat
+    , showOutputOnError :: Bool
+    , executable        :: T.Text
+    , args              :: [T.Text]
     }
     deriving (Show, Eq)
 
 instance Default Extension where
     def = Extension
-        { name           = "Anonymous Extension"
-        , extensionPoint = ExtensionPointHover
-        , outputFormat   = ExtensionOutputFormatPlaintext
-        , executable     = "echo"
-        , args           = []
+        { name              = "Anonymous Extension"
+        , extensionPoint    = ExtensionPointHover
+        , outputFormat      = ExtensionOutputFormatPlaintext
+        , showOutputOnError = False
+        , executable        = "echo"
+        , args              = []
         }
 
 instance FromJSON Extension where
     parseJSON = withObject "Extension" $ \e -> do
-        name           <- e .:? "name"           .!= (def @Extension).name
-        extensionPoint <- e .:? "extensionPoint" .!= (def @Extension).extensionPoint
-        outputFormat   <- e .:? "outputFormat"   .!= (def @Extension).outputFormat
-        executable     <- e .:? "executable"     .!= (def @Extension).executable
-        args           <- e .:? "args"           .!= (def @Extension).args
+        name              <- e .:? "name"              .!= (def @Extension).name
+        extensionPoint    <- e .:? "extensionPoint"    .!= (def @Extension).extensionPoint
+        outputFormat      <- e .:? "outputFormat"      .!= (def @Extension).outputFormat
+        showOutputOnError <- e .:? "showOutputOnError" .!= (def @Extension).showOutputOnError
+        executable        <- e .:? "executable"        .!= (def @Extension).executable
+        args              <- e .:? "args"              .!= (def @Extension).args
         return Extension {..}
 
 instance ToJSON Extension where
     toJSON Extension {..} = object
-        [ "name"           .= name
-        , "extensionPoint" .= extensionPoint
-        , "outputFormat"   .= outputFormat
-        , "executable"     .= executable
-        , "args"           .= args
+        [ "name"              .= name
+        , "extensionPoint"    .= extensionPoint
+        , "outputFormat"      .= outputFormat
+        , "showOutputOnError" .= showOutputOnError
+        , "executable"        .= executable
+        , "args"              .= args
         ]
 
 instance FromJSON ExtensionPoint where

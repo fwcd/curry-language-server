@@ -97,20 +97,23 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
         let simpleCodeBlock t
                 | T.null t  = ""
                 | otherwise =  "```\n" <> t <> "\n```"
-            text            = T.unlines $ case exitCode of
-                                 ExitSuccess ->
-                                    [ "**" <> e.name <> "**"
-                                    , ""
-                                    , case e.outputFormat of
-                                        ExtensionOutputFormatMarkdown  -> T.pack out
-                                        _                              -> simpleCodeBlock (T.pack out)
-                                    ]
-                                 _           ->
-                                    [ "_Extension **" <> e.name <> "** exited with " <> T.pack (show exitCode) <> "_"
-                                    , ""
-                                    , simpleCodeBlock (T.pack err)
-                                    ]
-            contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
+        
+        text <- case exitCode of
+            ExitSuccess             -> return $ T.unlines
+                [ "**" <> e.name <> "**"
+                , ""
+                , case e.outputFormat of
+                    ExtensionOutputFormatMarkdown  -> T.pack out
+                    _                              -> simpleCodeBlock (T.pack out)
+                ]
+            _ | e.showOutputOnError -> return $ T.unlines
+                [ "_Extension **" <> e.name <> "** exited with " <> T.pack (show exitCode) <> "_"
+                , ""
+                , simpleCodeBlock (T.pack err)
+                ]
+              | otherwise           -> liftMaybe Nothing
+
+        let contents = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
         
         return $ J.Hover contents Nothing
     _                   -> return Nothing
