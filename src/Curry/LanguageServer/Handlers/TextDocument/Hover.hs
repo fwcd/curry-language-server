@@ -93,12 +93,14 @@ extensionHover ast pos e = case e.extensionPoint of
             text            = T.unlines $ case exitCode of
                                  ExitSuccess ->
                                     [ "**" <> e.name <> "**"
+                                    , ""
                                     , case e.outputFormat of
                                         ExtensionOutputFormatMarkdown  -> T.pack out
                                         _                              -> simpleCodeBlock (T.pack out)
                                     ]
                                  _           ->
                                     [ "_Extension **" <> e.name <> "** exited with " <> T.pack (show exitCode) <> "_"
+                                    , ""
                                     , simpleCodeBlock (T.pack err)
                                     ]
             contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
