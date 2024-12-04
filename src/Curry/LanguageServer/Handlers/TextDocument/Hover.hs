@@ -21,9 +21,9 @@ import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
 import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
-import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
+import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath, uriToFilePath)
 import Curry.LanguageServer.Monad (LSM, getStore)
-import Data.Maybe (listToMaybe, maybeToList)
+import Data.Maybe (listToMaybe, maybeToList, fromMaybe)
 import qualified Data.Text as T
 import qualified Language.LSP.Server as S
 import qualified Language.LSP.Protocol.Types as J
@@ -43,15 +43,15 @@ hoverHandler = S.requestHandler J.SMethod_TextDocumentHover $ \req responder -> 
     store <- getStore
     hover <- runMaybeT $ do
         entry <- I.getModule normUri
-        MaybeT $ fetchHover store entry pos
+        MaybeT $ fetchHover store entry pos uri
     responder $ Right $ maybe (J.InR J.Null) J.InL hover
 
-fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> m (Maybe J.Hover)
-fetchHover store entry pos = runMaybeT $ do
+fetchHover :: (MonadIO m, MonadLsp CFG.Config m) => I.IndexStore -> I.ModuleStoreEntry -> J.Position -> J.Uri -> m (Maybe J.Hover)
+fetchHover store entry pos uri = runMaybeT $ do
     ast <- liftMaybe entry.moduleAST
     cfg <- lift S.getConfig
     let baseHover = maybeToList $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    extHovers <- mapMaybeM (extensionHover ast pos) cfg.extensions
+    extHovers <- mapMaybeM (extensionHover ast pos uri) cfg.extensions
     hover <- liftMaybe . joinHovers $ baseHover ++ extHovers
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
@@ -74,16 +74,20 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 
     return $ J.Hover contents range
 
-extensionHover :: MonadIO m => ModuleAST -> J.Position -> Extension -> m (Maybe J.Hover)
-extensionHover ast pos e = case e.extensionPoint of
+extensionHover :: MonadIO m => ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
+extensionHover ast pos@(J.Position l c) uri e = case e.extensionPoint of
     ExtensionPointHover -> runMaybeT $ do
         TypedSpanInfo _ _ spi <- liftMaybe $ findTypeAtPos ast pos
 
-        let timeoutSecs   = 10
-            timeoutMicros = timeoutSecs * 1_000_000
-            -- TODO: Template parameters
-            -- TODO: cwd
-            procOpts      = proc (T.unpack e.executable) (T.unpack <$> e.args)
+        let timeoutSecs    = 10
+            timeoutMicros  = timeoutSecs * 1_000_000
+            templateParams = [ ("sourceFile", T.pack (fromMaybe "" (uriToFilePath uri)))
+                             , ("sourceUri", T.pack (show uri))
+                             , ("line", T.pack (show l))
+                             , ("column", T.pack (show c))
+                             ] :: [(T.Text, T.Text)]
+            evalTemplate t = foldr (\(p, r) -> T.replace ("{" <> p <> "}") r) t templateParams
+            procOpts       = proc (T.unpack e.executable) (T.unpack . (evalTemplate :: T.Text -> T.Text) <$> e.args)
 
         (exitCode, out, err) <- MaybeT $ liftIO $ timeout timeoutMicros $ readCreateProcessWithExitCode procOpts ""
 
