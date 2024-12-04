@@ -89,7 +89,7 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
                              , ("expression", expr)
                              , ("type", maybe "?" (ppPredTypeToText mid) ty)
                              ] :: [(T.Text, T.Text)]
-            applyParam p v = T.replace p ("{" <> v <> "}")
+            applyParam p   = T.replace ("{" <> p <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
             procOpts       = proc (T.unpack e.executable) (T.unpack . (evalTemplate :: T.Text -> T.Text) <$> e.args)
 
