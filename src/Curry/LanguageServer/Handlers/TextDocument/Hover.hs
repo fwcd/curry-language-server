@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, OverloadedRecordDot, TypeOperators, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, NumericUnderscores, OverloadedStrings, OverloadedRecordDot, TypeOperators, ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
@@ -30,6 +30,9 @@ import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
+import System.Exit (ExitCode (..))
+import System.Process (readCreateProcessWithExitCode, shell, CreateProcess (..))
+import System.Timeout (timeout)
 
 hoverHandler :: S.Handlers LSM
 hoverHandler = S.requestHandler J.SMethod_TextDocumentHover $ \req responder -> do
@@ -48,7 +51,7 @@ fetchHover store entry pos = runMaybeT $ do
     ast <- liftMaybe entry.moduleAST
     cfg <- lift S.getConfig
     let baseHover = maybeToList $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    extHovers <- mapMaybeM (\ext -> extensionHover ext ast pos) cfg.extensions
+    extHovers <- mapMaybeM (extensionHover ast pos) cfg.extensions
     hover <- liftMaybe . joinHovers $ baseHover ++ extHovers
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
@@ -71,9 +74,30 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 
     return $ J.Hover contents range
 
-extensionHover :: MonadIO m => Extension -> ModuleAST -> J.Position -> m (Maybe J.Hover)
-extensionHover e _ _ = case e.extensionPoint of
-    ExtensionPointHover -> return Nothing -- TODO
+extensionHover :: MonadIO m => ModuleAST -> J.Position -> Extension -> m (Maybe J.Hover)
+extensionHover ast pos e = case e.extensionPoint of
+    ExtensionPointHover -> runMaybeT $ do
+        TypedSpanInfo _ _ spi <- liftMaybe $ findTypeAtPos ast pos
+
+        let timeoutSecs   = 10
+            timeoutMicros = timeoutSecs * 1_000_000
+            -- TODO: Template parameters
+            -- TODO: cwd
+            procOpts      = shell (unwords (T.unpack <$> (e.executable : e.args)))
+
+        (exitCode, out, err) <- MaybeT $ liftIO $ timeout timeoutMicros $ readCreateProcessWithExitCode procOpts ""
+
+        let simpleCodeBlock s'
+                | null s'   = ""
+                | otherwise =  "```\n" <> T.pack s' <> "\n```"
+            text            = case exitCode of
+                                 ExitSuccess -> simpleCodeBlock out
+                                 _           -> "_Extension " <> e.name <> " timed out after " <> T.pack (show timeoutSecs) <> " seconds_"
+                                                              <> simpleCodeBlock err
+            contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
+            range           = currySpanInfo2Range spi
+        
+        return $ J.Hover contents range
     _                   -> return Nothing
 
 previewHover :: J.Hover -> T.Text
