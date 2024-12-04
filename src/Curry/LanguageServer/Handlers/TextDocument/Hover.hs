@@ -86,7 +86,8 @@ extensionHover ast pos@(J.Position l c) uri e = case e.extensionPoint of
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
                              ] :: [(T.Text, T.Text)]
-            evalTemplate t = foldr (\(p, r) -> T.replace ("{" <> p <> "}") r) t templateParams
+            applyParam p v = T.replace p ("{" <> v <> "}")
+            evalTemplate t = foldr (uncurry applyParam) t templateParams
             procOpts       = proc (T.unpack e.executable) (T.unpack . (evalTemplate :: T.Text -> T.Text) <$> e.args)
 
         (exitCode, out, err) <- MaybeT $ liftIO $ timeout timeoutMicros $ readCreateProcessWithExitCode procOpts ""
