@@ -81,11 +81,11 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
 
         let timeoutSecs    = 10
             timeoutMicros  = timeoutSecs * 1_000_000
-            templateParams = [ ("sourceFile", T.pack (fromMaybe "" (uriToFilePath uri)))
-                             , ("sourceUri", T.pack (show uri))
+            templateParams = [ ("currentFile", T.pack (fromMaybe "" (uriToFilePath uri)))
+                             , ("currentUri", T.pack (show uri))
+                             , ("currentModule", ppToText mid)
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
-                             , ("module", ppToText mid)
                              , ("expression", expr)
                              , ("type", maybe "?" (ppPredTypeToText mid) ty)
                              ] :: [(T.Text, T.Text)]
