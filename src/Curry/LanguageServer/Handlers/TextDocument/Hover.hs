@@ -77,17 +77,16 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 extensionHover :: MonadIO m => ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
 extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e.extensionPoint of
     ExtensionPointHover -> runMaybeT $ do
-        TypedSpanInfo expr ty spi <- liftMaybe $ findTypeAtPos ast pos
-
-        let timeoutSecs    = 10
+        let tspi           = findTypeAtPos ast pos
+            timeoutSecs    = 10
             timeoutMicros  = timeoutSecs * 1_000_000
             templateParams = [ ("currentFile", T.pack (fromMaybe "" (uriToFilePath uri)))
                              , ("currentUri", J.getUri uri)
                              , ("currentModule", ppToText mid)
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
-                             , ("expression", expr)
-                             , ("type", maybe "?" (ppPredTypeToText mid) ty)
+                             , ("expression", maybe "" (.exprText) tspi)
+                             , ("type", maybe "" (ppPredTypeToText mid) ((.typeAnnotation) =<< tspi))
                              ] :: [(T.Text, T.Text)]
             applyParam p   = T.replace ("{" <> p <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
@@ -112,9 +111,8 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
                                     , simpleCodeBlock (T.pack err)
                                     ]
             contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
-            range           = currySpanInfo2Range spi
         
-        return $ J.Hover contents range
+        return $ J.Hover contents Nothing
     _                   -> return Nothing
 
 previewHover :: J.Hover -> T.Text
