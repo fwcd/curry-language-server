@@ -92,8 +92,10 @@ extensionHover ast pos e = case e.extensionPoint of
                 | otherwise =  "```\n" <> t <> "\n```"
             text            = case exitCode of
                                  ExitSuccess -> T.pack out
-                                 _           -> "_Extension " <> e.name <> " timed out after " <> T.pack (show timeoutSecs) <> " seconds_"
-                                                              <> simpleCodeBlock (T.pack err)
+                                 _           -> T.unlines
+                                    [ "_Extension `" <> e.name <> "` exited with " <> T.pack (show exitCode) <> "_"
+                                    , simpleCodeBlock (T.pack err)
+                                    ]
             contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
             range           = currySpanInfo2Range spi
         
