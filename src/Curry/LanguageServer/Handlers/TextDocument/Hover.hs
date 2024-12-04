@@ -13,7 +13,7 @@ import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
-import Curry.LanguageServer.Extension (ExtensionPoint (..), Extension (..))
+import Curry.LanguageServer.Extension (ExtensionPoint (..), ExtensionOutputFormat (..), Extension (..))
 import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range)
 import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
@@ -91,7 +91,10 @@ extensionHover ast pos e = case e.extensionPoint of
                 | T.null t  = ""
                 | otherwise =  "```\n" <> t <> "\n```"
             text            = case exitCode of
-                                 ExitSuccess -> T.pack out
+                                 ExitSuccess ->
+                                    case e.outputFormat of
+                                        ExtensionOutputFormatMarkdown  -> T.pack out
+                                        _                              -> simpleCodeBlock (T.pack out)
                                  _           -> T.unlines
                                     [ "_Extension `" <> e.name <> "` exited with " <> T.pack (show exitCode) <> "_"
                                     , simpleCodeBlock (T.pack err)
