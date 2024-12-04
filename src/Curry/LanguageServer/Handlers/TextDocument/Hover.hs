@@ -87,13 +87,13 @@ extensionHover ast pos e = case e.extensionPoint of
 
         (exitCode, out, err) <- MaybeT $ liftIO $ timeout timeoutMicros $ readCreateProcessWithExitCode procOpts ""
 
-        let simpleCodeBlock s'
-                | null s'   = ""
-                | otherwise =  "```\n" <> T.pack s' <> "\n```"
+        let simpleCodeBlock t
+                | T.null t  = ""
+                | otherwise =  "```\n" <> t <> "\n```"
             text            = case exitCode of
-                                 ExitSuccess -> simpleCodeBlock out
+                                 ExitSuccess -> T.pack out
                                  _           -> "_Extension " <> e.name <> " timed out after " <> T.pack (show timeoutSecs) <> " seconds_"
-                                                              <> simpleCodeBlock err
+                                                              <> simpleCodeBlock (T.pack err)
             contents        = J.InL $ J.MarkupContent J.MarkupKind_Markdown text
             range           = currySpanInfo2Range spi
         
@@ -122,7 +122,7 @@ joinMarkupContent cs = foldr1 mergeMarkupContent cs
 
 mergeMarkupContent :: J.MarkupContent -> J.MarkupContent -> J.MarkupContent
 mergeMarkupContent (normalizeToMarkdown -> J.MarkupContent _ t1) (normalizeToMarkdown -> J.MarkupContent _ t2) =
-    J.MarkupContent J.MarkupKind_Markdown $ T.unlines [t1, t2]
+    J.MarkupContent J.MarkupKind_Markdown $ T.unlines [t1, "", "---", "", t2]
 
 emptyMarkupContent :: J.MarkupContent
 emptyMarkupContent = J.MarkupContent J.MarkupKind_PlainText ""
