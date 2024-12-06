@@ -2,9 +2,6 @@
 {-# OPTIONS_GHC -Wno-deprecations #-}
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
--- Curry Compiler Libraries + Dependencies
-import qualified Curry.Base.Ident as CI
-
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad.Extra (mapMaybeM)
@@ -19,7 +16,8 @@ import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range
 import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
-import Curry.LanguageServer.Utils.Lookup (findTypeAtPos, findQualIdentAtPos, findModuleIdentAtPos)
+import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
+import Curry.LanguageServer.Index.Symbol (symbolParentIdent)
 import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath, uriToFilePath)
@@ -52,7 +50,7 @@ fetchHover store entry pos uri = runMaybeT $ do
     ast <- liftMaybe entry.moduleAST
     cfg <- lift S.getConfig
     let baseHover = maybeToList $ qualIdentHover store ast pos <|> typedSpanInfoHover ast pos
-    extHovers <- mapMaybeM (extensionHover ast pos uri) cfg.extensions
+    extHovers <- mapMaybeM (extensionHover store ast pos uri) cfg.extensions
     hover <- liftMaybe . joinHovers $ baseHover ++ extHovers
     lift $ infoM $ "Found hover: " <> previewHover hover
     return hover
@@ -75,12 +73,10 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 
     return $ J.Hover contents range
 
-extensionHover :: MonadIO m => ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
-extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e.extensionPoint of
+extensionHover :: MonadIO m => I.IndexStore -> ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
+extensionHover store ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e.extensionPoint of
     ExtensionPointHover -> runMaybeT $ do
-        let hoveredTy      = findTypeAtPos ast pos
-            hoveredQid     = fst <$> findQualIdentAtPos ast pos
-            hoveredMid     = fst <$> findModuleIdentAtPos ast pos
+        let symbol         = listToMaybe . fst =<< resolveAtPos store ast pos
             timeoutSecs    = 10
             timeoutMicros  = timeoutSecs * 1_000_000
             templateParams = [ ("currentFile", T.pack (fromMaybe "" (uriToFilePath uri)))
@@ -88,10 +84,9 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
                              , ("currentModule", ppToText mid)
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
-                             , ("expression", maybe "" (.exprText) hoveredTy)
-                             , ("type", maybe "" (ppPredTypeToText mid) ((.typeAnnotation) =<< hoveredTy))
-                             , ("identifier", maybe "" (ppToText . CI.qidIdent) hoveredQid)
-                             , ("module", maybe "" ppToText (hoveredMid <|> (CI.qidModule =<< hoveredQid)))
+                             , ("type", fromMaybe "" ((.printedType) =<< symbol))
+                             , ("identifier", maybe "" (.ident) symbol)
+                             , ("module", maybe "" symbolParentIdent symbol)
                              ] :: [(T.Text, T.Text)]
             applyParam p   = T.replace ("{" <> p <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
