@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts, TupleSections, DuplicateRecordFields, NoFieldSelectors, OverloadedStrings, OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 module Curry.LanguageServer.Index.Store
     ( ModuleStoreEntry (..)
     , IndexStore (..)
