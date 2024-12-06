@@ -3,6 +3,7 @@
 module Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler) where
 
 -- Curry Compiler Libraries + Dependencies
+import qualified Curry.Base.Ident as CI
 
 import Control.Applicative ((<|>))
 import Control.Lens ((^.))
@@ -18,7 +19,7 @@ import Curry.LanguageServer.Utils.Convert (ppPredTypeToText, currySpanInfo2Range
 import Curry.LanguageServer.Index.Resolve (resolveAtPos)
 import Curry.LanguageServer.Utils.General (liftMaybe)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
-import Curry.LanguageServer.Utils.Lookup (findTypeAtPos)
+import Curry.LanguageServer.Utils.Lookup (findTypeAtPos, findQualIdentAtPos, findModuleIdentAtPos)
 import Curry.LanguageServer.Utils.Syntax (moduleIdentifier)
 import Curry.LanguageServer.Utils.Sema (ModuleAST, TypedSpanInfo (..))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath, uriToFilePath)
@@ -77,7 +78,9 @@ typedSpanInfoHover ast@(moduleIdentifier -> mid) pos = do
 extensionHover :: MonadIO m => ModuleAST -> J.Position -> J.Uri -> Extension -> m (Maybe J.Hover)
 extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e.extensionPoint of
     ExtensionPointHover -> runMaybeT $ do
-        let tspi           = findTypeAtPos ast pos
+        let hoveredTy      = findTypeAtPos ast pos
+            hoveredQid     = fst <$> findQualIdentAtPos ast pos
+            hoveredMid     = fst <$> findModuleIdentAtPos ast pos
             timeoutSecs    = 10
             timeoutMicros  = timeoutSecs * 1_000_000
             templateParams = [ ("currentFile", T.pack (fromMaybe "" (uriToFilePath uri)))
@@ -85,8 +88,10 @@ extensionHover ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = case e
                              , ("currentModule", ppToText mid)
                              , ("line", T.pack (show l))
                              , ("column", T.pack (show c))
-                             , ("expression", maybe "" (.exprText) tspi)
-                             , ("type", maybe "" (ppPredTypeToText mid) ((.typeAnnotation) =<< tspi))
+                             , ("expression", maybe "" (.exprText) hoveredTy)
+                             , ("type", maybe "" (ppPredTypeToText mid) ((.typeAnnotation) =<< hoveredTy))
+                             , ("identifier", maybe "" (ppToText . CI.qidIdent) hoveredQid)
+                             , ("module", maybe "" ppToText (hoveredMid <|> (CI.qidModule =<< hoveredQid)))
                              ] :: [(T.Text, T.Text)]
             applyParam p   = T.replace ("{" <> p <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
