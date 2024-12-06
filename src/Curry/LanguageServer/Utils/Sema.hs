@@ -27,7 +27,11 @@ untypedTopLevelDecls (CS.Module _ _ _ _ _ _ decls) = untypedDecls
     where typeSigIdents = S.fromList [i | CS.TypeSig _ is _ <- decls, i <- is]
           untypedDecls = [(spi, i, t) | CS.FunctionDecl spi t i _ <- decls, i `S.notMember` typeSigIdents]
 
-data TypedSpanInfo a = TypedSpanInfo T.Text a CSPI.SpanInfo
+data TypedSpanInfo a = TypedSpanInfo
+    { exprText       :: T.Text
+    , typeAnnotation :: a
+    , spanInfo       :: CSPI.SpanInfo
+    }
     deriving (Show, Eq)
 
 class HasTypedSpanInfos e a where
