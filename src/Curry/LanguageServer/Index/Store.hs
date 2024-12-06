@@ -1,10 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE NoFieldSelectors #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts, TupleSections, DuplicateRecordFields, NoFieldSelectors, OverloadedStrings, OverloadedRecordDot #-}
 module Curry.LanguageServer.Index.Store
     ( ModuleStoreEntry (..)
     , IndexStore (..)
