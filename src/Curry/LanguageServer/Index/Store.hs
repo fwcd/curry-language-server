@@ -200,7 +200,7 @@ findCurrySourcesInProject cfg dirPath = do
         cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
         case cpmResult of
             Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack cpmPath <> "'!"
-            Left _  -> infoM $ "Could not update paths.json using " <> T.pack cpmPath <> ", trying to read paths.json anyway..."
+            Left _  -> infoM $ "Could not update paths.json using " <> T.pack cpmPath <> " (try running '" <> T.pack cpmPath <> " install'), trying to read paths.json anyway..."
 
     infoM "Reading paths.json..."
     pathsResult <- runCPMM $ readPathsJson dirPath
