@@ -210,11 +210,11 @@ findCurrySourcesInProject cfg dirPath = do
             let curryLibPath = libPath fullCurryPath
 
             if exitCode == ExitSuccess then do
-                warnM "Could not find Curry standard libraries, this might result in 'missing Prelude' errors..."
-                return []
-            else do
                 infoM $ "Found Curry standard library at " <> T.pack curryLibPath
                 return [curryLibPath]
+            else do
+                warnM "Could not find Curry standard libraries, this might result in 'missing Prelude' errors..."
+                return []
     
     infoM "Searching for sources..."
     projSources <- walkCurrySourceFiles dirPath
