@@ -47,7 +47,7 @@ toWorkspaceSymbol s = J.SymbolInformation name kind tags containerName deprecate
               I.TypeAlias                                 -> J.SymbolKind_Interface
               I.TypeClass                                 -> J.SymbolKind_Interface
               I.TypeVar                                   -> J.SymbolKind_Variable
-              I.Other                                     -> J.SymbolKind_Namespace
+              I.Unknown                                   -> J.SymbolKind_Namespace
           tags = Nothing
           deprecated = Nothing
           containerName = Just $ I.symbolParentIdent s
