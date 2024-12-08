@@ -204,7 +204,8 @@ findCurrySourcesInProject cfg dirPath = do
             infoM $ "Successfully read paths.json: " <> T.pack (show (length paths)) <> " path(s)"
             return paths
         Left e      -> do
-            warnM $ "Could not read paths.json (" <> T.pack e <> "), trying fallback resolution of Curry standard libraries..."
+            warnM $ "Could not read paths.json (" <> T.pack e <> "), trying fallback resolution of Curry standard libraries by locating the '" <> T.pack curryPath <> "' executable..."
+
             (exitCode, fullCurryPath, _) <- liftIO $ readProcessWithExitCode "which" [curryPath] []
             let curryLibPath = libPath fullCurryPath
 
