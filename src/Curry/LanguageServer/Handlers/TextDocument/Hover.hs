@@ -87,6 +87,7 @@ extensionHover store ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = 
                              , ("type", fromMaybe "" ((.printedType) =<< symbol))
                              , ("identifier", maybe "" (.ident) symbol)
                              , ("module", maybe "" symbolParentIdent symbol)
+                             , ("symbolKind", maybe "" (T.pack . show . (.kind)) symbol)
                              ] :: [(T.Text, T.Text)]
             applyParam p   = T.replace ("{" <> p <> "}")
             evalTemplate t = foldr (uncurry applyParam) t templateParams
