@@ -22,7 +22,7 @@ data SymbolKind = ValueFunction
                 | TypeClass
                 | TypeAlias
                 | TypeVar
-                | Other
+                | Unknown
     deriving (Show, Eq)
 
 -- | A module, type or value. If it's a type, the 'printed type' will be the printed kind.
@@ -41,7 +41,7 @@ data Symbol = Symbol
 
 instance Default Symbol where
     def = Symbol
-        { kind = Other
+        { kind = Unknown
         , qualIdent = ""
         , ident = ""
         , printedType = Nothing

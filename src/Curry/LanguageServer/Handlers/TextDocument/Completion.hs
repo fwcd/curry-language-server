@@ -235,7 +235,7 @@ instance ToCompletionItems CompletionSymbol where
                   I.TypeAlias                                 -> J.CompletionItemKind_Interface
                   I.TypeClass                                 -> J.CompletionItemKind_Interface
                   I.TypeVar                                   -> J.CompletionItemKind_Variable
-                  I.Other                                     -> J.CompletionItemKind_Text
+                  I.Unknown                                   -> J.CompletionItemKind_Text
               insertText | opts.useSnippets = Just $ makeSnippet name s.printedArgumentTypes
                          | otherwise        = Just name
               insertTextFormat | opts.useSnippets = Just J.InsertTextFormat_Snippet

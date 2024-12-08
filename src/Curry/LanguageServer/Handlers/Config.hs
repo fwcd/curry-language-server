@@ -8,5 +8,5 @@ import Curry.LanguageServer.Monad (LSM)
 import Curry.LanguageServer.Utils.Logging (infoM)
 
 onConfigChange :: Config -> LSM ()
-onConfigChange cfg = do
+onConfigChange _cfg = do
     infoM "Changed configuration"
