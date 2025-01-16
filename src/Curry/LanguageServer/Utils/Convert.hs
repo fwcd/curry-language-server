@@ -37,7 +37,7 @@ import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Curry.Frontend.Base.Types as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad.IO.Class (MonadIO (..))

@@ -12,7 +12,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Base.Position as CP
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Curry.Frontend.Base.Types as CT
 
 import Curry.LanguageServer.Utils.Convert (ppToText)
 import Data.Maybe (maybeToList)

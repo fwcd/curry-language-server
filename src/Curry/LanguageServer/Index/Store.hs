@@ -25,8 +25,8 @@ module Curry.LanguageServer.Index.Store
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.Message as CM
 import qualified Curry.Files.Filenames as CFN
-import qualified Base.TopEnv as CT
-import qualified CompilerEnv as CE
+import qualified Curry.Frontend.Base.TopEnv as CT
+import qualified Curry.Frontend.CompilerEnv as CE
 
 import Control.Exception (SomeException)
 import Control.Monad (forM_, join, void, unless, filterM)

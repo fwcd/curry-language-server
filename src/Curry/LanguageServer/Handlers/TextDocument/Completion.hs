@@ -3,7 +3,7 @@ module Curry.LanguageServer.Handlers.TextDocument.Completion (completionHandler)
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Curry.Frontend.Base.Types as CT
 
 import Control.Lens ((^.), (?~))
 import Control.Monad (join, guard)

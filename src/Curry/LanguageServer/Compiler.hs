@@ -19,19 +19,19 @@ import qualified Curry.Base.Message as CM
 import Curry.Base.Monad (CYIO, CYT, runCYIO, liftCYM, silent, failMessages, warnMessages)
 import qualified Curry.Syntax as CS
 import qualified Curry.Syntax.Extension as CSE
-import qualified Base.Messages as CBM
-import qualified Checks as CC
-import qualified CurryBuilder as CB
-import qualified CurryDeps as CD
-import qualified CompilerEnv as CE
-import qualified CondCompile as CNC
-import qualified CompilerOpts as CO
-import qualified Env.Interface as CEI
-import qualified Exports as CEX
-import qualified Imports as CIM
-import qualified Interfaces as CIF
-import qualified Modules as CMD
-import qualified Transformations as CT
+import qualified Curry.Frontend.Base.Messages as CBM
+import qualified Curry.Frontend.Checks as CC
+import qualified Curry.Frontend.CurryBuilder as CB
+import qualified Curry.Frontend.CurryDeps as CD
+import qualified Curry.Frontend.CompilerEnv as CE
+import qualified Curry.Frontend.CondCompile as CNC
+import qualified Curry.Frontend.CompilerOpts as CO
+import qualified Curry.Frontend.Env.Interface as CEI
+import qualified Curry.Frontend.Exports as CEX
+import qualified Curry.Frontend.Imports as CIM
+import qualified Curry.Frontend.Interfaces as CIF
+import qualified Curry.Frontend.Modules as CMD
+import qualified Curry.Frontend.Transformations as CT
 import qualified Text.PrettyPrint as PP
 
 import Control.Monad (join)
