@@ -3,7 +3,7 @@ module Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler)
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Syntax as CS
-import qualified Base.Types as CT
+import qualified Curry.Frontend.Base.Types as CT
 
 import Control.Lens ((^.))
 import Control.Monad (guard)

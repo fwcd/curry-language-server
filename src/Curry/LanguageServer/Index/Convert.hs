@@ -5,11 +5,11 @@ module Curry.LanguageServer.Index.Convert
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Ident as CI
-import qualified Base.TopEnv as CTE
-import qualified Base.Types as CT
-import qualified Base.Kinds as CK
-import qualified Env.TypeConstructor as CETC
-import qualified Env.Value as CEV
+import qualified Curry.Frontend.Base.TopEnv as CTE
+import qualified Curry.Frontend.Base.Types as CT
+import qualified Curry.Frontend.Base.Kinds as CK
+import qualified Curry.Frontend.Env.TypeConstructor as CETC
+import qualified Curry.Frontend.Env.Value as CEV
 
 import Control.Applicative ((<|>))
 import Control.Monad.IO.Class (MonadIO (..))
