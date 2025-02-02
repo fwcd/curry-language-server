@@ -34,14 +34,14 @@ import qualified Curry.Frontend.Modules as CMD
 import qualified Curry.Frontend.Transformations as CT
 import qualified Text.PrettyPrint as PP
 
-import Control.Monad (join)
+import Control.Monad (join, when)
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.Monad.Trans.State (StateT (..))
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader.Class (asks)
-import Control.Monad.State.Class (modify)
+import Control.Monad.State.Class (modify, gets)
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Utils.Convert (ppToText)
 import Curry.LanguageServer.Utils.General ((<.$>))
@@ -145,13 +145,15 @@ compileCurryModule opts outDirPath m fp = do
     liftToCM $ debugM $ "Compiling module " <> T.pack (takeFileName fp)
     -- Parse and check the module
     mdl <- loadAndCheckCurryModule opts m fp
-    -- Generate and store an on-disk interface file
-    mdl' <- CC.expandExports opts mdl
-    interf <- liftCYIO $ uncurry (CEX.exportInterface opts) $ CT.qual mdl'
-    let interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
-        generated = PP.render $ CS.pPrint interf
-    liftToCM $ debugM $ "Writing interface file to " <> T.pack interfFilePath
-    liftIO $ CF.writeModule interfFilePath generated 
+    errs <- gets (.errors)
+    when (null errs) $ do
+        -- Generate and store an on-disk interface file
+        mdl' <- CC.expandExports opts mdl
+        interf <- liftCYIO $ uncurry (CEX.exportInterface opts) $ CT.qual mdl'
+        let interfFilePath = outDirPath </> CFN.interfName (CFN.moduleNameToFile m)
+            generated = PP.render $ CS.pPrint interf
+        liftToCM $ debugM $ "Writing interface file to " <> T.pack interfFilePath
+        liftIO $ CF.writeModule interfFilePath generated 
     return [(fp, mdl)]
 
 -- The following functions partially reimplement
@@ -167,7 +169,7 @@ compileCurryModule opts outDirPath m fp = do
 --                    2018        Kai-Oliver Prott
 
 -- | Loads a single module and performs checks.
-loadAndCheckCurryModule :: MonadIO m => CO.Options -> CI.ModuleIdent -> FilePath -> CMT m (CE.CompEnv ModuleAST)
+loadAndCheckCurryModule :: (MonadIO m, MonadLsp CFG.Config m) => CO.Options -> CI.ModuleIdent -> FilePath -> CMT m (CE.CompEnv ModuleAST)
 loadAndCheckCurryModule opts m fp = do
     -- Read source file (possibly from VFS)
     fl <- asks (.fileLoader)
