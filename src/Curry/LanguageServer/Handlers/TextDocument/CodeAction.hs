@@ -57,32 +57,3 @@ fetchCodeActions entry = do
     let msgs = entry.warningMessages ++ entry.errorMessages
         diags = [curryMsg2Diagnostic s m | (s, ms) <- zip [J.DiagnosticSeverity_Warning, J.DiagnosticSeverity_Error] [entry.warningMessages, entry.errorMessages], m <- ms]
     mapMaybeM (runMaybeT . uncurry curryQuickFix2CodeAction) [(f, [diag]) | (diag, m) <- zip diags msgs, f <- CM.msgFixes m]
-
-class HasCodeActions s where
-    codeActions :: MonadIO m => J.Range -> s -> m [J.CodeAction]
-
-instance HasCodeActions (CS.Module (Maybe CT.PredType)) where
-    codeActions range mdl@(CS.Module spi _ _ _ _ _ _) = do
-        maybeUri <- runMaybeT (currySpanInfo2Uri spi)
-
-        -- TODO: Attach diagnostics, ideally the frontend could emit these
-        --       quick fixes along with the warning messages?
-
-        let typeHintActions = do
-                (spi', i, tp) <- untypedTopLevelDecls mdl
-                t <- maybeToList tp
-                range' <- maybeToList $ currySpanInfo2Range spi'
-                guard $ rangeOverlaps range range'
-                uri <- maybeToList maybeUri
-                -- TODO: Move the command identifier ('decl.applyTypeHint') to some
-                --       central place to avoid repetition.
-                let text = ppToText i <> " :: " <> ppToText t
-                    args = [A.toJSON uri, A.toJSON $ range' ^. J.start, A.toJSON text]
-                    command = J.Command text "decl.applyTypeHint" $ Just args
-                    caKind = J.CodeActionKind_QuickFix
-                    isPreferred = True
-                    lens = J.CodeAction ("Add type annotation '" <> text <> "'") (Just caKind) Nothing (Just isPreferred) Nothing Nothing (Just command) Nothing
-                return lens
-
-        return typeHintActions
-
