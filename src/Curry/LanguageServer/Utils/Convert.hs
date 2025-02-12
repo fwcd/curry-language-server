@@ -165,10 +165,10 @@ curryTextEdit2WorkspaceEdit e = do
     docEdit <- curryTextEdit2TextDocumentEdit e
     return $ J.WorkspaceEdit Nothing (Just [J.InL docEdit]) Nothing
 
-curryQuickFix2CodeAction :: MonadIO m => CQF.QuickFix -> MaybeT m J.CodeAction
-curryQuickFix2CodeAction (CQF.QuickFix e desc) = do
+curryQuickFix2CodeAction :: MonadIO m => CQF.QuickFix -> [J.Diagnostic] -> MaybeT m J.CodeAction
+curryQuickFix2CodeAction (CQF.QuickFix e desc) diags = do
     wedit <- curryTextEdit2WorkspaceEdit e
-    return $ J.CodeAction (T.pack desc) (Just kind) Nothing Nothing Nothing (Just wedit) Nothing Nothing
+    return $ J.CodeAction (T.pack desc) (Just kind) (Just diags) Nothing Nothing (Just wedit) Nothing Nothing
     where kind = J.CodeActionKind_QuickFix
 
 setCurryPosUri :: CP.HasPosition a => J.Uri -> a -> Maybe a
