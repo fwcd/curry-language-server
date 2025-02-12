@@ -3,11 +3,8 @@ module Curry.LanguageServer.Handlers.TextDocument.CodeAction (codeActionHandler)
 
 -- Curry Compiler Libraries + Dependencies
 import qualified Curry.Base.Message as CM
-import qualified Curry.Syntax as CS
-import qualified Curry.Frontend.Base.Types as CT
 
 import Control.Lens ((^.))
-import Control.Monad (guard)
 import Control.Monad.Extra (mapMaybeM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans (lift)
@@ -15,14 +12,11 @@ import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified Curry.LanguageServer.Config as CFG
 import qualified Curry.LanguageServer.Index.Store as I
 import Curry.LanguageServer.Monad (LSM)
-import Curry.LanguageServer.Utils.Convert (currySpanInfo2Uri, currySpanInfo2Range, curryQuickFix2CodeAction, ppToText, curryMsg2Diagnostic)
+import Curry.LanguageServer.Utils.Convert (curryQuickFix2CodeAction, curryMsg2Diagnostic)
 import Curry.LanguageServer.Utils.General (rangeOverlaps)
 import Curry.LanguageServer.Utils.Logging (debugM)
-import Curry.LanguageServer.Utils.Sema (untypedTopLevelDecls)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import qualified Data.Aeson as A
-import Data.Maybe (fromMaybe, maybeToList)
-import qualified Data.Text as T
+import Data.Maybe (fromMaybe)
 import qualified Language.LSP.Server as S
 import Language.LSP.Server (MonadLsp)
 import qualified Language.LSP.Protocol.Types as J
