@@ -16,6 +16,10 @@ module Curry.LanguageServer.Utils.Convert
     , currySpanInfo2Location
     , currySpanInfo2LocationLink
     , currySpanInfos2LocationLink
+    , curryTextEdit2TextEdit
+    , curryTextEdit2TextDocumentEdit
+    , curryTextEdit2WorkspaceEdit
+    , curryQuickFix2CodeAction
     , setCurryPosUri
     , setCurrySpanUri
     , setCurrySpanInfoUri
@@ -36,6 +40,8 @@ import qualified Curry.Base.Position as CP
 import qualified Curry.Base.Pretty as CPP
 import qualified Curry.Base.Span as CSP
 import qualified Curry.Base.SpanInfo as CSPI
+import qualified Curry.Base.TextEdit as CTE
+import qualified Curry.Base.QuickFix as CQF
 import qualified Curry.Syntax as CS
 import qualified Curry.Frontend.Base.Types as CT
 import qualified Text.PrettyPrint as PP
@@ -139,6 +145,31 @@ currySpanInfos2LocationLink :: MonadIO m => CSPI.HasSpanInfo a => a -> CSPI.Span
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.NoSpanInfo) spi = currySpanInfo2LocationLink spi
 currySpanInfos2LocationLink (CSPI.getSpanInfo -> CSPI.SpanInfo{srcSpan=srcSpan}) (CSPI.getSpanInfo -> CSPI.SpanInfo {srcSpan=destSpan}) = currySpans2LocationLink srcSpan destSpan
 currySpanInfos2LocationLink _ _ = liftMaybe Nothing
+
+curryTextEdit2TextEdit :: MonadIO m => CTE.TextEdit -> MaybeT m J.TextEdit
+curryTextEdit2TextEdit (CTE.TextEdit s e t) = do
+    s' <- liftMaybe $ curryPos2Pos s
+    e' <- liftMaybe $ curryPos2Pos e
+    let range = J.Range s' e'
+    return $ J.TextEdit range (T.pack t)
+
+curryTextEdit2TextDocumentEdit :: MonadIO m => CTE.TextEdit -> MaybeT m J.TextDocumentEdit
+curryTextEdit2TextDocumentEdit e = do
+    uri <- curryPos2Uri $ CTE.editStart e
+    let doc = J.OptionalVersionedTextDocumentIdentifier uri $ J.InL 0
+    tedit <- curryTextEdit2TextEdit e
+    return $ J.TextDocumentEdit doc [J.InL tedit]
+
+curryTextEdit2WorkspaceEdit :: MonadIO m => CTE.TextEdit -> MaybeT m J.WorkspaceEdit
+curryTextEdit2WorkspaceEdit e = do
+    docEdit <- curryTextEdit2TextDocumentEdit e
+    return $ J.WorkspaceEdit Nothing (Just [J.InL docEdit]) Nothing
+
+curryQuickFix2CodeAction :: MonadIO m => CQF.QuickFix -> [J.Diagnostic] -> MaybeT m J.CodeAction
+curryQuickFix2CodeAction (CQF.QuickFix e desc) diags = do
+    wedit <- curryTextEdit2WorkspaceEdit e
+    return $ J.CodeAction (T.pack desc) (Just kind) (Just diags) Nothing Nothing (Just wedit) Nothing Nothing
+    where kind = J.CodeActionKind_QuickFix
 
 setCurryPosUri :: CP.HasPosition a => J.Uri -> a -> Maybe a
 setCurryPosUri uri x@(CP.getPosition -> p@(CP.Position {})) = do
