@@ -38,13 +38,19 @@ fetchCodeActionsInRange :: (MonadIO m, MonadLsp CFG.Config m) => J.Range -> I.Mo
 fetchCodeActionsInRange range entry = filterCodeActionsInRange range <$> fetchCodeActions entry
 
 filterCodeActionsInRange :: J.Range -> [J.CodeAction] -> [J.CodeAction]
-filterCodeActionsInRange range = filter $ \a -> any (rangeOverlaps range)
-    [ txtEdit ^. J.range
-    | Just workspaceEdit <- [a ^. J.edit]
-    , Just changes <- [workspaceEdit ^. J.documentChanges]
-    , J.InL docEdit <- changes
-    , J.InL txtEdit <- docEdit ^. J.edits
-    ]
+filterCodeActionsInRange range = filter $ \a ->
+    let editRanges = [ txtEdit ^. J.range
+                        | Just workspaceEdit <- [a ^. J.edit]
+                        , Just changes <- [workspaceEdit ^. J.documentChanges]
+                        , J.InL docEdit <- changes
+                        , J.InL txtEdit <- docEdit ^. J.edits
+                        ]
+        diagRanges = [ diag ^. J.range
+                        | Just diags <- [a ^. J.diagnostics]
+                        , diag <- diags
+                        ]
+        ranges     = editRanges ++ diagRanges
+    in any (rangeOverlaps range) ranges
 
 fetchCodeActions :: (MonadIO m, MonadLsp CFG.Config m) => I.ModuleStoreEntry -> m [J.CodeAction]
 fetchCodeActions entry = do
