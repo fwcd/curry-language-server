@@ -34,7 +34,7 @@ extra-deps:
   - unix-2.8.5.1
   - Win32-2.14.1.0
   - git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
-    commit: e85243172a22cef4aa629b9411d76da29c3b8be9
+    commit: ed0943fcfefef3239fcf74d04b59c5766ef09bbf
 
 allow-newer: true
 
