@@ -34,6 +34,7 @@ import qualified Curry.Frontend.Modules as CMD
 import qualified Curry.Frontend.Transformations as CT
 import qualified Text.PrettyPrint as PP
 
+import Control.Exception (evaluate)
 import Control.Monad (join, when)
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
@@ -88,10 +89,12 @@ runCMT cm aux = flip runReaderT aux . flip runStateT mempty . runMaybeT $ cm
 catchCYIO :: MonadIO m => CYIO a -> CMT m (Maybe a)
 catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
     Left es       -> do
-        modify $ \s -> s { errors = s.errors ++ es }
+        es' <- mapM (liftIO . evaluate) es
+        modify $ \s -> s { errors = s.errors ++ es' }
         return Nothing
     Right (x, ws) -> do
-        modify $ \s -> s { warnings = s.warnings ++ ws }
+        ws' <- mapM (liftIO . evaluate) ws
+        modify $ \s -> s { warnings = s.warnings ++ ws' }
         return $ Just x
 
 liftToCM :: Monad m => m a -> CMT m a
