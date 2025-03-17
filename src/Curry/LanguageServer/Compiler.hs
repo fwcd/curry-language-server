@@ -87,15 +87,16 @@ runCMT :: MonadIO m => CMT m a -> CompileAuxiliary -> m (Maybe a, CompileState)
 runCMT cm aux = flip runReaderT aux . flip runStateT mempty . runMaybeT $ cm
 
 catchCYIO :: MonadIO m => CYIO a -> CMT m (Maybe a)
-catchCYIO cyio = liftIO (runCYIO cyio) >>= \case
-    Left es       -> do
-        es' <- mapM (liftIO . evaluate) es
-        modify $ \s -> s { errors = s.errors ++ es' }
-        return Nothing
-    Right (x, ws) -> do
-        ws' <- mapM (liftIO . evaluate) ws
-        modify $ \s -> s { warnings = s.warnings ++ ws' }
-        return $ Just x
+catchCYIO cyio = liftIO (runCYIO cyio) >>= \(ei, ws) -> do
+    ws' <- mapM (liftIO . evaluate) ws
+    modify $ \s -> s { warnings = s.warnings ++ ws' }
+    case ei of
+        Left es -> do
+            es' <- mapM (liftIO . evaluate) es
+            modify $ \s -> s { errors = s.errors ++ es' }
+            return Nothing
+        Right x -> do
+            return $ Just x
 
 liftToCM :: Monad m => m a -> CMT m a
 liftToCM = lift . lift . lift
