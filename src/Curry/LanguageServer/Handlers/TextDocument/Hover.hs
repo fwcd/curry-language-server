@@ -97,7 +97,7 @@ extensionHover store ast@(moduleIdentifier -> mid) pos@(J.Position l c) uri e = 
 
         let simpleCodeBlock t
                 | T.null t  = ""
-                | otherwise =  "```\n" <> t <> "\n```"
+                | otherwise =  "```plaintext\n" <> t <> "\n```"
         
         text <- case exitCode of
             ExitSuccess             -> return $ T.unlines
