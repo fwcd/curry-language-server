@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -45,6 +45,7 @@ library
       Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol
       Curry.LanguageServer.Handlers.TextDocument.Hover
       Curry.LanguageServer.Handlers.TextDocument.Notifications
+      Curry.LanguageServer.Handlers.TextDocument.References
       Curry.LanguageServer.Handlers.TextDocument.SignatureHelp
       Curry.LanguageServer.Handlers.Workspace.Command
       Curry.LanguageServer.Handlers.Workspace.Symbol

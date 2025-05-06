@@ -9,6 +9,7 @@ import Curry.LanguageServer.Handlers.TextDocument.Definition (definitionHandler)
 import Curry.LanguageServer.Handlers.TextDocument.DocumentSymbol (documentSymbolHandler)
 import Curry.LanguageServer.Handlers.TextDocument.Notifications (didOpenHandler, didChangeHandler, didSaveHandler, didCloseHandler)
 import Curry.LanguageServer.Handlers.TextDocument.Hover (hoverHandler)
+import Curry.LanguageServer.Handlers.TextDocument.References (referencesHandler)
 import Curry.LanguageServer.Handlers.TextDocument.SignatureHelp (signatureHelpHandler)
 import Curry.LanguageServer.Handlers.Workspace.Command (executeCommandHandler)
 import Curry.LanguageServer.Handlers.Workspace.Symbol (workspaceSymbolHandler)
@@ -27,6 +28,7 @@ handlers _caps = mconcat
     , workspaceSymbolHandler
     , codeActionHandler
     , codeLensHandler
+    , referencesHandler
     , signatureHelpHandler
       -- Notification handlers
     , initializedHandler
