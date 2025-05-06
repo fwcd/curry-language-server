@@ -16,7 +16,7 @@ import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
 import Curry.LanguageServer.Utils.Syntax (HasQualIdentifiers (..), HasExpressions (expressions), HasQualIdentifier (qualIdentifier))
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
-import Curry.LanguageServer.Index.Resolve (resolveAtPos)
+import Curry.LanguageServer.Index.Resolve (resolveAtPos, resolveQualIdent)
 import Curry.LanguageServer.Index.Symbol (Symbol (..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Data.Map as M
@@ -58,11 +58,12 @@ references store ast pos = do
     (symbols, _) <- liftMaybe $ resolveAtPos store ast pos
     sequence $
         [ currySpanInfo2Location spi
-        | symbol <- symbols
+        | s <- symbols
         , (_, mse) <- M.toList store.modules
-        , (qid, spi) <- (withSpanInfo <$> qualIdentifiers mse.moduleAST)
-                     ++ (joinFst $ (maybeToList . qualIdentifier) <.$> withSpanInfo <$> expressions mse.moduleAST)
-        , let qid' = resolveQualIdent qid
-        , trace (T.unpack (ppToText qid) ++ " vs " ++ T.unpack symbol.qualIdent) (ppToText qid) == symbol.qualIdent
+        , ast' <- maybeToList mse.moduleAST
+        , (qid, spi) <- (withSpanInfo <$> qualIdentifiers ast')
+                     ++ (joinFst $ (maybeToList . qualIdentifier) <.$> withSpanInfo <$> expressions ast')
+        , s' <- resolveQualIdent store ast' qid
+        , s.kind == s'.kind && s.qualIdent == s'.qualIdent
         ]
     where withSpanInfo x = (x, CSPI.getSpanInfo x)
