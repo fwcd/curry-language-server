@@ -10,7 +10,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Syntax as CS
 
 import Control.Applicative (Alternative ((<|>)))
-import Control.Monad (join)
+import Control.Monad (join, when)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
@@ -59,6 +59,9 @@ resolveLocalIdentAtPos ast pos = do
                   | (lid, lty) <- M.toList scope
                   , CI.idName lid == CI.idName (CI.qidIdent qid)
                   ]
+    -- Fail the computation when no local source identifier could be found
+    when (null symbols)
+        Nothing
     return (symbols, range)
 
 -- | Resolves the qualified identifier at the given position.
