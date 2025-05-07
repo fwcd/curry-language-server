@@ -81,8 +81,6 @@ bindInScopes _ _ _        = error "Cannot bind without a scope!"
 showScope :: Scope a -> String
 showScope = show . map (second (CP.line . CSPI.getStartPosition . CI.idSpanInfo . fst)) . M.toList
 
--- DEBUG: Remove Show
-
 -- | Flattens the given scopes, preferring earlier binds.
 flattenScopes :: [Scope a] -> Scope a
 flattenScopes = M.unions
