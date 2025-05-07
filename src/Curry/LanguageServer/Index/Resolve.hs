@@ -17,7 +17,7 @@ import qualified Curry.LanguageServer.Index.Symbol as I
 import Curry.LanguageServer.Index.Symbol (Symbol (..))
 import Curry.LanguageServer.Utils.Convert (currySpanInfo2Range, currySpanInfo2Location, ppToText)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)
-import Curry.LanguageServer.Utils.Lookup (findQualIdentAtPos, findExprIdentAtPos, findModuleIdentAtPos, findScopeAtPos)
+import Curry.LanguageServer.Utils.Lookup (findQualIdentAtPos, findModuleIdentAtPos, findScopeAtPos)
 import qualified Language.LSP.Protocol.Types as J
 import Data.Default (Default(def))
 import qualified Data.Map as M
@@ -49,7 +49,7 @@ resolveModuleIdentAtPos store ast pos = do
 resolveLocalIdentAtPos :: ModuleAST -> J.Position -> Maybe ([I.Symbol], J.Range)
 resolveLocalIdentAtPos ast pos = do
     let scope = findScopeAtPos ast pos
-    (qid, spi) <- findExprIdentAtPos ast pos
+    (qid, spi) <- findQualIdentAtPos ast pos
     range <- currySpanInfo2Range spi
     let symbols = [def { ident = ppToText lid
                        , qualIdent = ppToText lid
