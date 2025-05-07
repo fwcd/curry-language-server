@@ -10,7 +10,7 @@ import Control.Monad.Trans (MonadTrans (..))
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Curry.LanguageServer.Config as CFG
 import Curry.LanguageServer.Monad (LSM, getStore)
-import Curry.LanguageServer.Utils.Convert (ppToText, currySpanInfo2Location)
+import Curry.LanguageServer.Utils.Convert (currySpanInfo2Location)
 import Curry.LanguageServer.Utils.General (liftMaybe, (<.$>), joinFst)
 import Curry.LanguageServer.Utils.Logging (debugM, infoM)
 import Curry.LanguageServer.Utils.Sema (ModuleAST)

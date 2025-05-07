@@ -22,7 +22,7 @@ import Curry.LanguageServer.Utils.Lookup (findScopeAtPos)
 import Curry.LanguageServer.Utils.Uri (normalizeUriWithPath)
 import Curry.LanguageServer.Utils.VFS (PosPrefixInfo (..), getCompletionPrefix)
 import Curry.LanguageServer.Monad (LSM)
-import Data.Bifunctor (first)
+import Data.Bifunctor (Bifunctor (..))
 import Data.List.Extra (nubOrdOn)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList, fromMaybe, isNothing)
@@ -33,6 +33,7 @@ import qualified Language.LSP.Protocol.Types as J
 import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.Protocol.Message as J
 import Language.LSP.Server (MonadLsp)
+import qualified Curry.Base.Ident as CI
 
 completionHandler :: S.Handlers LSM
 completionHandler = S.requestHandler J.SMethod_TextDocumentCompletion $ \req responder -> do
@@ -102,8 +103,8 @@ importCompletions opts store query = do
 
 generalCompletions :: (MonadIO m, MonadLsp CFG.Config m) => CompletionOptions -> I.ModuleStoreEntry -> I.IndexStore -> PosPrefixInfo -> m [J.CompletionItem]
 generalCompletions opts entry store query = do
-    let localIdentifiers   = join <$> maybe M.empty (`findScopeAtPos` query.cursorPos) entry.moduleAST
-        localIdentifiers'  = M.fromList $ map (first ppToText) $ M.toList localIdentifiers
+    let localIdentifiers   = M.fromList . map (second join . snd) . M.toList $ maybe M.empty (`findScopeAtPos` query.cursorPos) entry.moduleAST
+        localIdentifiers'  = M.mapKeys ppToText (localIdentifiers :: M.Map CI.Ident (Maybe CT.PredType))
         localCompletions   = toMatchingCompletions opts query $ uncurry Local <$> M.toList localIdentifiers'
         symbols            = filter (flip M.notMember localIdentifiers' . (.ident)) $ nubOrdOn (.qualIdent)
                                                                                     $ I.storedSymbolsWithPrefix query.prefixText store

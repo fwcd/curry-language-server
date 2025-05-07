@@ -2,9 +2,11 @@
 -- | Position lookup in the AST.
 module Curry.LanguageServer.Utils.Lookup
     ( findQualIdentAtPos
+    , findExprIdentAtPos
     , findModuleIdentAtPos
     , findTypeAtPos
     , findScopeAtPos
+    , showScope
     , Scope
     ) where
 
@@ -12,6 +14,7 @@ module Curry.LanguageServer.Utils.Lookup
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Curry.Base.Position as CP
 
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (when)
@@ -28,18 +31,23 @@ import Curry.LanguageServer.Utils.Syntax
     )
 import Curry.LanguageServer.Utils.Sema
     ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
+import Data.Bifunctor (Bifunctor(..))
 import qualified Data.Map as M
 import qualified Language.LSP.Protocol.Types as J
 
 -- | A collectScope of bound identifiers.
-type Scope a = M.Map CI.Ident (Maybe a)
+type Scope a = M.Map String (CI.Ident, Maybe a)
 
 -- | Finds identifier and (occurrence) span info at a given position.
 findQualIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
 findQualIdentAtPos ast pos = qualIdent <|> exprIdent <|> basicIdent
     where qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
-          exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
+          exprIdent = findExprIdentAtPos ast pos
           basicIdent = CI.qualify <.$> withSpanInfo <$> elementAt pos (identifiers ast)
+
+--- | Finds expression identifier and (occurrence) span info at a given position.
+findExprIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
+findExprIdentAtPos ast pos = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
 
 -- | Finds module identifier and (occurrence) span info at a given position.
 findModuleIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.ModuleIdent, CSPI.SpanInfo)
@@ -65,12 +73,17 @@ containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
 -- | Binds an identifier in the innermost scope.
 bindInScopes :: CI.Ident -> Maybe a -> [Scope a] -> [Scope a]
-bindInScopes i t (sc:scs) = M.insert (CI.unRenameIdent i) t sc : scs
+bindInScopes i t (sc:scs) = M.insert (CI.idName i') (i', t) sc : scs
+    where i' = CI.unRenameIdent i
 bindInScopes _ _ _        = error "Cannot bind without a scope!"
+
+-- | Shows a scope with line numbers (for debugging).
+showScope :: Scope a -> String
+showScope = show . map (second (CP.line . CSPI.getStartPosition . CI.idSpanInfo . fst)) . M.toList
 
 -- | Flattens the given scopes, preferring earlier binds.
 flattenScopes :: [Scope a] -> Scope a
-flattenScopes = foldr M.union M.empty
+flattenScopes = M.unions
 
 -- | Stores nested scopes and a cursor position. The head of the list is always the innermost collectScope.
 data ScopeState a = ScopeState
@@ -98,7 +111,7 @@ updateEnvs :: CSPI.HasSpanInfo e => e -> ScopeM a ()
 updateEnvs (CSPI.getSpanInfo -> spi) = do
     pos <- gets (.position)
     when (spi `containsPos` pos) $
-        modify $ \s -> s { matchingEnv = M.union (flattenScopes s.currentEnv) s.matchingEnv }
+        modify $ \s -> s { matchingEnv = M.union s.matchingEnv (flattenScopes s.currentEnv) }
 
 class CollectScope e a where
     collectScope :: e -> ScopeM a ()
