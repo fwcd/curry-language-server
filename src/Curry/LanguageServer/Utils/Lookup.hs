@@ -2,6 +2,7 @@
 -- | Position lookup in the AST.
 module Curry.LanguageServer.Utils.Lookup
     ( findQualIdentAtPos
+    , findExprIdentAtPos
     , findModuleIdentAtPos
     , findTypeAtPos
     , findScopeAtPos
@@ -38,8 +39,12 @@ type Scope a = M.Map CI.Ident (Maybe a)
 findQualIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
 findQualIdentAtPos ast pos = qualIdent <|> exprIdent <|> basicIdent
     where qualIdent = withSpanInfo <$> elementAt pos (qualIdentifiers ast)
-          exprIdent = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
+          exprIdent = findExprIdentAtPos ast pos
           basicIdent = CI.qualify <.$> withSpanInfo <$> elementAt pos (identifiers ast)
+
+--- | Finds expression identifier and (occurrence) span info at a given position.
+findExprIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
+findExprIdentAtPos ast pos = joinFst $ qualIdentifier <.$> withSpanInfo <$> elementAt pos (expressions ast)
 
 -- | Finds module identifier and (occurrence) span info at a given position.
 findModuleIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.ModuleIdent, CSPI.SpanInfo)
