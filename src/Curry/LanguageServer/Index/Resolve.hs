@@ -56,7 +56,7 @@ resolveLocalIdentAtPos ast pos = do
                        , printedType = ppToText <$> join lty
                        , location = unsafePerformIO (runMaybeT (currySpanInfo2Location lid)) -- SAFETY: We expect this conversion to be pure
                        }
-                  | (lid, lty) <- M.toList scope
+                  | (_, (lid, lty)) <- M.toList scope
                   , CI.idName lid == CI.idName (CI.qidIdent qid)
                   ]
     -- Fail the computation when no local source identifier could be found

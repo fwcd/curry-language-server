@@ -6,6 +6,7 @@ module Curry.LanguageServer.Utils.Lookup
     , findModuleIdentAtPos
     , findTypeAtPos
     , findScopeAtPos
+    , showScope
     , Scope
     ) where
 
@@ -13,6 +14,7 @@ module Curry.LanguageServer.Utils.Lookup
 import qualified Curry.Base.Ident as CI
 import qualified Curry.Base.SpanInfo as CSPI
 import qualified Curry.Syntax as CS
+import qualified Curry.Base.Position as CP
 
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (when)
@@ -29,11 +31,12 @@ import Curry.LanguageServer.Utils.Syntax
     )
 import Curry.LanguageServer.Utils.Sema
     ( HasTypedSpanInfos(typedSpanInfos), TypedSpanInfo )
+import Data.Bifunctor (Bifunctor(..))
 import qualified Data.Map as M
 import qualified Language.LSP.Protocol.Types as J
 
 -- | A collectScope of bound identifiers.
-type Scope a = M.Map CI.Ident (Maybe a)
+type Scope a = M.Map String (CI.Ident, Maybe a)
 
 -- | Finds identifier and (occurrence) span info at a given position.
 findQualIdentAtPos :: CS.Module a -> J.Position -> Maybe (CI.QualIdent, CSPI.SpanInfo)
@@ -70,8 +73,15 @@ containsPos x pos = maybe False (rangeElem pos) $ currySpanInfo2Range x
 
 -- | Binds an identifier in the innermost scope.
 bindInScopes :: CI.Ident -> Maybe a -> [Scope a] -> [Scope a]
-bindInScopes i t (sc:scs) = M.insert (CI.unRenameIdent i) t sc : scs
+bindInScopes i t (sc:scs) = M.insert (CI.idName i') (i', t) sc : scs
+    where i' = CI.unRenameIdent i
 bindInScopes _ _ _        = error "Cannot bind without a scope!"
+
+-- | Shows a scope with line numbers (for debugging).
+showScope :: Scope a -> String
+showScope = show . map (second (CP.line . CSPI.getStartPosition . CI.idSpanInfo . fst)) . M.toList
+
+-- DEBUG: Remove Show
 
 -- | Flattens the given scopes, preferring earlier binds.
 flattenScopes :: [Scope a] -> Scope a
@@ -103,7 +113,7 @@ updateEnvs :: CSPI.HasSpanInfo e => e -> ScopeM a ()
 updateEnvs (CSPI.getSpanInfo -> spi) = do
     pos <- gets (.position)
     when (spi `containsPos` pos) $
-        modify $ \s -> s { matchingEnv = M.union (flattenScopes s.currentEnv) s.matchingEnv }
+        modify $ \s -> s { matchingEnv = M.union s.matchingEnv (flattenScopes s.currentEnv) }
 
 class CollectScope e a where
     collectScope :: e -> ScopeM a ()
