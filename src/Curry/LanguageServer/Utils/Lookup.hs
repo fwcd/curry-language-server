@@ -75,7 +75,7 @@ bindInScopes _ _ _        = error "Cannot bind without a scope!"
 
 -- | Flattens the given scopes, preferring earlier binds.
 flattenScopes :: [Scope a] -> Scope a
-flattenScopes = foldr M.union M.empty
+flattenScopes = M.unions
 
 -- | Stores nested scopes and a cursor position. The head of the list is always the innermost collectScope.
 data ScopeState a = ScopeState
