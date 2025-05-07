@@ -28,9 +28,6 @@ import qualified Language.LSP.Protocol.Lens as J
 import qualified Language.LSP.Protocol.Message as J
 import qualified Language.LSP.Protocol.Types as J
 
--- DEBUG
-import Debug.Trace
-
 referencesHandler :: S.Handlers LSM
 referencesHandler = S.requestHandler J.SMethod_TextDocumentReferences $ \req responder -> do
     debugM "Processing references request"
