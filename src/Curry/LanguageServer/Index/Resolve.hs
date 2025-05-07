@@ -10,6 +10,7 @@ import qualified Curry.Base.Ident as CI
 import qualified Curry.Syntax as CS
 
 import Control.Applicative (Alternative ((<|>)))
+import Control.Monad (join)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Curry.LanguageServer.Index.Store as I
 import qualified Curry.LanguageServer.Index.Symbol as I
@@ -52,9 +53,10 @@ resolveLocalIdentAtPos ast pos = do
     range <- currySpanInfo2Range spi
     let symbols = [def { ident = ppToText lid
                        , qualIdent = ppToText lid
+                       , printedType = ppToText <$> join lty
                        , location = unsafePerformIO (runMaybeT (currySpanInfo2Location lid)) -- SAFETY: We expect this conversion to be pure
                        }
-                  | (lid, _) <- M.toList scope
+                  | (lid, lty) <- M.toList scope
                   , CI.idName lid == CI.idName (CI.qidIdent qid)
                   ]
     return (symbols, range)
