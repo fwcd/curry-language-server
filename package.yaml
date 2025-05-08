@@ -3,7 +3,7 @@ version:             1.0.0.5
 github:              "fwcd/curry-language-server"
 license:             BSD3
 author:              "fwcd"
-copyright:           "2020-2024 fwcd"
+copyright:           "2020-2025 fwcd"
 
 synopsis:            IDE support for the functional-logic language Curry
 category:            Development

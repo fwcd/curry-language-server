@@ -13,7 +13,7 @@ homepage:       https://github.com/fwcd/curry-language-server#readme
 bug-reports:    https://github.com/fwcd/curry-language-server/issues
 author:         fwcd
 maintainer:     fwcd
-copyright:      2020-2024 fwcd
+copyright:      2020-2025 fwcd
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
