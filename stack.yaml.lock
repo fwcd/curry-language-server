@@ -125,7 +125,7 @@ packages:
     hackage: Win32-2.14.1.0
 - completed:
     commit: 6919240bf82cc94a2d47bd405e70565c272f98f8
-    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
+    git: https://github.com/cau-placc/curry-frontend.git
     name: curry-frontend
     pantry-tree:
       sha256: f2117dffee864bde5f9b5fb0a414787b25acc4fb7a7e0dda1d626339e57c2ceb
@@ -133,7 +133,7 @@ packages:
     version: 3.0.0
   original:
     commit: 6919240bf82cc94a2d47bd405e70565c272f98f8
-    git: https://git.ps.informatik.uni-kiel.de/curry/curry-frontend.git
+    git: https://github.com/cau-placc/curry-frontend.git
 snapshots:
 - completed:
     sha256: 1e32b51d9082fdf6f3bd92accc9dfffd4ddaf406404427fb10bf76d2bc03cbbb

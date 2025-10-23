@@ -161,7 +161,7 @@ compileCurryModule opts outDirPath m fp = do
     return [(fp, mdl)]
 
 -- The following functions partially reimplement
--- https://git.ps.informatik.uni-kiel.de/curry/curry-frontend/-/blob/master/src/Modules.hs
+-- https://github.com/cau-placc/curry-frontend/blob/master/src/Curry/Frontend/Modules.hs
 -- since the original module loader/parser does not support virtualized file systems.
 -- License     :  BSD-3-clause
 -- Copyright   :  (c) 1999 - 2004 Wolfgang Lux
