@@ -184,18 +184,26 @@ findCurrySourcesInWorkspace cfg dirPath = do
 -- | Finds the Curry source files in a (project) directory.
 findCurrySourcesInProject :: (MonadIO m, MonadLsp CFG.Config m) => CFG.Config -> FilePath -> m [CurrySourceFile]
 findCurrySourcesInProject cfg dirPath = do
-    let curryPath = cfg.curryPath
-        cpmPath = curryPath ++ " cypm"
+    let curryPath    = cfg.curryPath
+        currycpmPath = curryPath ++ " cypm"
+        cpmPath      = "cypm"
         libPath binPath = takeDirectory (takeDirectory binPath) </> "lib"
 
     infoM $ "Entering project " <> T.pack dirPath <> "..."
 
     whenM (liftIO $ doesFileExist $ dirPath </> "package.json") $ do
         infoM "Resolving dependencies automatically since package.json was found..."
-        cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
-        case cpmResult of
-            Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack cpmPath <> "'!"
-            Left _  -> warnM $ "Could not update paths.json using " <> T.pack cpmPath <> " (try running '" <> T.pack cpmPath <> " install'), trying to read paths.json anyway..."
+        currycpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath currycpmPath
+        case currycpmResult of
+            Right _ -> infoM $ "Successfully updated paths.json using '" <> T.pack currycpmPath <> "'!"
+            Left _  -> do
+                warnM $ "Could not update paths.json using command '" <> T.pack currycpmPath <> "', trying 'cypm' directly..."
+                cpmResult <- runCPMM $ generatePathsJsonWithCPM dirPath cpmPath
+                case cpmResult of
+                    Right _ -> infoM $ "Successfully updated paths.json using command '" <> T.pack cpmPath <> "'!"
+                    Left _  -> do warnM $ "Could not update paths.json using command '" <> T.pack cpmPath <> "'!"
+                                  warnM $ "Possible solution: manually run command '" <> T.pack cpmPath <> " deps --language-server')"
+                                  warnM $ "Trying to read paths.json anyway..."
 
     infoM "Reading paths.json..."
     pathsResult <- runCPMM $ readPathsJson dirPath
